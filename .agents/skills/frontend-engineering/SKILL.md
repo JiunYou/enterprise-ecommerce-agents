@@ -8,3 +8,7 @@ description: 前端工程與架構
 - Component Design
 - State Management
 - Performance
+- JavaScript
+- TypeScript
+- API Integration
+- Security

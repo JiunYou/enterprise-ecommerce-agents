@@ -23,5 +23,11 @@ Secret Security 禁止：
 - Least Privilege
 - Secure Logging
 
+## Skills
+Security Agent 必須載入：
+- threat-modeling
+- ecommerce-security
+- api-security
+
 ## 模型建議
 Gemini 3.1 Pro

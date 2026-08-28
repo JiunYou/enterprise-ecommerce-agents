@@ -1,12 +1,10 @@
 ---
 name: frontend-engineering
-description: Capability for frontend engineering
+description: Use when working on general frontend architecture, web standards, and browser APIs.
 ---
 # Frontend Engineering Skill
-\n---
-name: frontend-engineering
-description: 前端工程與架構
----
+
+
 # Frontend Engineering Skill
 包含：
 - React
@@ -16,4 +14,4 @@ description: 前端工程與架構
 - JavaScript
 - TypeScript
 - API Integration
-- Security\n
+- Security

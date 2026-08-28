@@ -1,12 +1,12 @@
 ---
 name: mysql
-description: Capability for mysql
+description: Use when designing MySQL schemas, indexes, complex queries, and migrations.
 ---
 # Mysql Skill
-\n\n### From SKILL.md\n---
-name: mysql
-description: Skill guidelines for mysql
----
+
+
+
+
 # Mysql Skill
 
 ## Purpose
@@ -25,10 +25,10 @@ Use when modifying or creating mysql related components.
 ## Validation method
 - Code review
 - Automated tests
-\n\n### From SKILL.md\n---
-name: mysql-enterprise
-description: MySQL enterprise database skill
----
+
+
+
+
 
 # MySQL Enterprise
 
@@ -38,13 +38,13 @@ description: MySQL enterprise database skill
 - **Transaction**: ACID 特性、隔離級別 (Isolation Levels: Read Committed, Repeatable Read) 與幻讀防範。
 - **Lock**: 悲觀鎖 (Pessimistic Lock)、樂觀鎖 (Optimistic Lock)、死鎖 (Deadlock) 分析與解法。
 - **Performance**: 慢查詢日誌分析 (Slow Query Log)、分表分庫 (Sharding) 與讀寫分離策略。
-\n\n### From SKILL.md\n---
-name: database-design
-description: 資料庫設計與優化
----
+
+
+
+
 # Database Design Skill
 包含：
 - Relational Database
 - Normalization
 - Index
-- Query Optimization\n
+- Query Optimization

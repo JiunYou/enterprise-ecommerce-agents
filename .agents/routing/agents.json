@@ -42,7 +42,10 @@
       "role": "Architecture Reviewer",
       "primary_for": [],
       "review_for": [
-        "architecture"
+        "architecture boundary",
+        "cross-module design",
+        "dependency boundary",
+        "architecture ADR"
       ],
       "owns": [],
       "model_preference": "Pro"
@@ -65,7 +68,9 @@
         ".NET implementation"
       ],
       "review_for": [],
-      "owns": [],
+      "owns": [
+        "services/backend/**"
+      ],
       "model_preference": "Flash"
     },
     {
@@ -75,7 +80,9 @@
         "Node.js implementation"
       ],
       "review_for": [],
-      "owns": [],
+      "owns": [
+        "services/workers/**"
+      ],
       "model_preference": "Flash"
     },
     {
@@ -85,7 +92,9 @@
         "UI implementation"
       ],
       "review_for": [],
-      "owns": [],
+      "owns": [
+        "apps/**"
+      ],
       "model_preference": "Flash"
     },
     {
@@ -107,7 +116,9 @@
         "pipelines"
       ],
       "review_for": [],
-      "owns": [],
+      "owns": [
+        "infrastructure/**"
+      ],
       "model_preference": "Flash"
     },
     {
@@ -117,7 +128,12 @@
         "testing",
         "validation"
       ],
-      "review_for": [],
+      "review_for": [
+        "product behavior",
+        "executable code",
+        "tests",
+        "regression"
+      ],
       "owns": [],
       "model_preference": "Flash"
     },
@@ -126,9 +142,14 @@
       "role": "Security Engineer",
       "primary_for": [],
       "review_for": [
-        "security",
         "auth",
-        "secrets"
+        "authorization",
+        "payment",
+        "secret",
+        "external API",
+        "webhook",
+        "PII",
+        "privileged operation"
       ],
       "owns": [],
       "model_preference": "Pro"
@@ -140,7 +161,8 @@
       "review_for": [
         "privacy",
         "PCI",
-        "PII"
+        "regulatory",
+        "audit"
       ],
       "owns": [],
       "model_preference": "Pro"
@@ -150,7 +172,9 @@
       "role": "Documentation Reviewer",
       "primary_for": [],
       "review_for": [
-        "documentation"
+        "durable architecture",
+        "governance",
+        "API documentation"
       ],
       "owns": [],
       "model_preference": "Flash"
@@ -161,21 +185,52 @@
       "primary_for": [
         "release readiness"
       ],
-      "review_for": [],
+      "review_for": [
+        "deployment readiness"
+      ],
       "owns": [],
       "model_preference": "Flash"
     }
   ],
   "risk_rules": {
-    "high": [
-      "architecture-reviewer",
-      "security",
-      "compliance"
-    ]
+    "requires_human_approval": true
   },
   "review_rules": {
-    "routine": [
-      "qa"
+    "QA": [
+      "product behavior",
+      "executable code",
+      "tests",
+      "regression",
+      "explicit validation"
+    ],
+    "Security": [
+      "auth",
+      "authorization",
+      "payment",
+      "secret",
+      "external API/webhook",
+      "PII",
+      "privileged operation",
+      "injection/security-sensitive infrastructure"
+    ],
+    "Architecture Reviewer": [
+      "architecture boundary",
+      "cross-module design",
+      "dependency boundary",
+      "architecture ADR",
+      "major domain architecture"
+    ],
+    "Compliance": [
+      "privacy",
+      "PII",
+      "PCI/regulatory",
+      "audit/compliance requirements"
+    ],
+    "Documentation Reviewer": [
+      "durable architecture/governance/API/security documentation requiring independent validation"
+    ],
+    "Release": [
+      "release/deployment readiness"
     ]
   }
 }

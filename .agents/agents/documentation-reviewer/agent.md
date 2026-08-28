@@ -1,10 +1,6 @@
 ---
 name: documentation-reviewer
-description: Handles documentation reviewer tasks and responsibilities.
+description: Use as a conditional reviewer for durable architecture, API, or governance documentation requiring independent validation.
 ---
 # Documentation Reviewer Agent
-\n\n### From documentation-validator-agent.md\n# Documentation Validator Agent
-## 職責
-- 只能審查
-- 不可修改文件
-- 必須建立 Validation Report\n
+Provides implementation and review for documentation reviewer related tasks.

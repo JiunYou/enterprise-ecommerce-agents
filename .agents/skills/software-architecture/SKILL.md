@@ -1,15 +1,13 @@
 ---
 name: software-architecture
-description: Capability for software architecture
+description: Use when making high-level system design decisions and structural architectural choices.
 ---
 # Software Architecture Skill
-\n---
-name: software-architecture
-description: 軟體架構設計準則
----
+
+
 # Software Architecture Skill
 包含：
 - Microservices vs Monolith
 - Clean Architecture
 - Event-Driven Architecture
-- CQRS & Event Sourcing\n
+- CQRS & Event Sourcing

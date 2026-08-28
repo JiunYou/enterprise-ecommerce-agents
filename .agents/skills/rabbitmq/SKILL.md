@@ -1,12 +1,10 @@
 ---
 name: rabbitmq
-description: Capability for rabbitmq
+description: Use when implementing message queues, pub/sub, event-driven integrations, and RabbitMQ consumers.
 ---
 # Rabbitmq Skill
-\n---
-name: rabbitmq
-description: Skill guidelines for rabbitmq
----
+
+
 # Rabbitmq Skill
 
 ## Purpose
@@ -24,4 +22,4 @@ Use when modifying or creating rabbitmq related components.
 
 ## Validation method
 - Code review
-- Automated tests\n
+- Automated tests

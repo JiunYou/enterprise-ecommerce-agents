@@ -1,12 +1,12 @@
 ---
 name: nodejs
-description: Capability for nodejs
+description: Use when writing Node.js backend services, express APIs, and worker processes.
 ---
 # Nodejs Skill
-\n\n### From SKILL.md\n---
-name: enterprise-nodejs
-description: Enterprise Node.js development skill
----
+
+
+
+
 
 # Enterprise Node.js
 
@@ -15,4 +15,4 @@ description: Enterprise Node.js development skill
 - **Middleware**: 實作自定義 Middleware，處理跨域 (CORS)、速率限制 (Rate Limiting) 與安全性標頭 (Helmet)。
 - **Async Programming**: 掌握 Promise, async/await, EventEmitter 與流 (Streams) 的高效能處理。
 - **Security**: 防範常見 Node.js 弱點 (如 prototype pollution, command injection, ReDoS)。
-- **Testing**: 具備撰寫 Jest / Mocha 等測試框架單元與整合測試之能力。\n
+- **Testing**: 具備撰寫 Jest / Mocha 等測試框架單元與整合測試之能力。

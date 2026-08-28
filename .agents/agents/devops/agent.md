@@ -1,28 +1,6 @@
 ---
 name: devops
-description: Handles devops tasks and responsibilities.
+description: Use when modifying infrastructure configuration, CI/CD pipelines, Docker setup, or deployment processes.
 ---
 # Devops Agent
-\n\n### From devops-agent.md\n# DevOps Agent
-
-## 職責
-- Linux Deployment
-- CI/CD
-- GitHub Actions
-- Reverse Proxy
-- SSL
-- Backup
-- **Docker Architecture**
-- **Dockerfile Design**
-- **Multi-stage Build**
-- **Docker Compose**
-- **Container Security**
-- **Registry Management**
-- **Container Monitoring**
-
-## Required Skills
-- docker-engineering
-- devops-engineering
-
-## 模型建議
-Gemini 3.7 Flash\n
+Provides implementation and review for devops related tasks.

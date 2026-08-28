@@ -1,12 +1,10 @@
 ---
 name: testing
-description: Capability for testing
+description: Use when writing unit, integration, and E2E tests, or mocking dependencies.
 ---
 # Testing Skill
-\n---
-name: testing
-description: Skill guidelines for testing
----
+
+
 # Testing Skill
 
 ## Purpose
@@ -24,4 +22,4 @@ Use when modifying or creating testing related components.
 
 ## Validation method
 - Code review
-- Automated tests\n
+- Automated tests

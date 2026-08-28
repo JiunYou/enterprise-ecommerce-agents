@@ -1,12 +1,10 @@
 ---
 name: system-modeling
-description: Capability for system modeling
+description: Use when creating UML, C4 models, sequence diagrams, or architectural visualizations.
 ---
 # System Modeling Skill
-\n---
-name: system-modeling
-description: System Modeling
----
+
+
 
 # System Modeling
 
@@ -15,4 +13,4 @@ description: System Modeling
 - Container Diagram
 - Component Diagram
 - Data Flow Diagram
-- Sequence Diagram\n
+- Sequence Diagram

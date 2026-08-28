@@ -1,12 +1,12 @@
 ---
 name: ddd
-description: Capability for ddd
+description: Use when designing domain models, aggregates, bounded contexts, and domain events.
 ---
 # Ddd Skill
-\n\n### From SKILL.md\n---
-name: ddd
-description: Skill guidelines for ddd
----
+
+
+
+
 # Ddd Skill
 
 ## Purpose
@@ -25,10 +25,10 @@ Use when modifying or creating ddd related components.
 ## Validation method
 - Code review
 - Automated tests
-\n\n### From SKILL.md\n---
-name: domain-driven-design
-description: Domain Driven Design (DDD)
----
+
+
+
+
 
 # Domain Driven Design
 
@@ -42,4 +42,4 @@ DDD:
 Strategic Design:
 - Bounded Context
 - Context Map
-- Core Domain\n
+- Core Domain

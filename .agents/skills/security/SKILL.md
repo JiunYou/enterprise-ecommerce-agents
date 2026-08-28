@@ -1,12 +1,12 @@
 ---
 name: security
-description: Capability for security
+description: Use when securing applications against general OWASP vulnerabilities and handling secrets securely.
 ---
 # Security Skill
-\n\n### From SKILL.md\n---
-name: security
-description: Skill guidelines for security
----
+
+
+
+
 # Security Skill
 
 ## Purpose
@@ -25,10 +25,10 @@ Use when modifying or creating security related components.
 ## Validation method
 - Code review
 - Automated tests
-\n\n### From SKILL.md\n---
-name: secure-development
-description: 安全開發流程與實踐
----
+
+
+
+
 # Secure Development Skill
 整合：
-OWASP Secure Coding Practice\n
+OWASP Secure Coding Practice

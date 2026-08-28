@@ -1,12 +1,12 @@
 ---
 name: devops
-description: Capability for devops
+description: Use when working on CI/CD, pipelines, infrastructure as code, and deployment strategies.
 ---
 # Devops Skill
-\n\n### From SKILL.md\n---
-name: devops
-description: Skill guidelines for devops
----
+
+
+
+
 # Devops Skill
 
 ## Purpose
@@ -25,11 +25,11 @@ Use when modifying or creating devops related components.
 ## Validation method
 - Code review
 - Automated tests
-\n\n### From SKILL.md\n---
-name: devops-engineering
-description: General DevOps engineering skill
----
+
+
+
+
 
 # DevOps Engineering
 
-涵蓋 CI/CD Pipeline、Infrastructure as Code (IaC)、Linux Server Management、Zero-downtime Deployment 等基礎 DevOps 能力。\n
+涵蓋 CI/CD Pipeline、Infrastructure as Code (IaC)、Linux Server Management、Zero-downtime Deployment 等基礎 DevOps 能力。

@@ -5,7 +5,7 @@ Document Created
 ↓
 Architecture Review
 ↓
-Documentation Validator
+documentation-reviewer
 ↓
 Security Review
 ↓

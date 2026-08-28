@@ -25,49 +25,142 @@
     "threat-modeling"
   ],
   "routing": {
+    "orchestrator": {
+      "default": [],
+      "optional": []
+    },
+    "product-manager": {
+      "default": [],
+      "optional": [
+        "ecommerce-domain"
+      ]
+    },
+    "system-architect": {
+      "default": [
+        "software-architecture"
+      ],
+      "optional": [
+        "system-modeling",
+        "ddd",
+        "ecommerce-domain",
+        "threat-modeling"
+      ]
+    },
+    "architecture-reviewer": {
+      "default": [
+        "software-architecture"
+      ],
+      "optional": [
+        "system-modeling",
+        "code-review",
+        "threat-modeling"
+      ]
+    },
+    "domain-architect": {
+      "default": [
+        "ddd"
+      ],
+      "optional": [
+        "ecommerce-domain"
+      ]
+    },
     "dotnet-backend": {
       "default": [
         "dotnet"
       ],
-      "tasks": {
-        "API contract": [
-          "rest-api-design"
-        ],
-        "external provider": [
-          "external-api-integration"
-        ],
-        "MySQL persistence": [
-          "mysql"
-        ],
-        "DDD": [
-          "ddd"
-        ],
-        "RabbitMQ": [
-          "rabbitmq"
-        ]
-      }
+      "optional": [
+        "rest-api-design",
+        "external-api-integration",
+        "mysql",
+        "ddd",
+        "rabbitmq",
+        "testing",
+        "security",
+        "api-security"
+      ]
     },
     "nodejs-backend": {
       "default": [
         "nodejs"
       ],
-      "tasks": {
-        "API contract": [
-          "rest-api-design"
-        ],
-        "external provider": [
-          "external-api-integration"
-        ],
-        "MySQL persistence": [
-          "mysql"
-        ],
-        "DDD": [
-          "ddd"
-        ],
-        "RabbitMQ": [
-          "rabbitmq"
-        ]
-      }
+      "optional": [
+        "javascript-engineering",
+        "rest-api-design",
+        "external-api-integration",
+        "mysql",
+        "rabbitmq",
+        "testing",
+        "security"
+      ]
+    },
+    "frontend": {
+      "default": [
+        "frontend-engineering"
+      ],
+      "optional": [
+        "nextjs",
+        "javascript-engineering",
+        "rest-api-design",
+        "api-security",
+        "testing"
+      ]
+    },
+    "database": {
+      "default": [
+        "mysql"
+      ],
+      "optional": [
+        "ddd",
+        "ecommerce-domain",
+        "security"
+      ]
+    },
+    "devops": {
+      "default": [
+        "devops"
+      ],
+      "optional": [
+        "docker-engineering",
+        "git-workflow",
+        "security"
+      ]
+    },
+    "qa": {
+      "default": [
+        "testing"
+      ],
+      "optional": [
+        "code-review"
+      ]
+    },
+    "security": {
+      "default": [
+        "security"
+      ],
+      "optional": [
+        "api-security",
+        "ecommerce-security",
+        "threat-modeling"
+      ]
+    },
+    "compliance": {
+      "default": [],
+      "optional": [
+        "ecommerce-security",
+        "security"
+      ]
+    },
+    "documentation-reviewer": {
+      "default": [],
+      "optional": []
+    },
+    "release": {
+      "default": [],
+      "optional": [
+        "devops",
+        "git-workflow",
+        "testing"
+      ]
     }
   }
 }

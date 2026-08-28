@@ -4,7 +4,7 @@
 ↓
 System Architect 設計草案
 ↓
-Master Orchestrator 審核
+orchestrator 審核
 ↓
 Security / Compliance Agent 評估 (ASVS, PCI DSS)
 ↓

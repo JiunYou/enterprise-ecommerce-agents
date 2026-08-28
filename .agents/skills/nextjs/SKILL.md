@@ -1,12 +1,10 @@
 ---
 name: nextjs
-description: Capability for nextjs
+description: Use when developing Next.js applications, server-side rendering, and React components.
 ---
 # Nextjs Skill
-\n---
-name: nextjs
-description: Skill guidelines for nextjs
----
+
+
 # Nextjs Skill
 
 ## Purpose
@@ -24,4 +22,4 @@ Use when modifying or creating nextjs related components.
 
 ## Validation method
 - Code review
-- Automated tests\n
+- Automated tests

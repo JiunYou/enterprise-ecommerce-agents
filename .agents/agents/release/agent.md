@@ -1,5 +1,6 @@
 ---
 name: release
-description: Handles release tasks and responsibilities.
+description: Use to prepare and validate production release readiness and deployment readiness.
 ---
-# Release Agent\n
+# Release Agent
+Validates release readiness, CI/CD validation, and deployment-readiness. Does not duplicate DevOps implementation responsibility.

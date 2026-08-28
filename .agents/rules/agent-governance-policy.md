@@ -14,7 +14,7 @@
 4. **Coding Rules** (程式碼撰寫標準)
 
 ## 3. Block Capability (攔截機制)
-- **Security Agent** 及 **Master Orchestrator** 具有絕對的 Block Capability。
+- **Security Agent** 及 **orchestrator** 具有絕對的 Block Capability。
 - 若偵測到潛在的資安威脅、架構破壞或嚴重違規，系統將自動中斷該 Agent 的操作，並記錄於 `memory/incidents/`。
 - 被 Block 的任務必須經過人工介入審核或透過 Exception Process 處理。
 

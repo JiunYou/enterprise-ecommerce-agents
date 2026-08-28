@@ -1,7 +1,7 @@
 # Permission Enforcement Rule
 
 ## Mandatory Bootstrapping
-Master Orchestrator 必須在任何任務開始時載入以下核心文件：
+orchestrator 必須在任何任務開始時載入以下核心文件：
 - `mandatory-rules.md`
 - `agent-governance-policy.md`
 - `permission-matrix.md`

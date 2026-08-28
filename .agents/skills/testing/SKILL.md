@@ -1,5 +1,10 @@
 ---
 name: testing
+description: Capability for testing
+---
+# Testing Skill
+\n---
+name: testing
 description: Skill guidelines for testing
 ---
 # Testing Skill
@@ -19,4 +24,4 @@ Use when modifying or creating testing related components.
 
 ## Validation method
 - Code review
-- Automated tests
+- Automated tests\n

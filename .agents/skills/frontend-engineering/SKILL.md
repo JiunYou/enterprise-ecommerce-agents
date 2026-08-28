@@ -1,5 +1,10 @@
 ---
 name: frontend-engineering
+description: Capability for frontend engineering
+---
+# Frontend Engineering Skill
+\n---
+name: frontend-engineering
 description: 前端工程與架構
 ---
 # Frontend Engineering Skill
@@ -11,4 +16,4 @@ description: 前端工程與架構
 - JavaScript
 - TypeScript
 - API Integration
-- Security
+- Security\n

@@ -1,6 +1,5 @@
-# Frontend Agent
-
-## Responsibilities
-- Next.js
-- React
-- UI implementation
+---
+name: frontend
+description: Handles frontend tasks and responsibilities.
+---
+# Frontend Agent\n

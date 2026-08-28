@@ -1,0 +1,172 @@
+[
+  {
+    "id": "ADR-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-001.md",
+    "status": "Accepted",
+    "domains": [
+      "architecture"
+    ],
+    "triggers": [
+      "initial setup"
+    ],
+    "summary": "Initial architecture decision."
+  },
+  {
+    "id": "ADR-Security-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Security-001.md",
+    "status": "Accepted",
+    "domains": [
+      "security"
+    ],
+    "triggers": [
+      "security review"
+    ],
+    "summary": "Security standards."
+  },
+  {
+    "id": "ADR-Technical-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Technical-001.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-Phase1-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase1-001.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-015-Local-Environment",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-015-Local-Environment.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-012-AIAgent-Workflow",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-012-AIAgent-Workflow.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-008-Repository-Architecture",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-008-Repository-Architecture.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-013-Platform-Bootstrap",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-013-Platform-Bootstrap.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-014-Logging-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-014-Logging-Strategy.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-011-Environment-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-011-Environment-Strategy.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-Phase2-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase2-001.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-010-CICD-Pipeline",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-010-CICD-Pipeline.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-016-AI-Agent-Execution-Control",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-016-AI-Agent-Execution-Control.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-009-Branch-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-009-Branch-Strategy.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-Phase4-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase4-001.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "ADR-Security-002",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Security-002.md",
+    "status": "Accepted",
+    "domains": [],
+    "triggers": [],
+    "summary": "Historical ADR"
+  },
+  {
+    "id": "approved-patterns",
+    "type": "pattern",
+    "path": ".agents/memory/patterns/approved-patterns.md",
+    "status": "Active",
+    "domains": [],
+    "triggers": [],
+    "summary": "Approved pattern"
+  },
+  {
+    "id": "forbidden-patterns",
+    "type": "anti-pattern",
+    "path": ".agents/memory/anti-patterns/forbidden-patterns.md",
+    "status": "Active",
+    "domains": [],
+    "triggers": [],
+    "summary": "Forbidden pattern"
+  }
+]

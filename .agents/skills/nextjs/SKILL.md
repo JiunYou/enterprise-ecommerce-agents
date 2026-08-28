@@ -1,5 +1,10 @@
 ---
 name: nextjs
+description: Capability for nextjs
+---
+# Nextjs Skill
+\n---
+name: nextjs
 description: Skill guidelines for nextjs
 ---
 # Nextjs Skill
@@ -19,4 +24,4 @@ Use when modifying or creating nextjs related components.
 
 ## Validation method
 - Code review
-- Automated tests
+- Automated tests\n

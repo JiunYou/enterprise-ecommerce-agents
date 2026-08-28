@@ -1,6 +1,5 @@
-# QA Agent
-
-## Responsibilities
-- Test strategy
-- Regression validation
-- Coverage review
+---
+name: qa
+description: Handles qa tasks and responsibilities.
+---
+# Qa Agent\n

@@ -1,5 +1,10 @@
 ---
 name: system-modeling
+description: Capability for system modeling
+---
+# System Modeling Skill
+\n---
+name: system-modeling
 description: System Modeling
 ---
 
@@ -10,4 +15,4 @@ description: System Modeling
 - Container Diagram
 - Component Diagram
 - Data Flow Diagram
-- Sequence Diagram
+- Sequence Diagram\n

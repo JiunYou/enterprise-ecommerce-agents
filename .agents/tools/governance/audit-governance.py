@@ -1,119 +1,60 @@
-#!/usr/bin/env python3
 import os
+import json
 import sys
 
-AGENTS_DIR = ".agents"
-
-def check_permission_matrix():
-    path = os.path.join(AGENTS_DIR, "permissions", "agent-permission-matrix.md")
+def check_exists(path):
     if not os.path.exists(path):
-        return False, "Agent permission matrix missing."
-    return True, "Agent permission matrix found."
+        print(f"Error: {path} is missing.")
+        return False
+    return True
 
-def check_rules():
-    rules = [
-        "mandatory-rules.md",
-        "agent-governance-policy.md",
-        "permission-enforcement.md"
-    ]
-    for rule in rules:
-        if not os.path.exists(os.path.join(AGENTS_DIR, "rules", rule)):
-            return False, f"Rule missing: {rule}"
-    return True, "Rules found."
+errors = 0
+# Root contract
+if not check_exists("AGENTS.md"):
+    errors += 1
+else:
+    size = os.path.getsize("AGENTS.md")
+    print(f"AGENTS.md size: {size} bytes")
 
-def check_metadata():
-    path = os.path.join(AGENTS_DIR, "docs", "governance", "metadata-standard.md")
-    if not os.path.exists(path):
-        return False, "Metadata standard missing."
-    return True, "Metadata standard found."
+# Routing
+if not check_exists(".agents/routing/agents.json"): errors += 1
+if not check_exists(".agents/routing/skills.json"): errors += 1
 
-def check_adr_format():
-    path = os.path.join(AGENTS_DIR, "docs", "governance", "adr-template.md")
-    if not os.path.exists(path):
-        return False, "ADR template missing."
-    return True, "ADR template found."
+# Agents
+expected_agents = ["orchestrator", "product-manager", "system-architect", "architecture-reviewer",
+    "domain-architect", "dotnet-backend", "nodejs-backend", "frontend", "database",
+    "devops", "qa", "security", "compliance", "documentation-reviewer", "release"]
 
-def check_memory_structure():
-    dirs = ["incidents", "patterns", "solutions", "decisions"]
-    for d in dirs:
-        if not os.path.isdir(os.path.join(AGENTS_DIR, "memory", d)):
-            return False, f"Memory structure missing: {d}"
-    return True, "Memory structure found."
+if os.path.exists(".agents/routing/agents.json"):
+    with open(".agents/routing/agents.json") as f:
+        data = json.load(f)
+        names = [a['id'] for a in data['agents']]
+        if set(names) != set(expected_agents):
+            print("Error: Agent names in agents.json do not match expected list.")
+            errors += 1
 
-def check_agents_skills():
-    agents_dir = os.path.join(AGENTS_DIR, "agents")
-    skills_dir = os.path.join(AGENTS_DIR, "skills")
-    
-    required_mappings = {
-        "frontend-agent.md": ["frontend-engineering", "javascript-engineering"],
-        "dotnet-backend-agent.md": ["enterprise-dotnet"],
-        "nodejs-backend-agent.md": ["enterprise-nodejs"],
-        "mysql-database-agent.md": ["mysql-enterprise"],
-        "api-integration-agent.md": ["rest-api-design"],
-        "devops-agent.md": ["docker-engineering", "devops-engineering"]
-    }
-    
-    for agent, skills in required_mappings.items():
-        if not os.path.exists(os.path.join(agents_dir, agent)):
-            return False, f"Agent missing: {agent}"
-        for skill in skills:
-            if not os.path.exists(os.path.join(skills_dir, skill)):
-                return False, f"Skill missing: {skill} for agent {agent}"
-                
-    return True, "All Agents have corresponding Skills, including Docker Capability."
+for agent in expected_agents:
+    if not check_exists(f".agents/agents/{agent}/agent.md"):
+        errors += 1
 
-def check_architecture_capability():
-    agents_dir = os.path.join(AGENTS_DIR, "agents")
-    skills_dir = os.path.join(AGENTS_DIR, "skills")
-    
-    if not os.path.exists(os.path.join(agents_dir, "domain-architect-agent.md")):
-        return False, "domain-architect-agent.md missing."
-        
-    required_skills = ["domain-driven-design", "system-modeling", "threat-modeling"]
-    for skill in required_skills:
-        if not os.path.exists(os.path.join(skills_dir, skill, "SKILL.md")):
-            return False, f"Skill missing: {skill}"
-            
-    security_agent_path = os.path.join(agents_dir, "security-review-agent.md")
-    if os.path.exists(security_agent_path):
-        with open(security_agent_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            if "threat-modeling" not in content or "ecommerce-security" not in content or "api-security" not in content:
-                return False, "Security Agent is missing required skills."
-                
-    return True, "Architecture Capability Check complete (Agent, Skill, Workflow)."
+# Skills
+expected_skills = [
+    "api-security", "code-review", "ddd", "devops", "docker-engineering", "dotnet",
+    "ecommerce-domain", "ecommerce-security", "external-api-integration", "frontend-engineering",
+    "git-workflow", "javascript-engineering", "mysql", "nextjs", "nodejs", "rabbitmq",
+    "rest-api-design", "security", "software-architecture", "system-modeling", "testing", "threat-modeling"
+]
+for skill in expected_skills:
+    if not check_exists(f".agents/skills/{skill}/SKILL.md"):
+        errors += 1
 
-def run_audit():
-    checks = [
-        check_permission_matrix,
-        check_rules,
-        check_metadata,
-        check_adr_format,
-        check_memory_structure,
-        check_agents_skills,
-        check_architecture_capability
-    ]
-    
-    all_passed = True
-    print("Running AI Governance Audit...\n")
-    for check in checks:
-        passed, msg = check()
-        if passed:
-            print(f"[PASS] {msg}")
-        else:
-            print(f"[FAIL] {msg}")
-            all_passed = False
-            
-    print("\n===============================")
-    if all_passed:
-        print("AUDIT RESULT: PASS")
-        sys.exit(0)
-    else:
-        print("AUDIT RESULT: FAIL")
-        sys.exit(1)
+# Memory
+if not check_exists(".agents/memory/catalog.json"): errors += 1
+if not check_exists(".agents/memory/state/current.md"): errors += 1
 
-if __name__ == "__main__":
-    if not os.path.exists(AGENTS_DIR):
-        print(f"[FAIL] .agents directory not found in {os.getcwd()}")
-        sys.exit(1)
-    run_audit()
+if errors > 0:
+    print(f"Validation failed with {errors} errors.")
+    sys.exit(1)
+else:
+    print("Governance validation passed.")
+    sys.exit(0)

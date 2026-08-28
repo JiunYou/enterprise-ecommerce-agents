@@ -30,3 +30,4 @@ secrets.json
 *.pfx
 *.key
 *.cert
+\n.agents/runtime/\n

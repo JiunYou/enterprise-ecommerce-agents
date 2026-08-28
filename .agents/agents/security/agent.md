@@ -1,7 +1,5 @@
-# Security Agent
-
-## Responsibilities
-- OWASP review
-- Secret detection
-- Threat modeling
-- Dependency audit
+---
+name: security
+description: Handles security tasks and responsibilities.
+---
+# Security Agent\n

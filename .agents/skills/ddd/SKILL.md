@@ -1,5 +1,10 @@
 ---
 name: ddd
+description: Capability for ddd
+---
+# Ddd Skill
+\n\n### From SKILL.md\n---
+name: ddd
 description: Skill guidelines for ddd
 ---
 # Ddd Skill
@@ -20,3 +25,21 @@ Use when modifying or creating ddd related components.
 ## Validation method
 - Code review
 - Automated tests
+\n\n### From SKILL.md\n---
+name: domain-driven-design
+description: Domain Driven Design (DDD)
+---
+
+# Domain Driven Design
+
+DDD:
+- Entity
+- Value Object
+- Aggregate Root
+- Repository
+- Domain Event
+
+Strategic Design:
+- Bounded Context
+- Context Map
+- Core Domain\n

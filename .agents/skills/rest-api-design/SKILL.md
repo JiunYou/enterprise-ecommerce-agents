@@ -1,5 +1,10 @@
 ---
 name: rest-api-design
+description: Capability for rest api design
+---
+# Rest Api Design Skill
+\n---
+name: rest-api-design
 description: REST API design skill
 ---
 
@@ -10,4 +15,4 @@ description: REST API design skill
 - **Swagger**: 提供互動式的 API 測試介面與 Schema 驗證。
 - **Versioning**: 實作 API 版本控制 (URI Path, Query Parameter, Header)。
 - **Pagination**: 實作資料分頁 (Offset-based, Cursor-based) 與過濾排序。
-- **Error Handling**: 統一標準化的錯誤回應結構 (如 RFC 7807 Problem Details)。
+- **Error Handling**: 統一標準化的錯誤回應結構 (如 RFC 7807 Problem Details)。\n

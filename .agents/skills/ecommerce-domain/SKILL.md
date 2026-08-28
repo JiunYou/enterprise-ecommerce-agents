@@ -1,5 +1,10 @@
 ---
 name: ecommerce-domain
+description: Capability for ecommerce domain
+---
+# Ecommerce Domain Skill
+\n---
+name: ecommerce-domain
 description: 電商領域知識與商業邏輯
 ---
 # Ecommerce Domain Skill
@@ -11,4 +16,4 @@ description: 電商領域知識與商業邏輯
 - 金流
 - 物流
 - 會員系統
-- 權限系統
+- 權限系統\n

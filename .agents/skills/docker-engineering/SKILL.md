@@ -1,5 +1,10 @@
 ---
 name: docker-engineering
+description: Capability for docker engineering
+---
+# Docker Engineering Skill
+\n---
+name: docker-engineering
 description: Docker container engineering and best practices
 ---
 
@@ -33,4 +38,4 @@ description: Docker container engineering and best practices
 ## Production
 - **Logging**: 設置與管理 Logging Drivers (如 json-file, syslog) 並整合集中式 Log 系統。
 - **Monitoring**: 監控容器狀態 (`docker stats`、cAdvisor 整合)。
-- **Registry**: 安全地推送與管理私有 Registry Image。
+- **Registry**: 安全地推送與管理私有 Registry Image。\n

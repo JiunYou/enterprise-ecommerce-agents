@@ -1,5 +1,10 @@
 ---
 name: rabbitmq
+description: Capability for rabbitmq
+---
+# Rabbitmq Skill
+\n---
+name: rabbitmq
 description: Skill guidelines for rabbitmq
 ---
 # Rabbitmq Skill
@@ -19,4 +24,4 @@ Use when modifying or creating rabbitmq related components.
 
 ## Validation method
 - Code review
-- Automated tests
+- Automated tests\n

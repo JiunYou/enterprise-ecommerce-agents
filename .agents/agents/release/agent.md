@@ -1,6 +1,5 @@
-# Release Agent
-
-## Responsibilities
-- CI/CD
-- Deployment validation
-- Release readiness
+---
+name: release
+description: Handles release tasks and responsibilities.
+---
+# Release Agent\n

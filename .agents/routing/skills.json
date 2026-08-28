@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "skills": [
+    "api-security",
+    "code-review",
+    "ddd",
+    "devops",
+    "docker-engineering",
+    "dotnet",
+    "ecommerce-domain",
+    "ecommerce-security",
+    "external-api-integration",
+    "frontend-engineering",
+    "git-workflow",
+    "javascript-engineering",
+    "mysql",
+    "nextjs",
+    "nodejs",
+    "rabbitmq",
+    "rest-api-design",
+    "security",
+    "software-architecture",
+    "system-modeling",
+    "testing",
+    "threat-modeling"
+  ],
+  "routing": {
+    "dotnet-backend": {
+      "default": [
+        "dotnet"
+      ],
+      "tasks": {
+        "API contract": [
+          "rest-api-design"
+        ],
+        "external provider": [
+          "external-api-integration"
+        ],
+        "MySQL persistence": [
+          "mysql"
+        ],
+        "DDD": [
+          "ddd"
+        ],
+        "RabbitMQ": [
+          "rabbitmq"
+        ]
+      }
+    },
+    "nodejs-backend": {
+      "default": [
+        "nodejs"
+      ],
+      "tasks": {
+        "API contract": [
+          "rest-api-design"
+        ],
+        "external provider": [
+          "external-api-integration"
+        ],
+        "MySQL persistence": [
+          "mysql"
+        ],
+        "DDD": [
+          "ddd"
+        ],
+        "RabbitMQ": [
+          "rabbitmq"
+        ]
+      }
+    }
+  }
+}

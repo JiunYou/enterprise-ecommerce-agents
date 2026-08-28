@@ -1,0 +1,1 @@
+# Current Project State\n- Architecture: Event-driven Microservices (verified by RabbitMQ skill)\n- Backend: .NET and Node.js\n- Database: MySQL\n- State: Repository governance refactored to optimize agent context routing.\n

@@ -7,7 +7,7 @@
 - `Document ID`: 唯一識別碼 (例如：`ADR-001`, `ARCH-002`)
 - `Version`: 版本號 (例如：`1.0.0`)
 - `Owner`: 文件負責人或主要維護的 Agent (例如：`Architecture Agent`)
-- `Reviewer`: 負責審查的 Agent 或人員 (例如：`Security Agent`, `Master Orchestrator`)
+- `Reviewer`: 負責審查的 Agent 或人員 (例如：`Security Agent`, `Orchestrator`)
 - `Validation Status`: 目前狀態 (Draft | Reviewing | Validated | Approved | Deprecated)
 - `Related Decision`: 關聯的決策或文件 ID (若無則填寫 `N/A`)
 

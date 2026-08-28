@@ -4,11 +4,7 @@ description: Use when performing threat modeling, identifying attack vectors, an
 ---
 # Threat Modeling Skill
 
-
-
-# Threat Modeling
-
-- STRIDE
-- Security Boundary
-- Attack Surface
-- Risk Assessment
+## Guidance
+- Perform STRIDE analysis.
+- Identify security boundaries and attack surfaces.
+- Execute systematic risk assessments on new features.

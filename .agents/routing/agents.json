@@ -193,7 +193,9 @@
     }
   ],
   "risk_rules": {
-    "requires_human_approval": true
+    "source": ".agents/rules/approval-gates.md",
+    "high_risk_requires_human_approval": true,
+    "routine_requires_human_approval": false
   },
   "review_rules": {
     "QA": [

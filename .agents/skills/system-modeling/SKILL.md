@@ -4,13 +4,7 @@ description: Use when creating UML, C4 models, sequence diagrams, or architectur
 ---
 # System Modeling Skill
 
-
-
-# System Modeling
-
-- C4 Model
-- Context Diagram
-- Container Diagram
-- Component Diagram
-- Data Flow Diagram
-- Sequence Diagram
+## Guidance
+- Utilize C4 Models for system documentation.
+- Create Context, Container, and Component diagrams.
+- Map out data flows and sequence diagrams for complex interactions.

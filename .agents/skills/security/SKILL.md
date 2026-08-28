@@ -4,31 +4,11 @@ description: Use when securing applications against general OWASP vulnerabilitie
 ---
 # Security Skill
 
+## Guidance
+- Mitigate OWASP Top 10 vulnerabilities (Injection, XSS, CSRF, etc.).
+- Manage secrets, API keys, and credentials securely.
+- Ensure proper authentication and least-privilege authorization.
+- Secure logging and prevent PII leakage.
 
-
-
-# Security Skill
-
-## Purpose
-Guidelines and best practices for security implementations.
-
-## When to use
-Use when modifying or creating security related components.
-
-## Required knowledge
-- Enterprise standards for security
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
-
-
-
-
-# Secure Development Skill
-整合：
-OWASP Secure Coding Practice
+## Boundaries / Validation
+Must adhere to enterprise security policies. Used primarily during high-risk review.

@@ -1,13 +1,16 @@
 # Permission Enforcement Rule
 
-## Mandatory Bootstrapping
-orchestrator 必須在任何任務開始時載入以下核心文件：
-- `mandatory-rules.md`
-- `agent-governance-policy.md`
-- `permission-matrix.md`
+## JIT Enforcement Policy
+Task starts -> AGENTS.md + routing metadata -> select primary Agent -> before write/execute action, consult relevant Agent permission row -> if high-risk, consult approval-gates.md -> load additional governance only when task characteristics require it
 
-## Enforcement Policy
-任何 Agent 在執行過程中，若發出違反 Permission Matrix 定義（例如：越權寫入、執行被禁止的操作）的行為，必須觸發以下機制：
-- **Task Status**: 立即標記為 `BLOCKED`
-- **Execution**: 強制中止該 Agent 的操作
-- **Logging**: 記錄至 `.agents/memory/incidents/` 並通報 Security Agent
+## Canonical Matrix
+The canonical least-privilege matrix is located at:
+`.agents/permissions/agent-permission-matrix.md`
+
+## Invariants
+Global invariants are summarized by AGENTS.md and do not require reloading large governance contexts:
+- security by default
+- no gate bypass
+- smallest safe change
+- max 3 correction cycles
+- evidence over claims

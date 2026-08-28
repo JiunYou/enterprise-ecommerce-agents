@@ -4,10 +4,7 @@ description: Use when making high-level system design decisions and structural a
 ---
 # Software Architecture Skill
 
-
-# Software Architecture Skill
-包含：
-- Microservices vs Monolith
-- Clean Architecture
-- Event-Driven Architecture
-- CQRS & Event Sourcing
+## Guidance
+- Make informed trade-offs between Microservices and Monoliths.
+- Apply Clean Architecture and domain isolation principles.
+- Use Event-Driven Architecture and CQRS where appropriate.

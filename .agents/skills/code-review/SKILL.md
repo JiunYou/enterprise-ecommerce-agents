@@ -4,21 +4,10 @@ description: Use when performing code quality review and enforcing clean code pr
 ---
 # Code Review Skill
 
+## Guidance
+- Enforce clean code principles, readability, and maintainability.
+- Look for edge cases, performance bottlenecks, and security flaws.
+- Verify adequate test coverage and proper documentation.
 
-
-
-# Code Review Skill
-包含：
-- Code Smell Detection
-- Performance Review
-- Security Review
-- Best Practices Check
-
-
-
-
-# Clean Code Skill
-包含：
-- SOLID
-- Design Pattern
-- Code Review
+## Boundaries / Validation
+This is a reviewer capability, not for primary implementation.

@@ -4,10 +4,7 @@ description: Use when executing Git operations, branching strategies, and reposi
 ---
 # Git Workflow Skill
 
-
-# Git Workflow Skill
-包含：
-- Git Flow / GitHub Flow
-- Commit Message Convention
-- Branch Naming
-- PR Templates
+## Guidance
+- Follow standard Git Flow or GitHub Flow as required.
+- Adhere to conventional commit messages.
+- Ensure branch naming and PR templates are followed.

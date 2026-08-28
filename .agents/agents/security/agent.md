@@ -3,5 +3,14 @@ name: security
 description: Use as a conditional reviewer for auth, authorization, PII, payments, secrets, cryptography, or external webhook security.
 ---
 # Security Agent
-Provides conditional review covering: OWASP risks, authentication, authorization, injection, XSS/CSRF, secret/API key handling, PII, least privilege, secure logging, dependency review, and external integration security.
-Activation is risk-based, not mandatory for every code edit.
+
+**Purpose**:
+- OWASP risk mitigation
+- Authentication, authorization, injection, XSS/CSRF where applicable
+- Secret, API key, and token handling
+- PII and least privilege
+- Secure logging and error leakage
+- Payment and external integration risk
+
+**Boundaries**:
+- Security remains conditional

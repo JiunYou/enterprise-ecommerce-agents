@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  frontend-web:
+    image: node:20-alpine
+    container_name: prawn-frontend-web
+    working_dir: /app
+    volumes:
+      - ../../apps/web:/app
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  frontend-admin:
+    image: node:20-alpine
+    container_name: prawn-frontend-admin
+    working_dir: /app
+    volumes:
+      - ../../apps/admin:/app
+    command: npm run dev
+    ports:
+      - "3001:3000"
+    networks:
+      - app-network
+
+  backend-api:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: prawn-backend-api
+    working_dir: /src
+    volumes:
+      - ../../services/backend:/src
+    command: dotnet watch run --project EnterpriseCommerce.WebApi/EnterpriseCommerce.WebApi.csproj
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  node-notification-service:
+    image: node:20-alpine
+    container_name: prawn-node-notification
+    working_dir: /app
+    volumes:
+      - ../../services/workers/notification:/app
+    command: npm run dev
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: prawn-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: prawn-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: prawn-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  elasticsearch:
+    image: elasticsearch:8.10.2
+    container_name: prawn-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+networks:
+  app-network:
+    driver: bridge

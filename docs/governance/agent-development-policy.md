@@ -50,3 +50,20 @@ Related ADR: {ADR ID if applicable}
 1. 確保所有輸出檔案存在且 Metadata 正確。
 2. 確保沒有產生預期外的程式碼檔案。
 3. 確認 Architecture Traceability 未斷裂。
+
+## 7. Execution Control Policy
+為了防止 AI Agent 陷入無窮迴圈、範圍擴張或非預期的重構行為，全體 Agent 必須嚴格執行以下控制政策：
+
+- **任務邊界約束 (Task Boundary Enforcement)：**
+  - Agent 僅得修改由 Prompt 或 Task 範本明確授權的檔案。
+  - 嚴格禁止未經授權的跨模組修改、代碼格式重構或功能擴充。
+- **明確停止條件 (Stop Condition)：**
+  - 當所有驗收條件滿足且無阻礙性錯誤時，Agent 必須**立即停止執行**。
+  - 禁止在達成目標後自發性地進行額外的最佳化或無關修改。
+- **修復迭代上限 (Iteration Limit)：**
+  - 面對同一錯誤或問題，Agent 的自動修復嘗試上限為 **3 次**。
+  - 達到 3 次上限仍未排除問題時，必須主動停止並提交錯誤日誌與人工審查建議。
+- **實作與驗證職責分離 (Validation Separation)：**
+  - Implementation Agent 專注於指派範圍內的代碼實作與本機建置驗證。
+  - Validation Agent 負責獨立執行合規、資安與架構整合檢查。兩者不可混用角色。
+

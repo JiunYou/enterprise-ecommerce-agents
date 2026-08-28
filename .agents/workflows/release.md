@@ -1,13 +1,12 @@
 # Release Workflow
-流程：
-建立 Release Branch
-↓
-QA E2E 測試與回歸測試
-↓
-Compliance 最終檢查
-↓
-DevOps 準備部署
-↓
-Master Orchestrator 簽核
-↓
-Production Deployment
+
+## Purpose
+Release process.
+
+## Flow
+1. Code Complete
+2. Build
+3. Test
+4. Security
+5. Deployment Validation
+6. Approval

@@ -1,0 +1,15 @@
+{
+  "high-risk-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./permissions/check_approval.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

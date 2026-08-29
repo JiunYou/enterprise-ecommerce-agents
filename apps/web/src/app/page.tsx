@@ -1,68 +1,242 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getProducts } from "@/lib/catalog";
+import { formatPrice } from "@/lib/format";
 
-export default function Home() {
+interface PageProps {
+  searchParams: Promise<{
+    page?: string | string[];
+    q?: string | string[];
+    searchTerm?: string | string[];
+  }>;
+}
+
+export default async function CatalogPage({ searchParams }: PageProps) {
+  const resolvedParams = await searchParams;
+
+  const rawSearch =
+    typeof resolvedParams.q === "string"
+      ? resolvedParams.q
+      : typeof resolvedParams.searchTerm === "string"
+      ? resolvedParams.searchTerm
+      : "";
+  const searchTerm = rawSearch.trim();
+
+  const rawPage =
+    typeof resolvedParams.page === "string"
+      ? parseInt(resolvedParams.page, 10)
+      : 1;
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const pageSize = 12;
+
+  const result = await getProducts({
+    page,
+    pageSize,
+    searchTerm: searchTerm || undefined,
+  });
+
+  const createPageHref = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (searchTerm) {
+      params.set("q", searchTerm);
+    }
+    if (targetPage > 1) {
+      params.set("page", targetPage.toString());
+    }
+    const queryString = params.toString();
+    return queryString ? `/?${queryString}` : "/";
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      {/* 頂部導航列 / 商店識別 */}
+      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <Link href="/" className="inline-block">
+                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                  Enterprise Commerce
+                </h1>
+              </Link>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                商品型錄與線上商務展示
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </header>
+
+      {/* 主要內容區 */}
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* 搜尋列 */}
+        <section aria-label="商品搜尋" className="mb-8">
+          <form
+            method="GET"
+            action="/"
+            role="search"
+            className="flex flex-col gap-3 sm:flex-row sm:items-center"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="relative flex-1">
+              <label htmlFor="search-input" className="sr-only">
+                搜尋商品名稱或 SKU
+              </label>
+              <input
+                id="search-input"
+                type="search"
+                name="q"
+                defaultValue={searchTerm}
+                placeholder="搜尋商品名稱或 SKU..."
+                className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              >
+                搜尋
+              </button>
+              {searchTerm && (
+                <Link
+                  href="/"
+                  className="rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  清除
+                </Link>
+              )}
+            </div>
+          </form>
+
+          {searchTerm && (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              搜尋關鍵字：<span className="font-semibold">「{searchTerm}」</span>
+            </p>
+          )}
+        </section>
+
+        {/* 狀態渲染：錯誤 / 空結果 / 商品列表 */}
+        {!result.success ? (
+          <section
+            aria-label="系統訊息"
+            className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
           >
-            Documentation
-          </a>
-        </div>
+            <h2 className="text-base font-semibold">無法載入商品目錄</h2>
+            <p className="mt-1 text-sm">{result.error}</p>
+            <div className="mt-4">
+              <Link
+                href={createPageHref(page)}
+                className="inline-flex items-center rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-900 transition hover:bg-red-200 dark:bg-red-900/60 dark:text-red-200 dark:hover:bg-red-900"
+              >
+                重新整理
+              </Link>
+            </div>
+          </section>
+        ) : result.data.items.length === 0 ? (
+          <section
+            aria-label="無商品結果"
+            className="rounded-xl border border-zinc-200 bg-white p-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              查無符合條件的商品
+            </h2>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              {searchTerm
+                ? "請嘗試更換搜尋關鍵字或清除篩選條件。"
+                : "目前目錄中尚無上架商品。"}
+            </p>
+            {searchTerm && (
+              <div className="mt-6">
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  清除搜尋條件
+                </Link>
+              </div>
+            )}
+          </section>
+        ) : (
+          <section aria-label="商品列表">
+            <div className="mb-4 flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+              <span>
+                第 {result.data.page} 頁，共 {result.data.totalPages} 頁 (共{" "}
+                {result.data.totalCount} 筆商品)
+              </span>
+            </div>
+
+            {/* 商品網格 */}
+            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {result.data.items.map((product) => (
+                <li
+                  key={product.id}
+                  className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <div>
+                    <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      {product.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      SKU: <span className="font-mono">{product.sku}</span>
+                    </p>
+                  </div>
+                  <div className="mt-6 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                    <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                      {formatPrice(product.price, product.currency)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* 分頁導航 */}
+            {result.data.totalPages > 1 && (
+              <nav
+                aria-label="分頁導航"
+                className="mt-10 flex items-center justify-between border-t border-zinc-200 pt-6 dark:border-zinc-800"
+              >
+                <div>
+                  {result.data.hasPreviousPage ? (
+                    <Link
+                      href={createPageHref(result.data.page - 1)}
+                      className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      &larr; 上一頁
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex cursor-not-allowed items-center rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-400 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-600"
+                    >
+                      &larr; 上一頁
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {result.data.page} / {result.data.totalPages}
+                </span>
+
+                <div>
+                  {result.data.hasNextPage ? (
+                    <Link
+                      href={createPageHref(result.data.page + 1)}
+                      className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      下一頁 &rarr;
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex cursor-not-allowed items-center rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-400 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-600"
+                    >
+                      下一頁 &rarr;
+                    </span>
+                  )}
+                </div>
+              </nav>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

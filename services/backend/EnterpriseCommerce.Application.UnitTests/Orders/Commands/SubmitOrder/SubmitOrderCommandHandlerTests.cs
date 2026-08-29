@@ -48,5 +48,6 @@ public class SubmitOrderCommandHandlerTests
         Assert.Equal(OrderStatus.Pending, order.Status);
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<EnterpriseCommerce.Domain.Inventory.ValueObjects.ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

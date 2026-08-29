@@ -103,7 +103,8 @@ public class ConcurrencyTests : IAsyncLifetime
                 var order = Order.Create(customerId, "TWD");
                 order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
+                orderIds.Add(order.Id.Value);
+                orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -121,7 +122,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
-                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
         }
@@ -191,7 +192,8 @@ public class ConcurrencyTests : IAsyncLifetime
                 var order = Order.Create(customerId, "TWD");
                 order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
+                orderIds.Add(order.Id.Value);
+                orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -206,7 +208,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
-                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
         }
@@ -329,7 +331,8 @@ public class ConcurrencyTests : IAsyncLifetime
                 }
                 
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
+                orderIds.Add(order.Id.Value);
+                orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -344,7 +347,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
-                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
         }

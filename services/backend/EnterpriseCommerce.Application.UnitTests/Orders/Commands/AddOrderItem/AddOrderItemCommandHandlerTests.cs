@@ -159,6 +159,7 @@ public class AddOrderItemCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.NotFound.Code, result.Error.Code);
         Assert.Empty(order.Items);
+        _productRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

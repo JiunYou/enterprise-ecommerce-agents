@@ -1,3 +1,4 @@
+using EnterpriseCommerce.WebApi.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -34,7 +35,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
         if (Request.Headers.TryGetValue("X-Test-User-Id", out var userIdHeader))
         {
-            claims.Add(new Claim("urn:enterprisecommerce:customer_id", userIdHeader.ToString()));
+            claims.Add(new Claim(CustomerClaimTypes.CustomerId, userIdHeader.ToString()));
         }
 
         if (Request.Headers.TryGetValue("X-Test-Role", out var roleHeader))

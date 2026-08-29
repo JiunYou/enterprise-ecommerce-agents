@@ -67,12 +67,14 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     public async Task Post_WithValidPayload_Returns201Created()
     {
         // Arrange
+        var customerId = Guid.NewGuid();
         var expectedOrderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.IsAny<CreateOrderCommand>(), It.IsAny<CancellationToken>()))
+        _senderMock.Setup(m => m.Send(It.Is<CreateOrderCommand>(c => c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(expectedOrderId));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         var request = new CreateOrderRequest("USD");
 
@@ -95,6 +97,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", Guid.NewGuid().ToString());
 
         var request = new CreateOrderRequest("");
 
@@ -155,11 +158,12 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
                 new(Guid.NewGuid(), 250m, "TWD", 2, 500m)
             });
 
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Queries.GetOrderById.GetOrderByIdQuery>(q => q.OrderId == orderId), It.IsAny<CancellationToken>()))
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Queries.GetOrderById.GetOrderByIdQuery>(q => q.OrderId == orderId && q.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(orderResponse));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.GetAsync($"/api/v1/Orders/{orderId}");
@@ -179,11 +183,13 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Queries.GetOrderById.GetOrderByIdQuery>(q => q.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Queries.GetOrderById.GetOrderByIdQuery>(q => q.OrderId == orderId && q.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure<EnterpriseCommerce.Application.Orders.Queries.GetOrderById.OrderResponse>(OrderErrors.NotFound));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.GetAsync($"/api/v1/Orders/{orderId}");
@@ -217,14 +223,16 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         // Arrange
         var orderId = Guid.NewGuid();
         var productId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
         var request = new AddOrderItemRequest(productId, 2);
 
         _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand>(c =>
-            c.OrderId == orderId && c.ProductId == productId && c.Quantity == 2), It.IsAny<CancellationToken>()))
+            c.OrderId == orderId && c.ProductId == productId && c.Quantity == 2 && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success());
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PostAsJsonAsync($"/api/v1/Orders/{orderId}/items", request);
@@ -238,13 +246,15 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
         var request = new AddOrderItemRequest(Guid.NewGuid(), 2);
 
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PostAsJsonAsync($"/api/v1/Orders/{orderId}/items", request);
@@ -262,13 +272,15 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
         var request = new AddOrderItemRequest(Guid.NewGuid(), 2);
 
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.CurrencyMismatch));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PostAsJsonAsync($"/api/v1/Orders/{orderId}/items", request);
@@ -301,11 +313,13 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success());
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
@@ -319,11 +333,13 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
@@ -341,11 +357,13 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
@@ -380,13 +398,15 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         // Arrange
         var orderId = Guid.NewGuid();
         var productId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
 
         _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.RemoveOrderItem.RemoveOrderItemCommand>(c =>
-            c.OrderId == orderId && c.ProductId == productId), It.IsAny<CancellationToken>()))
+            c.OrderId == orderId && c.ProductId == productId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success());
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.DeleteAsync($"/api/v1/Orders/{orderId}/items/{productId}");
@@ -401,13 +421,15 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         // Arrange
         var orderId = Guid.NewGuid();
         var productId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
 
         _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.RemoveOrderItem.RemoveOrderItemCommand>(c =>
-            c.OrderId == orderId && c.ProductId == productId), It.IsAny<CancellationToken>()))
+            c.OrderId == orderId && c.ProductId == productId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
 
         // Act
         var response = await client.DeleteAsync($"/api/v1/Orders/{orderId}/items/{productId}");
@@ -562,5 +584,59 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Post_WithoutXTestUserId_Returns403Forbidden()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var request = new CreateOrderRequest("USD");
+        var response = await client.PostAsJsonAsync("/api/v1/Orders", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<CreateOrderCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Post_WithInvalidXTestUserId_Returns403Forbidden()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", "not-a-guid");
+
+        var request = new CreateOrderRequest("USD");
+        var response = await client.PostAsJsonAsync("/api/v1/Orders", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<CreateOrderCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Post_WithGuidEmptyXTestUserId_Returns403Forbidden()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", Guid.Empty.ToString());
+
+        var request = new CreateOrderRequest("USD");
+        var response = await client.PostAsJsonAsync("/api/v1/Orders", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<CreateOrderCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WithExistingOrder_Returns200OK()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

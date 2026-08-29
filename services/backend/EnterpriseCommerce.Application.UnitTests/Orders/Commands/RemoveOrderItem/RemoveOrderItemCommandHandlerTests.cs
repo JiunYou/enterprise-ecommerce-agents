@@ -81,4 +81,27 @@ public class RemoveOrderItemCommandHandlerTests
         Assert.Equal(OrderErrors.ItemNotFound.Code, result.Error.Code);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+    [Fact]
+    public async Task Handle_WhenCustomerMismatch_ShouldReturnNotFound()
+    {
+        // Arrange
+        var order = Order.Create(Guid.NewGuid(), "TWD");
+        var productId = new ProductId(Guid.NewGuid());
+        order.AddItem(productId, new Money(100, "TWD"), 2);
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var differentCustomerId = Guid.NewGuid();
+        var command = new RemoveOrderItemCommand(order.Id.Value, differentCustomerId, productId.Value);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.NotFound.Code, result.Error.Code);
+        Assert.NotEmpty(order.Items);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

@@ -32,5 +32,6 @@ Created Date: 2026-08-24
 | **ADR-019** | AI Workflow Execution Model | 確立 AI Workflow 的執行邊界與審查關卡 | Approved | Phase 11.2 (Workflow Setup) |
 | **ADR-020** | Infrastructure Architecture | 確立基礎設施層 (EF Core, Outbox Pattern) | Approved | Phase 12.0 (Infra Planning) |
 | **ADR-021** | API Layer Architecture | 確立 API 層 (ASP.NET Core Web API) 作為 Presentation 邊界，制定 RFC 7807 錯誤處理與資安規範 | Proposed | Phase 13.0 (API Planning) |
+| **ADR-022** | Customer Order Ownership Boundary | 確立訂單所有權的安全邊界，於 Application Layer 執行驗證並返回 NotFound 防範 IDOR | Accepted | PR #6 Security Remediation |
 
 > 📁 **備註：** 詳細決策內容請參閱 `docs/ADR/` 與 `.agents/memory/decisions/` 目錄下的 Markdown 原始檔。

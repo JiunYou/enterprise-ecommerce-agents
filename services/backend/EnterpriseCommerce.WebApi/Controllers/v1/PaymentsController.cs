@@ -26,13 +26,14 @@ public class PaymentsController : ApiControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> InitiatePayment(
         [FromBody] InitiatePaymentRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCustomerId(out var customerId))
         {
-            return Unauthorized();
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         var command = new InitiatePaymentCommand(request.OrderId, request.IdempotencyKey, customerId);

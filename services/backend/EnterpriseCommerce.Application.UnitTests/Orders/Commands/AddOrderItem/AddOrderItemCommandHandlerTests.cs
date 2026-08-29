@@ -141,4 +141,24 @@ public class AddOrderItemCommandHandlerTests
         Assert.Equal(OrderErrors.CurrencyMismatch.Code, result.Error.Code);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+    [Fact]
+    public async Task Handle_WhenCustomerMismatch_ShouldReturnNotFound()
+    {
+        // Arrange
+        var order = Order.Create(Guid.NewGuid(), "TWD");
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var differentCustomerId = Guid.NewGuid();
+        var command = new AddOrderItemCommand(order.Id.Value, differentCustomerId, Guid.NewGuid(), 1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.NotFound.Code, result.Error.Code);
+        Assert.Empty(order.Items);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

@@ -7,8 +7,11 @@ interface PageProps {
     page?: string | string[];
     q?: string | string[];
     searchTerm?: string | string[];
+    sort?: string | string[];
   }>;
 }
+
+type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
 export default async function CatalogPage({ searchParams }: PageProps) {
   const resolvedParams = await searchParams;
@@ -21,6 +24,31 @@ export default async function CatalogPage({ searchParams }: PageProps) {
       : "";
   const searchTerm = rawSearch.trim();
 
+  const rawSort =
+    typeof resolvedParams.sort === "string" ? resolvedParams.sort.trim() : "";
+
+  let sortBy: "name" | "price" | undefined = undefined;
+  let sortOrder: "asc" | "desc" | undefined = undefined;
+  let validSort: SortOption | "" = "";
+
+  if (rawSort === "name-asc") {
+    sortBy = "name";
+    sortOrder = "asc";
+    validSort = "name-asc";
+  } else if (rawSort === "name-desc") {
+    sortBy = "name";
+    sortOrder = "desc";
+    validSort = "name-desc";
+  } else if (rawSort === "price-asc") {
+    sortBy = "price";
+    sortOrder = "asc";
+    validSort = "price-asc";
+  } else if (rawSort === "price-desc") {
+    sortBy = "price";
+    sortOrder = "desc";
+    validSort = "price-desc";
+  }
+
   const rawPage =
     typeof resolvedParams.page === "string"
       ? parseInt(resolvedParams.page, 10)
@@ -32,6 +60,8 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     page,
     pageSize,
     searchTerm: searchTerm || undefined,
+    sortBy,
+    sortOrder,
   });
 
   const createPageHref = (targetPage: number) => {
@@ -39,12 +69,17 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     if (searchTerm) {
       params.set("q", searchTerm);
     }
+    if (validSort) {
+      params.set("sort", validSort);
+    }
     if (targetPage > 1) {
       params.set("page", targetPage.toString());
     }
     const queryString = params.toString();
     return queryString ? `/?${queryString}` : "/";
   };
+
+  const clearSearchHref = validSort ? `/?sort=${encodeURIComponent(validSort)}` : "/";
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -68,8 +103,8 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* 搜尋列 */}
-        <section aria-label="商品搜尋" className="mb-8">
+        {/* 搜尋與排序列 */}
+        <section aria-label="商品搜尋與排序" className="mb-8">
           <form
             method="GET"
             action="/"
@@ -89,7 +124,24 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                 className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+              <div className="relative">
+                <label htmlFor="sort-select" className="sr-only">
+                  商品排序
+                </label>
+                <select
+                  id="sort-select"
+                  name="sort"
+                  defaultValue={validSort}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="">預設排序</option>
+                  <option value="name-asc">名稱：A → Z</option>
+                  <option value="name-desc">名稱：Z → A</option>
+                  <option value="price-asc">價格：低 → 高</option>
+                  <option value="price-desc">價格：高 → 低</option>
+                </select>
+              </div>
               <button
                 type="submit"
                 className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
@@ -98,7 +150,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               </button>
               {searchTerm && (
                 <Link
-                  href="/"
+                  href={clearSearchHref}
                   className="rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   清除
@@ -147,7 +199,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
             {searchTerm && (
               <div className="mt-6">
                 <Link
-                  href="/"
+                  href={clearSearchHref}
                   className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
                   清除搜尋條件

@@ -1,46 +1,70 @@
 #!/bin/bash
-INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | grep -o '"name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+python3 -c '
+import sys, json, re
+
+try:
+    raw = sys.stdin.read()
+    if not raw.strip():
+        print(json.dumps({"decision": "allow"}))
+        sys.exit(0)
+    data = json.loads(raw)
+except Exception:
+    print(json.dumps({"decision": "allow"}))
+    sys.exit(0)
+
+tool_call = data.get("toolCall", {}) if isinstance(data, dict) and "toolCall" in data else data
+if not isinstance(tool_call, dict):
+    tool_call = {}
+
+tool_name = tool_call.get("name", "")
+args = tool_call.get("args", {})
+if not isinstance(args, dict):
+    args = {}
+
+target_file = str(args.get("TargetFile", ""))
+command_line = str(args.get("CommandLine", ""))
 
 # 1. Protect Governance Resources (hooks.json, check_approval.sh)
-if [[ "$TOOL_NAME" =~ (replace_file_content|multi_replace_file_content|write_to_file) ]]; then
-    if echo "$INPUT" | grep -E -q '(hooks\.json|check_approval\.sh)'; then
-        echo '{"decision": "force_ask", "reason": "HARD GATE: Modification of governance resources requires explicit human approval."}'
-        exit 0
-    fi
-elif [[ "$TOOL_NAME" == "run_command" ]]; then
-    if echo "$INPUT" | grep -E -q '(rm|sed|echo|touch|mv|cp|vi|nano|chmod).*(hooks\.json|check_approval\.sh)'; then
-        echo '{"decision": "force_ask", "reason": "HARD GATE: Shell modification of governance resources requires explicit human approval."}'
-        exit 0
-    fi
-fi
+if tool_name in ["write_to_file", "replace_file_content", "multi_replace_file_content"]:
+    if re.search(r"(?:^|/|\\)(?:hooks\.json|check_approval\.sh)$", target_file) or "hooks.json" in target_file or "check_approval.sh" in target_file:
+        print(json.dumps({
+            "decision": "force_ask",
+            "reason": "HARD GATE: Modification of governance resources requires explicit human approval."
+        }))
+        sys.exit(0)
+elif tool_name == "run_command":
+    if re.search(r"(?:rm|sed|echo|touch|mv|cp|vi|nano|chmod|cat|>)\s+.*(?:hooks\.json|check_approval\.sh)", command_line):
+        print(json.dumps({
+            "decision": "force_ask",
+            "reason": "HARD GATE: Shell modification of governance resources requires explicit human approval."
+        }))
+        sys.exit(0)
 
-# 2. Database migrations
-if [[ "$TOOL_NAME" == "run_command" ]]; then
-    if echo "$INPUT" | grep -E -q '(dotnet ef|migration|update)'; then
-        echo '{"decision": "force_ask", "reason": "HARD GATE: Database migrations require explicit human approval."}'
-        exit 0
-    fi
-fi
+# 2. Database migrations or database-update commands
+if tool_name == "run_command":
+    if re.search(r"\bdotnet\s+ef\b|\bdatabase\s+update\b|\bmigrations\s+add\b", command_line, re.IGNORECASE):
+        print(json.dumps({
+            "decision": "force_ask",
+            "reason": "HARD GATE: Database migrations or database-update commands require explicit human approval."
+        }))
+        sys.exit(0)
 
-# 3. Protected production writes (Code modifications)
-# EnterpriseCommerce.Domain, Application, Infrastructure, WebApi are protected.
-# .UnitTests and .IntegrationTests are not matched by this regex due to the boundary.
-if [[ "$TOOL_NAME" =~ (replace_file_content|multi_replace_file_content|write_to_file) ]]; then
-    if echo "$INPUT" | grep -E -q 'EnterpriseCommerce\.(Domain|Application|Infrastructure|WebApi)(/|\\|")'; then
-        echo '{"decision": "force_ask", "reason": "HARD GATE: Protected production write requires explicit human approval."}'
-        exit 0
-    fi
-fi
+# 3. Protected production Domain writes (Code modifications to EnterpriseCommerce.Domain excluding UnitTests/Tests)
+if tool_name in ["write_to_file", "replace_file_content", "multi_replace_file_content"]:
+    if "EnterpriseCommerce.Domain" in target_file and not re.search(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", target_file):
+        print(json.dumps({
+            "decision": "force_ask",
+            "reason": "HARD GATE: Production Domain write requires explicit human approval."
+        }))
+        sys.exit(0)
+elif tool_name == "run_command":
+    if re.search(r"(?:rm|sed|echo|touch|mv|cp|vi|nano|chmod)\s+.*EnterpriseCommerce\.Domain", command_line) and not re.search(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", command_line):
+        print(json.dumps({
+            "decision": "force_ask",
+            "reason": "HARD GATE: Shell modification of production Domain requires explicit human approval."
+        }))
+        sys.exit(0)
 
-# 4. Protected shell-based write
-if [[ "$TOOL_NAME" == "run_command" ]]; then
-    # Match shell commands that write/modify files in the protected production directories
-    if echo "$INPUT" | grep -E -q '(rm|sed|echo.*>|touch|mv|cp|vi|nano|chmod).*EnterpriseCommerce\.(Domain|Application|Infrastructure|WebApi)(/|\\|")'; then
-        echo '{"decision": "force_ask", "reason": "HARD GATE: Protected shell-based write requires explicit human approval."}'
-        exit 0
-    fi
-fi
-
-# All other operations (Routine read/test operations) are allowed autonomously.
-echo '{"decision": "allow"}'
+# All other routine operations (Application, WebApi, Infrastructure, tests, builds, etc.)
+print(json.dumps({"decision": "allow"}))
+'

@@ -73,7 +73,7 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
 
     }
 
-    private async Task<(Guid orderId, Guid productId)> SetupOrderAndInventory(int initialStock)
+    private async Task<(Guid orderId, Guid productId, Guid customerId)> SetupOrderAndInventory(int initialStock)
     {
         var productId = Guid.NewGuid();
         
@@ -82,18 +82,20 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
         _dbContext!.InventoryItems.Add(inventoryItem);
         await _dbContext.SaveChangesAsync();
 
-        var order = Order.Create(Guid.NewGuid(), "TWD");
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
         order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
         _dbContext.Orders.Add(order);
         await _dbContext.SaveChangesAsync();
 
-        return (order.Id.Value, productId);
+        return (order.Id.Value, productId, customerId);
     }
 
-    private async Task SubmitOrderAsync(Guid orderId)
+    private async Task SubmitOrderAsync(Guid orderId, Guid customerId)
     {
         using var client = _factory!.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
         if (!response.IsSuccessStatusCode)
         {
@@ -105,8 +107,8 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario1_ExpiredSubmittedOrder_CancelsAndReleasesInventory()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
-        await SubmitOrderAsync(orderId);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
+        await SubmitOrderAsync(orderId, customerId);
         
         _dbContext!.ChangeTracker.Clear();
         
@@ -141,8 +143,8 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario2_PaidOrder_CannotBeExpired()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
-        await SubmitOrderAsync(orderId);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
+        await SubmitOrderAsync(orderId, customerId);
         
         _dbContext!.ChangeTracker.Clear();
         
@@ -165,8 +167,8 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario3_PaymentConfirmation_Vs_Expiration_Concurrency()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
-        await SubmitOrderAsync(orderId);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
+        await SubmitOrderAsync(orderId, customerId);
 
         await _dbContext!.Database.ExecuteSqlRawAsync(
             "UPDATE Orders SET SubmittedAt = @p0 WHERE Id = @p1", 
@@ -220,8 +222,8 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario4_MultipleExpirationWorkers_TargetingSameOrder()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
-        await SubmitOrderAsync(orderId);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
+        await SubmitOrderAsync(orderId, customerId);
 
         await _dbContext!.Database.ExecuteSqlRawAsync(
             "UPDATE Orders SET SubmittedAt = @p0 WHERE Id = @p1", 
@@ -259,13 +261,13 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario6_SubmittedAt_UTC_Semantics()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
         
         var order = await _dbContext!.Orders.FindAsync(new OrderId(orderId));
         order!.Status.Should().Be(OrderStatus.Pending);
         order.SubmittedAt.Should().BeNull();
 
-        await SubmitOrderAsync(orderId);
+        await SubmitOrderAsync(orderId, customerId);
         
         await _dbContext.Entry(order).ReloadAsync();
         order.Status.Should().Be(OrderStatus.Submitted);
@@ -276,8 +278,8 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task Scenario5_TransactionRollback_PreventsPartialState()
     {
-        var (orderId, productId) = await SetupOrderAndInventory(10);
-        await SubmitOrderAsync(orderId);
+        var (orderId, productId, customerId) = await SetupOrderAndInventory(10);
+        await SubmitOrderAsync(orderId, customerId);
 
         // We simulate a failure by using a faulty transaction or intercepting.
         // Actually, we can just test that if CancelOrder throws, nothing is saved.

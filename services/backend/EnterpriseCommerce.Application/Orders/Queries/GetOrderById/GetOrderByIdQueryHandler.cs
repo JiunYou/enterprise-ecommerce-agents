@@ -19,7 +19,7 @@ internal sealed class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery
         var orderId = new OrderId(request.OrderId);
         var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
 
-        if (order is null)
+        if (order is null || order.CustomerId != request.CustomerId)
         {
             return Result.Failure<OrderResponse>(OrderErrors.NotFound);
         }

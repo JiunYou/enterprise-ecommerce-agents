@@ -15,7 +15,7 @@ public class CancelOrderCommandValidatorTests
     [Fact]
     public void Should_Have_Error_When_OrderId_Is_Empty()
     {
-        var command = new CancelOrderCommand(Guid.Empty);
+        var command = new CancelOrderCommand(Guid.Empty, Guid.NewGuid());
         var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor(x => x.OrderId);
     }
@@ -23,7 +23,7 @@ public class CancelOrderCommandValidatorTests
     [Fact]
     public void Should_Not_Have_Error_When_OrderId_Is_Valid()
     {
-        var command = new CancelOrderCommand(Guid.NewGuid());
+        var command = new CancelOrderCommand(Guid.NewGuid(), Guid.NewGuid());
         var result = _validator.TestValidate(command);
         result.ShouldNotHaveAnyValidationErrors();
     }

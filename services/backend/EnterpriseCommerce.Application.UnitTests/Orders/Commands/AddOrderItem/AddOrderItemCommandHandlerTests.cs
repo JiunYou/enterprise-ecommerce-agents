@@ -40,13 +40,13 @@ public class AddOrderItemCommandHandlerTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
-        var command = new AddOrderItemCommand(order.Id.Value, product.Id, 2);
+        var command = new AddOrderItemCommand(order.Id.Value, order.CustomerId, product.Id, 2);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, result.Error.Code);
         Assert.Single(order.Items);
         Assert.Equal(300m, order.TotalAmount.Amount);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -60,7 +60,7 @@ public class AddOrderItemCommandHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(new OrderId(orderId), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
 
-        var command = new AddOrderItemCommand(orderId, Guid.NewGuid(), 1);
+        var command = new AddOrderItemCommand(orderId, Guid.NewGuid(), Guid.NewGuid(), 1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -83,7 +83,7 @@ public class AddOrderItemCommandHandlerTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(productId), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Product?)null);
 
-        var command = new AddOrderItemCommand(order.Id.Value, productId, 1);
+        var command = new AddOrderItemCommand(order.Id.Value, order.CustomerId, productId, 1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -108,7 +108,7 @@ public class AddOrderItemCommandHandlerTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
-        var command = new AddOrderItemCommand(order.Id.Value, product.Id, 1);
+        var command = new AddOrderItemCommand(order.Id.Value, order.CustomerId, product.Id, 1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -131,7 +131,7 @@ public class AddOrderItemCommandHandlerTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
-        var command = new AddOrderItemCommand(order.Id.Value, product.Id, 1);
+        var command = new AddOrderItemCommand(order.Id.Value, order.CustomerId, product.Id, 1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -139,6 +139,27 @@ public class AddOrderItemCommandHandlerTests
         // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.CurrencyMismatch.Code, result.Error.Code);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+    [Fact]
+    public async Task Handle_WhenCustomerMismatch_ShouldReturnNotFound()
+    {
+        // Arrange
+        var order = Order.Create(Guid.NewGuid(), "TWD");
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var differentCustomerId = Guid.NewGuid();
+        var command = new AddOrderItemCommand(order.Id.Value, differentCustomerId, Guid.NewGuid(), 1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.NotFound.Code, result.Error.Code);
+        Assert.Empty(order.Items);
+        _productRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

@@ -1,3 +1,4 @@
+using EnterpriseCommerce.WebApi.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,15 +27,16 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             return Task.FromResult(AuthenticateResult.Fail("Missing Authorization Header"));
         }
 
-        var userId = Request.Headers.TryGetValue("X-Test-User-Id", out var userIdHeader) 
-            ? userIdHeader.ToString() 
-            : Guid.NewGuid().ToString();
-
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.Name, "TestUser"),
-            new Claim(ClaimTypes.NameIdentifier, userId)
+            new Claim(ClaimTypes.NameIdentifier, "auth0|test-user")
         };
+
+        if (Request.Headers.TryGetValue("X-Test-User-Id", out var userIdHeader))
+        {
+            claims.Add(new Claim(CustomerClaimTypes.CustomerId, userIdHeader.ToString()));
+        }
 
         if (Request.Headers.TryGetValue("X-Test-Role", out var roleHeader))
         {

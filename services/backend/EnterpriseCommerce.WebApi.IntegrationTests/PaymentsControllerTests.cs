@@ -142,4 +142,28 @@ public class PaymentsControllerTests : IClassFixture<WebApplicationFactory<Progr
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+    [Fact]
+    public async Task InitiatePayment_MissingClaim_ReturnsForbidden()
+    {
+        var request = new InitiatePaymentRequest(Guid.NewGuid(), Guid.NewGuid());
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var response = await client.PostAsJsonAsync("/api/v1/payments/initiate", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<InitiatePaymentCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InitiatePayment_InvalidClaim_ReturnsForbidden()
+    {
+        var request = new InitiatePaymentRequest(Guid.NewGuid(), Guid.NewGuid());
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", "not-a-guid");
+
+        var response = await client.PostAsJsonAsync("/api/v1/payments/initiate", request);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<InitiatePaymentCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

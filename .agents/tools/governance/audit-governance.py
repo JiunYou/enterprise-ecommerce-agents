@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import subprocess
 
 def check_exists(path):
     if not os.path.exists(path):
@@ -298,6 +299,69 @@ else:
     if os.path.getsize(approval_script) == 0:
         print("Error: check_approval.sh is empty")
         errors += 1
+    else:
+        # Deterministic regression test suite for check_approval.sh
+        test_cases = [
+            (
+                "routine Application write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.Application/Services/OrderAppService.cs"}}}),
+                "allow"
+            ),
+            (
+                "routine WebApi write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"}}}),
+                "allow"
+            ),
+            (
+                "production Domain write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.Domain/Entities/Order.cs"}}}),
+                "force_ask"
+            ),
+            (
+                "dotnet ef database update",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "dotnet ef database update"}}}),
+                "force_ask"
+            ),
+            (
+                "hooks.json modification",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": ".agents/hooks.json"}}}),
+                "force_ask"
+            ),
+            (
+                "empty stdin",
+                "",
+                "force_ask"
+            ),
+            (
+                "malformed JSON",
+                "{malformed json",
+                "force_ask"
+            ),
+        ]
+        for desc, payload, expected_decision in test_cases:
+            try:
+                proc = subprocess.run(
+                    ["bash", approval_script],
+                    input=payload,
+                    text=True,
+                    capture_output=True,
+                    timeout=5
+                )
+                if proc.returncode != 0:
+                    print(f"Error: {desc} exited with return code {proc.returncode}")
+                    errors += 1
+                    continue
+                out_json = json.loads(proc.stdout.strip())
+                actual_decision = out_json.get("decision")
+                if actual_decision != expected_decision:
+                    print(f"Error: {desc} expected '{expected_decision}' but got '{actual_decision}'")
+                    errors += 1
+            except json.JSONDecodeError as e:
+                print(f"Error: {desc} did not return valid JSON: {e}")
+                errors += 1
+            except Exception as e:
+                print(f"Error: {desc} execution failed: {e}")
+                errors += 1
 
 if errors > 0:
     print(f"Validation failed with {errors} errors.")

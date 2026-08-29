@@ -303,27 +303,32 @@ else:
         # Deterministic regression test suite for check_approval.sh
         test_cases = [
             (
-                "routine Application write",
-                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.Application/Services/OrderAppService.cs"}}}),
+                "routine Application direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Application/Services/OrderAppService.cs"}}}),
                 "allow"
             ),
             (
-                "routine WebApi write",
-                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"}}}),
+                "routine WebApi direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"}}}),
                 "allow"
             ),
             (
-                "production Domain write",
-                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/src/EnterpriseCommerce.Domain/Entities/Order.cs"}}}),
+                "routine Infrastructure direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Infrastructure/Data/AppDbContext.cs"}}}),
+                "allow"
+            ),
+            (
+                "production Domain direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Domain/Orders/Order.cs"}}}),
                 "force_ask"
             ),
             (
-                "dotnet ef database update",
+                "database update",
                 json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "dotnet ef database update"}}}),
                 "force_ask"
             ),
             (
-                "hooks.json modification",
+                "governance direct write",
                 json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": ".agents/hooks.json"}}}),
                 "force_ask"
             ),
@@ -336,6 +341,26 @@ else:
                 "malformed JSON",
                 "{malformed json",
                 "force_ask"
+            ),
+            (
+                "invalid structure",
+                json.dumps({"toolCall": "invalid_not_a_dict"}),
+                "force_ask"
+            ),
+            (
+                "arbitrary-shell governance-path case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "python3 -c 'import os' .agents/hooks.json"}}}),
+                "force_ask"
+            ),
+            (
+                "arbitrary-shell production-Domain case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "python3 -c 'import os' services/backend/EnterpriseCommerce.Domain/Orders/Order.cs"}}}),
+                "force_ask"
+            ),
+            (
+                "Domain UnitTests shell case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "dotnet test services/backend/EnterpriseCommerce.Domain.UnitTests"}}}),
+                "allow"
             ),
         ]
         for desc, payload, expected_decision in test_cases:

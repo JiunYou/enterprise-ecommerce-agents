@@ -55,10 +55,10 @@ if tool_name in ["write_to_file", "replace_file_content", "multi_replace_file_co
         }))
         sys.exit(0)
 elif tool_name == "run_command":
-    if re.search(r"(?:rm|sed|echo|touch|mv|cp|vi|nano|chmod|cat|>)\s+.*(?:hooks\.json|check_approval\.sh)", command_line):
+    if "hooks.json" in command_line or "check_approval.sh" in command_line:
         print(json.dumps({
             "decision": "force_ask",
-            "reason": "HARD GATE: Shell modification of governance resources requires explicit human approval."
+            "reason": "HARD GATE: Shell access to governance resources requires explicit human approval."
         }))
         sys.exit(0)
 
@@ -71,19 +71,21 @@ if tool_name == "run_command":
         }))
         sys.exit(0)
 
-# 3. Protected production Domain writes (Code modifications to EnterpriseCommerce.Domain excluding UnitTests/Tests)
+# 3. Protected production Domain writes / execution
 if tool_name in ["write_to_file", "replace_file_content", "multi_replace_file_content"]:
-    if "EnterpriseCommerce.Domain" in target_file and not re.search(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", target_file):
+    stripped_target = re.sub(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", "", target_file)
+    if "EnterpriseCommerce.Domain" in stripped_target:
         print(json.dumps({
             "decision": "force_ask",
             "reason": "HARD GATE: Production Domain write requires explicit human approval."
         }))
         sys.exit(0)
 elif tool_name == "run_command":
-    if re.search(r"(?:rm|sed|echo|touch|mv|cp|vi|nano|chmod)\s+.*EnterpriseCommerce\.Domain", command_line) and not re.search(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", command_line):
+    stripped_cmd = re.sub(r"EnterpriseCommerce\.Domain\.(?:UnitTests|Tests|IntegrationTests)", "", command_line)
+    if "EnterpriseCommerce.Domain" in stripped_cmd:
         print(json.dumps({
             "decision": "force_ask",
-            "reason": "HARD GATE: Shell modification of production Domain requires explicit human approval."
+            "reason": "HARD GATE: Shell command referencing production Domain requires explicit human approval."
         }))
         sys.exit(0)
 

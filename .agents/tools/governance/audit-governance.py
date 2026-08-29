@@ -51,8 +51,8 @@ for agent in expected_agents:
                 errors += 1
 
             blocks = content.split("---")
-            if len(blocks) < 3:
-                print(f"Error: Expected 1 frontmatter block in {agent_file}")
+            if len(blocks) != 3 or not content.startswith("---"):
+                print(f"Error: Expected exactly 1 frontmatter block in {agent_file}")
                 errors += 1
             else:
                 fm = blocks[1]
@@ -94,8 +94,8 @@ for skill in expected_skills:
                 errors += 1
 
             blocks = content.split("---")
-            if len(blocks) < 3:
-                print(f"Error: Expected 1 frontmatter block in {skill_file}")
+            if len(blocks) != 3 or not content.startswith("---"):
+                print(f"Error: Expected exactly 1 frontmatter block in {skill_file}")
                 errors += 1
             else:
                 fm = blocks[1]
@@ -213,12 +213,17 @@ with open(".agents/memory/catalog.json", "r") as f:
                 # Try to parse status flexibly
                 source_status = None
                 for line in content.split('\n'):
-                    if line.lower().lstrip('- *').startswith("status:"):
-                        source_status = line.split(":", 1)[1].strip().strip("*").strip()
+                    cleaned = line.strip().lstrip('- *').strip()
+                    if cleaned.lower().startswith("status:"):
+                        source_status = cleaned.split(":", 1)[1].strip().strip("*").strip()
                         break
                 if source_status:
-                    if entry['status'].lower() != source_status.lower():
+                    if entry['status'] != source_status:
                         print(f"Error: Status mismatch for {entry['id']}. Catalog: {entry['status']}, Source: {source_status}")
+                        errors += 1
+                else:
+                    if entry['status'] != "Unspecified":
+                        print(f"Error: ADR source {filename} lacks explicit Status, catalog must be 'Unspecified' but was '{entry['status']}'")
                         errors += 1
 
     if set(found_adrs) != set(catalog_adrs):
@@ -259,6 +264,40 @@ for path in active_dirs:
                 if term in content:
                     print(f"Error: Stale reference '{term}' found in active file {f_path}")
                     errors += 1
+
+# 9. Hook and approval gate checks
+hooks_path = ".agents/hooks.json"
+if not check_exists(hooks_path):
+    errors += 1
+else:
+    try:
+        with open(hooks_path, "r") as f:
+            hooks_json = json.load(f)
+        pre_tool_use = hooks_json.get("high-risk-gate", {}).get("PreToolUse", [])
+        if not pre_tool_use:
+            print("Error: PreToolUse not found in hooks.json")
+            errors += 1
+        else:
+            matcher = pre_tool_use[0].get("matcher", "")
+            if matcher == "*":
+                print("Error: hook matcher must not be '*'")
+                errors += 1
+            authorized_tools = ["write_to_file", "replace_file_content", "multi_replace_file_content", "run_command"]
+            for tool in authorized_tools:
+                if tool not in matcher:
+                    print(f"Error: hook matcher missing authorized tool '{tool}'")
+                    errors += 1
+    except Exception as e:
+        print(f"Error: hooks.json failed to parse: {e}")
+        errors += 1
+
+approval_script = ".agents/permissions/check_approval.sh"
+if not check_exists(approval_script):
+    errors += 1
+else:
+    if os.path.getsize(approval_script) == 0:
+        print("Error: check_approval.sh is empty")
+        errors += 1
 
 if errors > 0:
     print(f"Validation failed with {errors} errors.")

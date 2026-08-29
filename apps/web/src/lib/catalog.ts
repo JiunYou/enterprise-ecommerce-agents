@@ -30,6 +30,8 @@ export interface GetProductsParams {
   page?: number;
   pageSize?: number;
   searchTerm?: string;
+  sortBy?: "name" | "price";
+  sortOrder?: "asc" | "desc";
 }
 
 export async function getProducts(
@@ -57,6 +59,14 @@ export async function getProducts(
 
   if (params.searchTerm && params.searchTerm.trim().length > 0) {
     url.searchParams.set("searchTerm", params.searchTerm.trim());
+  }
+
+  if (params.sortBy) {
+    url.searchParams.set("sortBy", params.sortBy);
+  }
+
+  if (params.sortOrder) {
+    url.searchParams.set("sortOrder", params.sortOrder);
   }
 
   try {

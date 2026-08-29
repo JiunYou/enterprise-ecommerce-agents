@@ -93,7 +93,7 @@
     "id": "ADR-Phase1-001",
     "type": "decision",
     "path": ".agents/memory/decisions/ADR-Phase1-001.md",
-    "status": "Proposed",
+    "status": "Unspecified",
     "domains": ["architecture", "domain"],
     "triggers": ["business domain", "domain classification"],
     "summary": "Business Domain Classification Decision."
@@ -102,7 +102,7 @@
     "id": "ADR-Phase2-001",
     "type": "decision",
     "path": ".agents/memory/decisions/ADR-Phase2-001.md",
-    "status": "Proposed",
+    "status": "Unspecified",
     "domains": ["architecture"],
     "triggers": ["phase 2 architecture", "microservices"],
     "summary": "Architecture Phase 2 structural decisions."

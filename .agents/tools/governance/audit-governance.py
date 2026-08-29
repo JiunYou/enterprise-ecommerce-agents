@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import subprocess
 
 def check_exists(path):
     if not os.path.exists(path):
@@ -51,8 +52,8 @@ for agent in expected_agents:
                 errors += 1
 
             blocks = content.split("---")
-            if len(blocks) < 3:
-                print(f"Error: Expected 1 frontmatter block in {agent_file}")
+            if len(blocks) != 3 or not content.startswith("---"):
+                print(f"Error: Expected exactly 1 frontmatter block in {agent_file}")
                 errors += 1
             else:
                 fm = blocks[1]
@@ -94,8 +95,8 @@ for skill in expected_skills:
                 errors += 1
 
             blocks = content.split("---")
-            if len(blocks) < 3:
-                print(f"Error: Expected 1 frontmatter block in {skill_file}")
+            if len(blocks) != 3 or not content.startswith("---"):
+                print(f"Error: Expected exactly 1 frontmatter block in {skill_file}")
                 errors += 1
             else:
                 fm = blocks[1]
@@ -213,12 +214,17 @@ with open(".agents/memory/catalog.json", "r") as f:
                 # Try to parse status flexibly
                 source_status = None
                 for line in content.split('\n'):
-                    if line.lower().lstrip('- *').startswith("status:"):
-                        source_status = line.split(":", 1)[1].strip().strip("*").strip()
+                    cleaned = line.strip().lstrip('- *').strip()
+                    if cleaned.lower().startswith("status:"):
+                        source_status = cleaned.split(":", 1)[1].strip().strip("*").strip()
                         break
                 if source_status:
-                    if entry['status'].lower() != source_status.lower():
+                    if entry['status'] != source_status:
                         print(f"Error: Status mismatch for {entry['id']}. Catalog: {entry['status']}, Source: {source_status}")
+                        errors += 1
+                else:
+                    if entry['status'] != "Unspecified":
+                        print(f"Error: ADR source {filename} lacks explicit Status, catalog must be 'Unspecified' but was '{entry['status']}'")
                         errors += 1
 
     if set(found_adrs) != set(catalog_adrs):
@@ -259,6 +265,128 @@ for path in active_dirs:
                 if term in content:
                     print(f"Error: Stale reference '{term}' found in active file {f_path}")
                     errors += 1
+
+# 9. Hook and approval gate checks
+hooks_path = ".agents/hooks.json"
+if not check_exists(hooks_path):
+    errors += 1
+else:
+    try:
+        with open(hooks_path, "r") as f:
+            hooks_json = json.load(f)
+        pre_tool_use = hooks_json.get("high-risk-gate", {}).get("PreToolUse", [])
+        if not pre_tool_use:
+            print("Error: PreToolUse not found in hooks.json")
+            errors += 1
+        else:
+            matcher = pre_tool_use[0].get("matcher", "")
+            if matcher == "*":
+                print("Error: hook matcher must not be '*'")
+                errors += 1
+            authorized_tools = ["write_to_file", "replace_file_content", "multi_replace_file_content", "run_command"]
+            for tool in authorized_tools:
+                if tool not in matcher:
+                    print(f"Error: hook matcher missing authorized tool '{tool}'")
+                    errors += 1
+    except Exception as e:
+        print(f"Error: hooks.json failed to parse: {e}")
+        errors += 1
+
+approval_script = ".agents/permissions/check_approval.sh"
+if not check_exists(approval_script):
+    errors += 1
+else:
+    if os.path.getsize(approval_script) == 0:
+        print("Error: check_approval.sh is empty")
+        errors += 1
+    else:
+        # Deterministic regression test suite for check_approval.sh
+        test_cases = [
+            (
+                "routine Application direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Application/Services/OrderAppService.cs"}}}),
+                "allow"
+            ),
+            (
+                "routine WebApi direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"}}}),
+                "allow"
+            ),
+            (
+                "routine Infrastructure direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Infrastructure/Data/AppDbContext.cs"}}}),
+                "allow"
+            ),
+            (
+                "production Domain direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": "services/backend/EnterpriseCommerce.Domain/Orders/Order.cs"}}}),
+                "force_ask"
+            ),
+            (
+                "database update",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "dotnet ef database update"}}}),
+                "force_ask"
+            ),
+            (
+                "governance direct write",
+                json.dumps({"toolCall": {"name": "write_to_file", "args": {"TargetFile": ".agents/hooks.json"}}}),
+                "force_ask"
+            ),
+            (
+                "empty stdin",
+                "",
+                "force_ask"
+            ),
+            (
+                "malformed JSON",
+                "{malformed json",
+                "force_ask"
+            ),
+            (
+                "invalid structure",
+                json.dumps({"toolCall": "invalid_not_a_dict"}),
+                "force_ask"
+            ),
+            (
+                "arbitrary-shell governance-path case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "python3 -c 'import os' .agents/hooks.json"}}}),
+                "force_ask"
+            ),
+            (
+                "arbitrary-shell production-Domain case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "python3 -c 'import os' services/backend/EnterpriseCommerce.Domain/Orders/Order.cs"}}}),
+                "force_ask"
+            ),
+            (
+                "Domain UnitTests shell case",
+                json.dumps({"toolCall": {"name": "run_command", "args": {"CommandLine": "dotnet test services/backend/EnterpriseCommerce.Domain.UnitTests"}}}),
+                "allow"
+            ),
+        ]
+        for desc, payload, expected_decision in test_cases:
+            try:
+                proc = subprocess.run(
+                    ["bash", approval_script],
+                    input=payload,
+                    text=True,
+                    capture_output=True,
+                    timeout=5
+                )
+                if proc.returncode != 0:
+                    print(f"Error: {desc} exited with return code {proc.returncode}")
+                    errors += 1
+                    continue
+                out_json = json.loads(proc.stdout.strip())
+                actual_decision = out_json.get("decision")
+                if actual_decision != expected_decision:
+                    print(f"Error: {desc} expected '{expected_decision}' but got '{actual_decision}'")
+                    errors += 1
+            except json.JSONDecodeError as e:
+                print(f"Error: {desc} did not return valid JSON: {e}")
+                errors += 1
+            except Exception as e:
+                print(f"Error: {desc} execution failed: {e}")
+                errors += 1
 
 if errors > 0:
     print(f"Validation failed with {errors} errors.")

@@ -13,6 +13,7 @@ This repository uses a progressively disclosed AI engineering architecture that 
 8. **Evidence**: Evidence over AI completion claims.
 9. **Execution**: Maximum 3 correction cycles. Stop after acceptance criteria pass.
 10. **Roles**: One primary implementation Agent by default. Reviewers are conditional, not automatically all invoked.
+11. **Git Integration**: Before branch, rebase, push, PR, or merge operations, verify worktree state, current HEAD/upstream, merge-base/divergence, and existing PR/merge state. Never perform Git integration based on assumed branch state.
 
 ## Routing and Memory
 - **Agents**: Use `.agents/routing/agents.json`.

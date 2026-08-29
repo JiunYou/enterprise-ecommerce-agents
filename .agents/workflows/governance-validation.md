@@ -28,7 +28,7 @@ graph TD
    - 確認 Document ID, Version, Owner 等欄位格式正確。
 
 3. **Architecture Review**
-   - 由 Architecture Agent 進行檢查。
+   - 由 architecture-reviewer 進行檢查。
    - 確認是否違反既有系統架構設計與 ADR。
 
 4. **Security Review**

@@ -1,14 +1,12 @@
 ---
 name: ecommerce-domain
-description: 電商領域知識與商業邏輯
+description: Use when dealing with specific e-commerce domain concepts like orders, carts, and catalogs.
 ---
 # Ecommerce Domain Skill
-包含：
-- 電商商業流程
-- 商品管理
-- 購物車
-- 訂單流程
-- 金流
-- 物流
-- 會員系統
-- 權限系統
+
+## Guidance
+- Handle complex business workflows for e-commerce.
+- Manage products, catalogs, and inventory lifecycles.
+- Process shopping carts and checkout flows safely.
+- Implement order fulfillment, shipping, and returns logic.
+- Handle membership and role-based permissions correctly.

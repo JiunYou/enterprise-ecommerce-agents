@@ -1,22 +1,14 @@
 ---
 name: ddd
-description: Skill guidelines for ddd
+description: Use when designing domain models, aggregates, bounded contexts, and domain events.
 ---
-# Ddd Skill
+# Domain-Driven Design (DDD) Skill
 
-## Purpose
-Guidelines and best practices for ddd implementations.
+## Guidance
+- Clearly define Bounded Contexts and Ubiquitous Language.
+- Design Aggregates with strict consistency boundaries.
+- Utilize Domain Events for decoupling side effects.
+- Isolate domain logic from infrastructure concerns.
 
-## When to use
-Use when modifying or creating ddd related components.
-
-## Required knowledge
-- Enterprise standards for ddd
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
+## Boundaries / Validation
+Requires architecture and domain-architect review for major invariant changes.

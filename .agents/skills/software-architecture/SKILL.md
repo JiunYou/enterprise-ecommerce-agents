@@ -1,10 +1,10 @@
 ---
 name: software-architecture
-description: 軟體架構設計準則
+description: Use when making high-level system design decisions and structural architectural choices.
 ---
 # Software Architecture Skill
-包含：
-- Microservices vs Monolith
-- Clean Architecture
-- Event-Driven Architecture
-- CQRS & Event Sourcing
+
+## Guidance
+- Make informed trade-offs between Microservices and Monoliths.
+- Apply Clean Architecture and domain isolation principles.
+- Use Event-Driven Architecture and CQRS where appropriate.

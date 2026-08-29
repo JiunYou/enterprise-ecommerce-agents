@@ -1,11 +1,11 @@
 ---
 name: api-security
-description: API 安全性最佳實踐
+description: Use when reviewing API authorization, authentication, and endpoint security vulnerabilities.
 ---
 # API Security Skill
-包含：
-- REST API Security
-- JWT
-- OAuth
-- Rate Limit
-- Input Validation
+
+## Guidance
+- Review API endpoint authorization and authentication.
+- Ensure endpoints are protected against broken object level authorization (BOLA).
+- Implement rate limiting and input validation.
+- Securely handle API tokens and credentials.

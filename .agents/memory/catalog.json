@@ -1,0 +1,164 @@
+[
+  {
+    "id": "ADR-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-001.md",
+    "status": "Proposed",
+    "domains": ["architecture", "domain"],
+    "triggers": ["domain design", "system architecture"],
+    "summary": "Initial baseline architecture decisions."
+  },
+  {
+    "id": "ADR-008-Repository-Architecture",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-008-Repository-Architecture.md",
+    "status": "Proposed",
+    "domains": ["repository", "architecture"],
+    "triggers": ["repository structure", "monorepo", "module placement"],
+    "summary": "Defines the repository/monorepo structure and placement boundaries for project components."
+  },
+  {
+    "id": "ADR-009-Branch-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-009-Branch-Strategy.md",
+    "status": "Proposed",
+    "domains": ["git", "repository"],
+    "triggers": ["branch strategy", "feature branch", "merge workflow"],
+    "summary": "Defines the Git branching and integration strategy used by the repository."
+  },
+  {
+    "id": "ADR-010-CICD-Pipeline",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-010-CICD-Pipeline.md",
+    "status": "Proposed",
+    "domains": ["ci-cd", "deployment"],
+    "triggers": ["CI", "CD", "pipeline", "GitHub Actions", "build automation"],
+    "summary": "Defines the project's CI/CD pipeline strategy and automated validation/deployment flow."
+  },
+  {
+    "id": "ADR-011-Environment-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-011-Environment-Strategy.md",
+    "status": "Proposed",
+    "domains": ["environment", "deployment"],
+    "triggers": ["environment", "configuration", "staging", "production"],
+    "summary": "Defines environment separation and configuration strategy."
+  },
+  {
+    "id": "ADR-012-AIAgent-Workflow",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-012-AIAgent-Workflow.md",
+    "status": "Proposed",
+    "domains": ["ai-governance"],
+    "triggers": ["agent routing", "agent workflow", "multi-agent", "validation roles"],
+    "summary": "Defines the original AI Agent collaboration, specialist ownership and validation workflow decision."
+  },
+  {
+    "id": "ADR-013-Platform-Bootstrap",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-013-Platform-Bootstrap.md",
+    "status": "Approved",
+    "domains": ["platform", "environment", "bootstrap"],
+    "triggers": ["platform bootstrap", "infrastructure setup"],
+    "summary": "Initial infrastructure and platform bootstrapping decisions."
+  },
+  {
+    "id": "ADR-014-Logging-Strategy",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-014-Logging-Strategy.md",
+    "status": "Approved",
+    "domains": ["observability", "security", "logging"],
+    "triggers": ["logging strategy", "observability setup"],
+    "summary": "Strategy for application logging and operational observability."
+  },
+  {
+    "id": "ADR-015-Local-Environment",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-015-Local-Environment.md",
+    "status": "Approved",
+    "domains": ["environment", "local development"],
+    "triggers": ["local dev", "docker compose"],
+    "summary": "Standardization of the local development environment."
+  },
+  {
+    "id": "ADR-016-AI-Agent-Execution-Control",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-016-AI-Agent-Execution-Control.md",
+    "status": "Proposed",
+    "domains": ["ai-governance"],
+    "triggers": ["execution boundary", "approval", "correction cycle", "scope", "STOP condition"],
+    "summary": "Defines AI execution boundaries, completion conditions, maximum correction cycles and implementation/validation separation."
+  },
+  {
+    "id": "ADR-Phase1-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase1-001.md",
+    "status": "Proposed",
+    "domains": ["architecture", "domain"],
+    "triggers": ["business domain", "domain classification"],
+    "summary": "Business Domain Classification Decision."
+  },
+  {
+    "id": "ADR-Phase2-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase2-001.md",
+    "status": "Proposed",
+    "domains": ["architecture"],
+    "triggers": ["phase 2 architecture", "microservices"],
+    "summary": "Architecture Phase 2 structural decisions."
+  },
+  {
+    "id": "ADR-Phase4-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Phase4-001.md",
+    "status": "Proposed",
+    "domains": ["architecture", "deployment"],
+    "triggers": ["phase 4 architecture", "scaling"],
+    "summary": "Architecture Phase 4 scaling and optimization decisions."
+  },
+  {
+    "id": "ADR-Security-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Security-001.md",
+    "status": "Proposed",
+    "domains": ["security", "auth"],
+    "triggers": ["authentication", "security policies"],
+    "summary": "Baseline security and authentication policy decisions."
+  },
+  {
+    "id": "ADR-Security-002",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Security-002.md",
+    "status": "Proposed",
+    "domains": ["security", "authorization"],
+    "triggers": ["authorization", "RBAC", "permissions"],
+    "summary": "Authorization and RBAC security model decisions."
+  },
+  {
+    "id": "ADR-Technical-001",
+    "type": "decision",
+    "path": ".agents/memory/decisions/ADR-Technical-001.md",
+    "status": "Proposed",
+    "domains": ["architecture", "stack"],
+    "triggers": ["tech stack", "frameworks", "tools"],
+    "summary": "Technical stack and foundational tooling selections."
+  },
+  {
+    "id": "approved-patterns",
+    "type": "pattern",
+    "path": ".agents/memory/patterns/approved-patterns.md",
+    "status": "Active",
+    "domains": ["architecture", "patterns"],
+    "triggers": ["implementation", "code review"],
+    "summary": "Approved architectural pattern for implementation."
+  },
+  {
+    "id": "forbidden-patterns",
+    "type": "anti-pattern",
+    "path": ".agents/memory/anti-patterns/forbidden-patterns.md",
+    "status": "Active",
+    "domains": ["architecture", "anti-patterns"],
+    "triggers": ["implementation", "code review"],
+    "summary": "Forbidden architectural pattern to avoid."
+  }
+]

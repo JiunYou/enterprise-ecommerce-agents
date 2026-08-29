@@ -1,22 +1,13 @@
 ---
 name: devops
-description: Skill guidelines for devops
+description: Use when working on CI/CD, pipelines, infrastructure as code, and deployment strategies.
 ---
-# Devops Skill
+# DevOps Skill
 
-## Purpose
-Guidelines and best practices for devops implementations.
+## Guidance
+- Implement robust CI/CD pipelines (e.g., GitHub Actions).
+- Manage Docker setup and infrastructure configuration.
+- Handle deployments, reverse proxy, TLS, and backups safely.
 
-## When to use
-Use when modifying or creating devops related components.
-
-## Required knowledge
-- Enterprise standards for devops
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
+## Boundaries / Validation
+Production deployments require explicit approval gates.

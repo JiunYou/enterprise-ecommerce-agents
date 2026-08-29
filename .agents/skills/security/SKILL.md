@@ -1,22 +1,14 @@
 ---
 name: security
-description: Skill guidelines for security
+description: Use when securing applications against general OWASP vulnerabilities and handling secrets securely.
 ---
 # Security Skill
 
-## Purpose
-Guidelines and best practices for security implementations.
+## Guidance
+- Mitigate OWASP Top 10 vulnerabilities (Injection, XSS, CSRF, etc.).
+- Manage secrets, API keys, and credentials securely.
+- Ensure proper authentication and least-privilege authorization.
+- Secure logging and prevent PII leakage.
 
-## When to use
-Use when modifying or creating security related components.
-
-## Required knowledge
-- Enterprise standards for security
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
+## Boundaries / Validation
+Must adhere to enterprise security policies. Used primarily during high-risk review.

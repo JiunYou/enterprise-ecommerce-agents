@@ -1,22 +1,10 @@
 ---
 name: testing
-description: Skill guidelines for testing
+description: Use when writing unit, integration, and E2E tests, or mocking dependencies.
 ---
 # Testing Skill
 
-## Purpose
-Guidelines and best practices for testing implementations.
-
-## When to use
-Use when modifying or creating testing related components.
-
-## Required knowledge
-- Enterprise standards for testing
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
+## Guidance
+- Write comprehensive unit, integration, and E2E tests.
+- Mock external dependencies safely.
+- Ensure test reliability and reduce flakiness.

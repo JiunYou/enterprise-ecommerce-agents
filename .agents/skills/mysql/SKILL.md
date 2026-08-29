@@ -1,22 +1,14 @@
 ---
 name: mysql
-description: Skill guidelines for mysql
+description: Use when designing MySQL schemas, indexes, complex queries, and migrations.
 ---
-# Mysql Skill
+# MySQL Skill
 
-## Purpose
-Guidelines and best practices for mysql implementations.
+## Guidance
+- Design schemas adhering to enterprise standards.
+- Optimize queries and configure appropriate indexes.
+- Plan and execute migrations safely.
+- Manage transactions and concurrency robustly.
 
-## When to use
-Use when modifying or creating mysql related components.
-
-## Required knowledge
-- Enterprise standards for mysql
-- Relevant ADRs
-
-## Restrictions
-- Must adhere to enterprise architecture and security policies
-
-## Validation method
-- Code review
-- Automated tests
+## Boundaries / Validation
+Destructive schema changes are high-risk and require explicit database review.

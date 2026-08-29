@@ -1,0 +1,238 @@
+{
+  "version": "1.0",
+  "entrypoint": "orchestrator",
+  "max_handoff_depth": 2,
+  "agents": [
+    {
+      "id": "orchestrator",
+      "role": "Orchestrator",
+      "primary_for": [
+        "classification",
+        "routing",
+        "workflow selection"
+      ],
+      "review_for": [],
+      "owns": [],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "product-manager",
+      "role": "Product Manager",
+      "primary_for": [
+        "requirements",
+        "scope"
+      ],
+      "review_for": [],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "system-architect",
+      "role": "System Architect",
+      "primary_for": [
+        "architecture design",
+        "cross-module boundaries"
+      ],
+      "review_for": [],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "architecture-reviewer",
+      "role": "Architecture Reviewer",
+      "primary_for": [],
+      "review_for": [
+        "architecture boundary",
+        "cross-module design",
+        "dependency boundary",
+        "architecture ADR"
+      ],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "domain-architect",
+      "role": "Domain Architect",
+      "primary_for": [
+        "DDD",
+        "domain logic"
+      ],
+      "review_for": [],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "dotnet-backend",
+      "role": ".NET Backend Engineer",
+      "primary_for": [
+        ".NET implementation"
+      ],
+      "review_for": [],
+      "owns": [
+        "services/backend/**"
+      ],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "nodejs-backend",
+      "role": "Node.js Backend Engineer",
+      "primary_for": [
+        "Node.js implementation"
+      ],
+      "review_for": [],
+      "owns": [
+        "services/workers/**"
+      ],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "frontend",
+      "role": "Frontend Engineer",
+      "primary_for": [
+        "UI implementation"
+      ],
+      "review_for": [],
+      "owns": [
+        "apps/**"
+      ],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "database",
+      "role": "Database Engineer",
+      "primary_for": [
+        "MySQL schema",
+        "migrations"
+      ],
+      "review_for": [],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "devops",
+      "role": "DevOps Engineer",
+      "primary_for": [
+        "infrastructure",
+        "pipelines"
+      ],
+      "review_for": [],
+      "owns": [
+        "infrastructure/**"
+      ],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "qa",
+      "role": "QA Engineer",
+      "primary_for": [
+        "testing",
+        "validation"
+      ],
+      "review_for": [
+        "product behavior",
+        "executable code",
+        "tests",
+        "regression"
+      ],
+      "owns": [],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "security",
+      "role": "Security Engineer",
+      "primary_for": [],
+      "review_for": [
+        "auth",
+        "authorization",
+        "payment",
+        "secret",
+        "external API",
+        "webhook",
+        "PII",
+        "privileged operation"
+      ],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "compliance",
+      "role": "Compliance Officer",
+      "primary_for": [],
+      "review_for": [
+        "privacy",
+        "PCI",
+        "regulatory",
+        "audit"
+      ],
+      "owns": [],
+      "model_preference": "Pro"
+    },
+    {
+      "id": "documentation-reviewer",
+      "role": "Documentation Reviewer",
+      "primary_for": [],
+      "review_for": [
+        "durable architecture",
+        "governance",
+        "API documentation"
+      ],
+      "owns": [],
+      "model_preference": "Flash"
+    },
+    {
+      "id": "release",
+      "role": "Release Manager",
+      "primary_for": [
+        "release readiness"
+      ],
+      "review_for": [
+        "deployment readiness"
+      ],
+      "owns": [],
+      "model_preference": "Flash"
+    }
+  ],
+  "risk_rules": {
+    "source": ".agents/rules/approval-gates.md",
+    "high_risk_requires_human_approval": true,
+    "routine_requires_human_approval": false
+  },
+  "review_rules": {
+    "QA": [
+      "product behavior",
+      "executable code",
+      "tests",
+      "regression",
+      "explicit validation"
+    ],
+    "Security": [
+      "auth",
+      "authorization",
+      "payment",
+      "secret",
+      "external API/webhook",
+      "PII",
+      "privileged operation",
+      "injection/security-sensitive infrastructure"
+    ],
+    "Architecture Reviewer": [
+      "architecture boundary",
+      "cross-module design",
+      "dependency boundary",
+      "architecture ADR",
+      "major domain architecture"
+    ],
+    "Compliance": [
+      "privacy",
+      "PII",
+      "PCI/regulatory",
+      "audit/compliance requirements"
+    ],
+    "Documentation Reviewer": [
+      "durable architecture/governance/API/security documentation requiring independent validation"
+    ],
+    "Release": [
+      "release/deployment readiness"
+    ]
+  }
+}

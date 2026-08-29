@@ -1,14 +1,11 @@
 ---
 name: frontend-engineering
-description: 前端工程與架構
+description: Use when working on general frontend architecture, web standards, and browser APIs.
 ---
 # Frontend Engineering Skill
-包含：
-- React
-- Component Design
-- State Management
-- Performance
-- JavaScript
-- TypeScript
-- API Integration
-- Security
+
+## Guidance
+- Structure React applications with sound component design.
+- Implement state management and performance optimizations.
+- Use TypeScript for robust frontend typing.
+- Handle API integration securely on the client side.

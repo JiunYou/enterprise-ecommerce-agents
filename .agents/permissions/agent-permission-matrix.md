@@ -1,14 +1,19 @@
 # Agent Permission Matrix
 
-本矩陣定義了各個 Agent 在專案中的存取與操作權限。所有 Agent 必須嚴格遵守此權限模型，任何越權行為將被系統自動阻擋。
-
-| Agent Name | Read Permission | Write Permission | Execute Permission | Forbidden Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **Master Orchestrator** | 全局 (All) | 任務分派、狀態更新 | 啟動或中斷其他 Agent | 撰寫產品程式碼 |
-| **Architecture Agent** | 全局 (All) | `.agents/docs/architecture/`、`.agents/docs/governance/` | 架構檢查與驗證腳本 | 修改業務邏輯與介面 |
-| **Security Agent** | 全局 (All) | 安全性報告、`.agents/docs/security/` | **Block (攔截高風險操作)** | **自行修改架構**、直接部署 |
-| **Documentation Validator** | 全局 (All) | 無 (No Write) | 觸發驗證流程 | **修改文件內容** (僅能 Read) |
-| **Developer** | 原始碼、技術文件 | 產品程式碼、單元測試 | 執行本地測試、建置 | 繞過 Security Review、修改 Rules |
-| **QA** | 產品程式碼、測試計畫 | 測試案例、測試報告 | 執行自動化測試、E2E | 修改產品原始碼 |
-| **DevOps** | CI/CD 設定、日誌 | 部署腳本、基礎設施 | 觸發 Pipeline、部署 | 修改業務邏輯、繞過安全檢查 |
-| **Memory Agent** | `.agents/memory/` | `.agents/memory/` | 分析與檢索歷史紀錄 | 刪除歷史紀錄、執行系統指令 |
+| Agent ID | Read | Write | Execute | Forbidden / Approval Boundary |
+|---|---|---|---|---|
+| orchestrator | repository/governance | routing/task/governance reports only | coordination and approved validation | complex production-code implementation; bypassing gates |
+| product-manager | product documentation | product/requirements documentation | none | product implementation |
+| system-architect | architecture docs | architecture proposals/ADRs/docs | none | bypassing architecture approval; routine product implementation |
+| architecture-reviewer | architecture docs | architecture review reports only | none | product implementation and self-approving its own architecture design |
+| domain-architect | domain documentation | domain design/ADR proposals and approved domain changes only | none | unapproved aggregate/invariant/lifecycle changes |
+| dotnet-backend | services/backend/** | services/backend/** within task scope | tests | Rules/permissions modifications; unapproved high-risk Domain/schema/security-policy changes |
+| nodejs-backend | services/workers/** | services/workers/** | tests | same high-risk restrictions |
+| frontend | apps/** | apps/** | tests | backend/database/governance modification outside explicitly authorized scope |
+| database | database schema | database/schema/migration-related files within approved task | query/migrations | unapproved destructive/schema operations |
+| devops | infrastructure/** | infrastructure/CI/CD/deployment configuration | build/deploy | product business logic; unapproved production deployment |
+| qa | codebase | tests and validation reports | tests | product production-code fixes while acting as independent reviewer |
+| security | codebase | security review/report artifacts | block/review security-sensitive work | silently rewriting product architecture or deploying |
+| compliance | codebase | compliance/audit reports | none | product implementation |
+| documentation-reviewer| docs | validation/review report only | none | modifying source document under independent review |
+| release | codebase | release-readiness reports/release metadata where authorized | validation | production deployment without approval; product business logic |

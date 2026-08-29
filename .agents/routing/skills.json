@@ -1,0 +1,166 @@
+{
+  "version": "1.0",
+  "skills": [
+    "api-security",
+    "code-review",
+    "ddd",
+    "devops",
+    "docker-engineering",
+    "dotnet",
+    "ecommerce-domain",
+    "ecommerce-security",
+    "external-api-integration",
+    "frontend-engineering",
+    "git-workflow",
+    "javascript-engineering",
+    "mysql",
+    "nextjs",
+    "nodejs",
+    "rabbitmq",
+    "rest-api-design",
+    "security",
+    "software-architecture",
+    "system-modeling",
+    "testing",
+    "threat-modeling"
+  ],
+  "routing": {
+    "orchestrator": {
+      "default": [],
+      "optional": []
+    },
+    "product-manager": {
+      "default": [],
+      "optional": [
+        "ecommerce-domain"
+      ]
+    },
+    "system-architect": {
+      "default": [
+        "software-architecture"
+      ],
+      "optional": [
+        "system-modeling",
+        "ddd",
+        "ecommerce-domain",
+        "threat-modeling"
+      ]
+    },
+    "architecture-reviewer": {
+      "default": [
+        "software-architecture"
+      ],
+      "optional": [
+        "system-modeling",
+        "code-review",
+        "threat-modeling"
+      ]
+    },
+    "domain-architect": {
+      "default": [
+        "ddd"
+      ],
+      "optional": [
+        "ecommerce-domain"
+      ]
+    },
+    "dotnet-backend": {
+      "default": [
+        "dotnet"
+      ],
+      "optional": [
+        "rest-api-design",
+        "external-api-integration",
+        "mysql",
+        "ddd",
+        "rabbitmq",
+        "testing",
+        "security",
+        "api-security"
+      ]
+    },
+    "nodejs-backend": {
+      "default": [
+        "nodejs"
+      ],
+      "optional": [
+        "javascript-engineering",
+        "rest-api-design",
+        "external-api-integration",
+        "mysql",
+        "rabbitmq",
+        "testing",
+        "security"
+      ]
+    },
+    "frontend": {
+      "default": [
+        "frontend-engineering"
+      ],
+      "optional": [
+        "nextjs",
+        "javascript-engineering",
+        "rest-api-design",
+        "api-security",
+        "testing"
+      ]
+    },
+    "database": {
+      "default": [
+        "mysql"
+      ],
+      "optional": [
+        "ddd",
+        "ecommerce-domain",
+        "security"
+      ]
+    },
+    "devops": {
+      "default": [
+        "devops"
+      ],
+      "optional": [
+        "docker-engineering",
+        "git-workflow",
+        "security"
+      ]
+    },
+    "qa": {
+      "default": [
+        "testing"
+      ],
+      "optional": [
+        "code-review"
+      ]
+    },
+    "security": {
+      "default": [
+        "security"
+      ],
+      "optional": [
+        "api-security",
+        "ecommerce-security",
+        "threat-modeling"
+      ]
+    },
+    "compliance": {
+      "default": [],
+      "optional": [
+        "ecommerce-security",
+        "security"
+      ]
+    },
+    "documentation-reviewer": {
+      "default": [],
+      "optional": []
+    },
+    "release": {
+      "default": [],
+      "optional": [
+        "devops",
+        "git-workflow",
+        "testing"
+      ]
+    }
+  }
+}

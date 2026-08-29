@@ -5,7 +5,6 @@ import { formatPrice } from "@/lib/format";
 interface PageProps {
   searchParams: Promise<{
     page?: string | string[];
-    pageSize?: string | string[];
     q?: string | string[];
     searchTerm?: string | string[];
   }>;

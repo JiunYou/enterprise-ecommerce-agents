@@ -24,7 +24,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetOrderById(Guid id, CancellationToken cancellationToken)
     {
-        var query = new GetOrderByIdQuery(id);
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var query = new GetOrderByIdQuery(id, customerId);
         var result = await Sender.Send(query, cancellationToken);
 
         if (result.IsFailure)
@@ -41,7 +46,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request, CancellationToken cancellationToken)
     {
-        var command = new CreateOrderCommand(request.CustomerId, request.Currency);
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new CreateOrderCommand(customerId, request.Currency);
         var result = await Sender.Send(command, cancellationToken);
         
         if (result.IsFailure)
@@ -62,8 +72,14 @@ public class OrdersController : ApiControllerBase
         [FromBody] AddOrderItemRequest request,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
         var command = new EnterpriseCommerce.Application.Orders.Commands.AddOrderItem.AddOrderItemCommand(
             id,
+            customerId,
             request.ProductId,
             request.Quantity);
 
@@ -84,7 +100,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CancelOrder(Guid id, CancellationToken cancellationToken)
     {
-        var command = new EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand(id);
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand(id, customerId);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -102,7 +123,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RemoveOrderItem(Guid id, Guid productId, CancellationToken cancellationToken)
     {
-        var command = new EnterpriseCommerce.Application.Orders.Commands.RemoveOrderItem.RemoveOrderItemCommand(id, productId);
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new EnterpriseCommerce.Application.Orders.Commands.RemoveOrderItem.RemoveOrderItemCommand(id, customerId, productId);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -120,7 +146,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> SubmitOrder(Guid id, CancellationToken cancellationToken)
     {
-        var command = new SubmitOrderCommand(id);
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new SubmitOrderCommand(id, customerId);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

@@ -32,7 +32,7 @@ public class RemoveOrderItemCommandHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var command = new RemoveOrderItemCommand(order.Id.Value, productId.Value);
+        var command = new RemoveOrderItemCommand(order.Id.Value, order.CustomerId, productId.Value);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -51,7 +51,7 @@ public class RemoveOrderItemCommandHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(new OrderId(orderId), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
 
-        var command = new RemoveOrderItemCommand(orderId, Guid.NewGuid());
+        var command = new RemoveOrderItemCommand(orderId, Guid.NewGuid(), Guid.NewGuid());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -71,7 +71,7 @@ public class RemoveOrderItemCommandHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var command = new RemoveOrderItemCommand(order.Id.Value, Guid.NewGuid());
+        var command = new RemoveOrderItemCommand(order.Id.Value, order.CustomerId, Guid.NewGuid());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

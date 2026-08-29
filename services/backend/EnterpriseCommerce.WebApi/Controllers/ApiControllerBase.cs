@@ -1,4 +1,5 @@
 using EnterpriseCommerce.Domain.Primitives;
+using EnterpriseCommerce.WebApi.Security;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,18 @@ public abstract class ApiControllerBase : ControllerBase
     protected ApiControllerBase(ISender sender)
     {
         Sender = sender;
+    }
+
+    protected bool TryGetCustomerId(out Guid customerId)
+    {
+        var claim = HttpContext.User.FindFirst(CustomerClaimTypes.CustomerId);
+        if (claim != null && Guid.TryParse(claim.Value, out customerId) && customerId != Guid.Empty)
+        {
+            return true;
+        }
+
+        customerId = Guid.Empty;
+        return false;
     }
 
     protected IActionResult HandleFailure(Result result)

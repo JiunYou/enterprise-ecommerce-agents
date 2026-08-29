@@ -33,7 +33,8 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.Name, "TestUser"),
-            new Claim(ClaimTypes.NameIdentifier, userId)
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim("urn:enterprisecommerce:customer_id", userId)
         };
 
         if (Request.Headers.TryGetValue("X-Test-Role", out var roleHeader))

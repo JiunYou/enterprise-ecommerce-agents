@@ -30,8 +30,7 @@ public class PaymentsController : ApiControllerBase
         [FromBody] InitiatePaymentRequest request,
         CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (!Guid.TryParse(userIdClaim, out var customerId))
+        if (!TryGetCustomerId(out var customerId))
         {
             return Unauthorized();
         }

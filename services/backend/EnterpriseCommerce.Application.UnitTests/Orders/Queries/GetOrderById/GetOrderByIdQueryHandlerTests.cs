@@ -30,7 +30,7 @@ public class GetOrderByIdQueryHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var query = new GetOrderByIdQuery(order.Id.Value);
+        var query = new GetOrderByIdQuery(order.Id.Value, order.CustomerId);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -60,7 +60,7 @@ public class GetOrderByIdQueryHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(new OrderId(orderId), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
 
-        var query = new GetOrderByIdQuery(orderId);
+        var query = new GetOrderByIdQuery(orderId, Guid.NewGuid());
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);

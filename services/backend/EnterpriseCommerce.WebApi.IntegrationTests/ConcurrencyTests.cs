@@ -91,6 +91,7 @@ public class ConcurrencyTests : IAsyncLifetime
         }
 
         var orderIds = new List<Guid>();
+        var orderToCustomer = new Dictionary<Guid, Guid>();
 
         // Setup 100 pending orders, each with 1 quantity of the product
         using (var scope = _factory!.Services.CreateScope())
@@ -102,7 +103,7 @@ public class ConcurrencyTests : IAsyncLifetime
                 var order = Order.Create(customerId, "TWD");
                 order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value);
+                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -112,13 +113,16 @@ public class ConcurrencyTests : IAsyncLifetime
         
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        
 
         // We use Task.Run to attempt to hit the controller simultaneously
         foreach (var orderId in orderIds)
         {
             tasks.Add(Task.Run(async () =>
             {
-                return await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+                var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                return await client.SendAsync(request);
             }));
         }
 
@@ -176,6 +180,7 @@ public class ConcurrencyTests : IAsyncLifetime
         }
 
         var orderIds = new List<Guid>();
+        var orderToCustomer = new Dictionary<Guid, Guid>();
 
         using (var scope = _factory!.Services.CreateScope())
         {
@@ -186,7 +191,7 @@ public class ConcurrencyTests : IAsyncLifetime
                 var order = Order.Create(customerId, "TWD");
                 order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value);
+                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -194,12 +199,15 @@ public class ConcurrencyTests : IAsyncLifetime
         var tasks = new List<Task<HttpResponseMessage>>();
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        
 
         foreach (var orderId in orderIds)
         {
             tasks.Add(Task.Run(async () =>
             {
-                return await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+                var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                return await client.SendAsync(request);
             }));
         }
 
@@ -228,6 +236,7 @@ public class ConcurrencyTests : IAsyncLifetime
         var product1Id = Guid.NewGuid();
         var product2Id = Guid.NewGuid();
         var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
 
         using (var scope = _factory!.Services.CreateScope())
         {
@@ -240,7 +249,7 @@ public class ConcurrencyTests : IAsyncLifetime
             
             dbContext.InventoryItems.AddRange(inv1, inv2);
 
-            var order = Order.Create(Guid.NewGuid(), "TWD");
+            var order = Order.Create(customerId, "TWD");
             // Add custom order id to be able to use it
             var t = typeof(Order);
             var idProp = t.GetProperty("Id");
@@ -255,6 +264,8 @@ public class ConcurrencyTests : IAsyncLifetime
 
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+        
 
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
         response.IsSuccessStatusCode.Should().BeFalse();
@@ -295,6 +306,7 @@ public class ConcurrencyTests : IAsyncLifetime
         }
 
         var orderIds = new List<Guid>();
+        var orderToCustomer = new Dictionary<Guid, Guid>();
 
         using (var scope = _factory!.Services.CreateScope())
         {
@@ -317,7 +329,7 @@ public class ConcurrencyTests : IAsyncLifetime
                 }
                 
                 dbContext.Orders.Add(order);
-                orderIds.Add(order.Id.Value);
+                orderIds.Add(order.Id.Value); orderToCustomer[order.Id.Value] = customerId;
             }
             await dbContext.SaveChangesAsync();
         }
@@ -325,12 +337,15 @@ public class ConcurrencyTests : IAsyncLifetime
         var tasks = new List<Task<HttpResponseMessage>>();
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        
 
         foreach (var orderId in orderIds)
         {
             tasks.Add(Task.Run(async () =>
             {
-                return await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+                var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Headers.Add("X-Test-User-Id", orderToCustomer.ContainsKey(orderId) ? orderToCustomer[orderId].ToString() : Guid.NewGuid().ToString());
+                return await client.SendAsync(request);
             }));
         }
 

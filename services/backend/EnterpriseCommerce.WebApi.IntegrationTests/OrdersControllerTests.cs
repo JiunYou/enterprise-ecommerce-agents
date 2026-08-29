@@ -53,7 +53,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var client = _factory.CreateClient();
-        var request = new CreateOrderRequest(Guid.NewGuid(), "USD");
+        var request = new CreateOrderRequest("USD");
 
         // Act
         var response = await client.PostAsJsonAsync("/api/v1/Orders", request);
@@ -74,7 +74,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
 
-        var request = new CreateOrderRequest(Guid.NewGuid(), "USD");
+        var request = new CreateOrderRequest("USD");
 
         // Act
         var response = await client.PostAsJsonAsync("/api/v1/Orders", request);
@@ -96,7 +96,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
 
-        var request = new CreateOrderRequest(Guid.NewGuid(), "");
+        var request = new CreateOrderRequest("");
 
         // Act
         var response = await client.PostAsJsonAsync("/api/v1/Orders", request);

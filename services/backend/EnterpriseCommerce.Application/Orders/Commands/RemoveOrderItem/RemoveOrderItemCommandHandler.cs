@@ -22,7 +22,7 @@ internal sealed class RemoveOrderItemCommandHandler : ICommandHandler<RemoveOrde
         var orderId = new OrderId(request.OrderId);
         var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
 
-        if (order is null)
+        if (order is null || order.CustomerId != request.CustomerId)
         {
             return Result.Failure(OrderErrors.NotFound);
         }

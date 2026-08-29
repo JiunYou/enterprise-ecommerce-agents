@@ -25,7 +25,7 @@ builder.Services.AddEndpointsApiExplorer();
 // Add Extension Configs
 builder.Services.AddApiVersioningConfig();
 builder.Services.AddSwaggerConfig();
-builder.Services.AddJwtAuthentication();
+builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
 // Add Layers

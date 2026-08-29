@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -8,14 +9,33 @@ namespace EnterpriseCommerce.WebApi.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
+    public static IServiceCollection AddJwtAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        var authority = configuration["Authentication:Authority"];
+        if (string.IsNullOrWhiteSpace(authority))
+        {
+            throw new InvalidOperationException("Authentication:Authority is required.");
+        }
+
+        if (!Uri.TryCreate(authority, UriKind.Absolute, out var authorityUri) ||
+            authorityUri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException("Authentication:Authority must be a valid absolute HTTPS URI.");
+        }
+
+        var audience = configuration["Authentication:Audience"];
+        if (string.IsNullOrWhiteSpace(audience))
+        {
+            throw new InvalidOperationException("Authentication:Audience is required.");
+        }
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
-                // In a real scenario, these would come from configuration
-                options.Authority = "https://identity.enterprisecommerce.local";
-                options.Audience = "enterprise_commerce_api";
+                options.Authority = authority;
+                options.Audience = audience;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

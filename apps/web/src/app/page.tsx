@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
+import { AuthControls } from "@/components/AuthControls";
 
 interface PageProps {
   searchParams: Promise<{
@@ -96,6 +97,9 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 商品型錄與線上商務展示
               </p>
+            </div>
+            <div className="flex items-center">
+              <AuthControls />
             </div>
           </div>
         </div>

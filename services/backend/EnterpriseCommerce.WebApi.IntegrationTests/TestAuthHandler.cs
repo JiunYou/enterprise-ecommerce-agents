@@ -46,6 +46,11 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             }
         }
 
+        if (Request.Headers.TryGetValue("X-Test-Scope", out var scopeHeader))
+        {
+            claims.Add(new Claim("scope", scopeHeader.ToString()));
+        }
+
         var identity = new ClaimsIdentity(claims, DefaultScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DefaultScheme);

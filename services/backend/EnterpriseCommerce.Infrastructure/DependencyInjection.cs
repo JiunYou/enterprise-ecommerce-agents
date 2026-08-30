@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentAttemptRepository, PaymentAttemptRepository>();
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentWebhookReceiptRepository, PaymentWebhookReceiptRepository>();
+        services.AddScoped<ICustomerIdentityStore, CustomerIdentityStore>();
         // In production, no real provider is configured yet. 
         // We register a stub that throws to ensure it fails closed until a real provider is implemented.
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentProvider>(sp => throw new NotImplementedException("A real payment provider is not configured."));

@@ -2,6 +2,7 @@ using EnterpriseCommerce.Application;
 using EnterpriseCommerce.Infrastructure;
 using EnterpriseCommerce.WebApi.Extensions;
 using EnterpriseCommerce.WebApi.Middleware;
+using EnterpriseCommerce.WebApi.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +27,20 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddApiVersioningConfig();
 builder.Services.AddSwaggerConfig();
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.IdentityResolve, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+        {
+            var scopeClaims = context.User.FindAll(c => c.Type == "scope" || c.Type == "scp" || c.Type == "http://schemas.microsoft.com/identity/claims/scope");
+            return scopeClaims.Any(claim =>
+                claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Contains("identity:resolve", StringComparer.Ordinal));
+        });
+    });
+});
 
 // Add Layers
 builder.Services.AddApplication();

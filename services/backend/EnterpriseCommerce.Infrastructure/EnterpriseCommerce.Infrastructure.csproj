@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="EnterpriseCommerce.Infrastructure.UnitTests" />
+    <InternalsVisibleTo Include="EnterpriseCommerce.WebApi.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>

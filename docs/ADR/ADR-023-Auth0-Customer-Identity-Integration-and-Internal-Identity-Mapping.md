@@ -33,24 +33,30 @@ To complete the authentication pipeline safely, a durable, idempotent, and secur
    - A Customer aggregate/entity is NOT introduced into the Domain layer solely for authentication or identity mapping.
    - Identity mapping is strictly an Infrastructure and Presentation concern, encapsulated behind the Application layer abstraction `ICustomerIdentityStore`.
 
-4. **Internal Identity Resolution Endpoint & M2M Protection**:
+4. **Internal Identity Resolution Endpoint & Strict M2M Authorization**:
    - A dedicated internal endpoint `POST /api/v1/internal/customer-identities/resolve` is exposed for machine-to-machine identity provisioning.
-   - The endpoint is protected by JWT Bearer authentication requiring the specific M2M authorization scope `identity:resolve`.
+   - The endpoint is protected by JWT Bearer authentication requiring BOTH:
+     1. The specific M2M authorization scope `identity:resolve`.
+     2. Validated client identity matching the configured `Authentication:IdentityResolverClientId` (via `azp` or `client_id` claims, rejecting conflicts).
+   - Customer Web tokens never receive the `identity:resolve` scope and cannot invoke this endpoint.
    - The request payload accepts ONLY the external `subject`.
    - The `issuer` is strictly server-controlled and normalized from the server's configured `Authentication:Authority` (`Uri.AbsoluteUri`). Callers cannot supply or override the issuer or customer ID.
 
-5. **Token Claim Enrichment via Auth0 Action**:
-   - An Auth0 Post-Login Action will call the internal identity resolver using an authenticated M2M client token.
-   - Upon receiving the resolved `CustomerId` (`Guid`), the Action injects the custom namespaced claim `urn:enterprisecommerce:customer_id` into the minted Access Token.
+5. **Token Claim Enrichment via Auth0 Post-Login Action**:
+   - An Auth0 Post-Login Action acts as the single token enrichment point during customer authentication.
+   - The Action filters execution strictly to the configured Customer Web client and EnterpriseCommerce API audience.
+   - The Action calls the internal identity resolver using an authenticated M2M client token obtained via Client Credentials Grant.
+   - Upon receiving the resolved `CustomerId` (`Guid`), the Action injects the custom namespaced claim `urn:enterprisecommerce:customer_id` into the minted Access Token ONLY.
    - Auth0 `app_metadata` or user metadata is NOT the authoritative source for domain identity mapping.
+   - If identity resolution fails at any point, the Action fails closed and denies customer authentication.
 
 6. **Frontend Token Boundary**:
-   - Next.js frontend applications will handle tokens exclusively on the server side (via Next.js Server Components / Route Handlers).
+   - Next.js frontend applications handle tokens exclusively on the server side (via Next.js Server Components / Route Handlers).
    - Raw access tokens will not be exposed to or stored in Client Components.
 
 ## Consequences
 
-* **Security**: Enforces strict M2M authorization on identity provisioning, prevents client-side identity spoofing, and maintains fail-closed behavior across all boundaries.
+* **Security**: Enforces dual-check M2M authorization (scope + client ID) on identity provisioning, prevents client-side identity spoofing, and maintains fail-closed behavior across all boundaries.
 * **Domain Purity**: Preserves the Domain layer without speculative Customer entities or account abstractions.
 * **Idempotency & Concurrency**: Atomic persistence guarantees that concurrent initial logins for the same external identity reliably yield the exact same `CustomerId`. Concurrency recovery strictly isolates MySQL duplicate-key violations (error 1062) and re-verifies exact existence before succeeding.
 * **Storage Efficiency**: ASCII column encoding with binary collation guarantees compact, exact-match indexing without exceeding InnoDB index size limits.

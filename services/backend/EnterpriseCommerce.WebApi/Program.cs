@@ -29,15 +29,32 @@ builder.Services.AddSwaggerConfig();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
+    var identityResolverClientId = builder.Configuration["Authentication:IdentityResolverClientId"] ?? string.Empty;
+
     options.AddPolicy(AuthorizationPolicies.IdentityResolve, policy =>
     {
         policy.RequireAuthenticatedUser();
         policy.RequireAssertion(context =>
         {
+            // 1. Validate required scope: identity:resolve
             var scopeClaims = context.User.FindAll(c => c.Type == "scope" || c.Type == "scp" || c.Type == "http://schemas.microsoft.com/identity/claims/scope");
-            return scopeClaims.Any(claim =>
+            var hasScope = scopeClaims.Any(claim =>
                 claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                     .Contains("identity:resolve", StringComparer.Ordinal));
+
+            if (!hasScope)
+            {
+                return false;
+            }
+
+            // 2. Validate client identity (azp or client_id)
+            var clientClaims = context.User.FindAll(c => c.Type == "azp" || c.Type == "client_id").ToList();
+            if (clientClaims.Count == 0)
+            {
+                return false;
+            }
+
+            return clientClaims.All(c => string.Equals(c.Value, identityResolverClientId, StringComparison.Ordinal));
         });
     });
 });

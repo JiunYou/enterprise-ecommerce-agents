@@ -51,6 +51,16 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             claims.Add(new Claim("scope", scopeHeader.ToString()));
         }
 
+        if (Request.Headers.TryGetValue("X-Test-Azp", out var azpHeader))
+        {
+            claims.Add(new Claim("azp", azpHeader.ToString()));
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-ClientId", out var clientIdHeader))
+        {
+            claims.Add(new Claim("client_id", clientIdHeader.ToString()));
+        }
+
         var identity = new ClaimsIdentity(claims, DefaultScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DefaultScheme);

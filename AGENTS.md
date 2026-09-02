@@ -10,7 +10,7 @@ This repository uses a progressively disclosed AI engineering architecture that 
 5. **Simplicity**: KISS / YAGNI. No speculative abstractions.
 6. **Security**: Security by default. Never expose secrets, tokens, passwords, connection strings, private keys, or PII.
 7. **Compliance**: Do not bypass authorization or approval gates.
-8. **Evidence**: Evidence over AI completion claims.
+8. **Evidence**: Programmatic verification first. Evidence over AI completion claims. Machine-verifiable acceptance criteria require executable evidence (see .agents/rules/execution-boundary.md).
 9. **Execution**: Maximum 3 correction cycles. Stop after acceptance criteria pass.
 10. **Roles**: One primary implementation Agent by default. Reviewers are conditional, not automatically all invoked.
 11. **Git Integration**: Before branch, rebase, push, PR, or merge operations, verify worktree state, current HEAD/upstream, merge-base/divergence, and existing PR/merge state. Never perform Git integration based on assumed branch state.

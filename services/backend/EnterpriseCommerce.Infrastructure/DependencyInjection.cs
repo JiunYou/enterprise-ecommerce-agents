@@ -13,8 +13,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+
         var connectionString = configuration.GetConnectionString("Database") 
-            ?? throw new ArgumentNullException("ConnectionStrings:Database is missing.");
+            ?? throw new InvalidOperationException("ConnectionStrings:Database is missing.");
 
         services.AddDbContext<EnterpriseCommerceDbContext>((sp, options) => {
             options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21)));

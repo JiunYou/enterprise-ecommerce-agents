@@ -17,16 +17,16 @@
 - 關鍵決策：以嚴格的狀態檢查防範分支漂移與未驗證變更。
 
 ### 2026-08-29 — PR #3 — feat: add customer product catalog
-- 交付價值：交付顧客端產品目錄瀏覽功能與後端分頁查詢 API。
-- 關鍵決策：前後端依照垂直切片架構實現產品列表。
+- **交付價值**：交付 Customer Web 唯讀產品目錄瀏覽功能（含搜尋、分頁、空狀態與錯誤狀態處理），消費既有之 GET /api/v1/products 後端端點。
+- **關鍵決策**：重用既有公開產品 API，而不額外新增目錄後端合約。
 
 ### 2026-08-29 — PR #4 — feat: add customer product detail
-- 交付價值：交付顧客端產品詳情頁面與對應查詢端點。
-- 關鍵決策：維持展示層與領域實體之隔離。
+- **交付價值**：交付 Customer Web 產品詳情路由與目錄導航，使用既有之 GET /api/v1/products/{id} 後端端點。
+- **關鍵決策**：重用既有產品詳情 API，此 PR 變更維持在 apps/web 範圍內。
 
 ### 2026-08-29 — PR #5 — feat: add customer catalog sorting
-- 交付價值：支援產品目錄多維度排序功能。
-- 關鍵決策：於查詢處理器實現白名單排序欄位驗證。
+- **交付價值**：交付 Customer Web 排序 UI 與 URL 查詢狀態處理（名稱／價格升降冪）。
+- **關鍵決策**：在透過既有目錄 API 輔助函式轉發 sortBy/sortOrder 之前，於 apps/web 透過白名單映射驗證公開排序選項。
 
 ### 2026-08-29 — PR #6 — feat: Implement Customer Identity & Order Ownership Security Boundary
 - 交付價值：建立顧客身分識別與訂單所有權安全防護邊界。
@@ -37,8 +37,8 @@
 - 關鍵決策：區隔開發環境與生產環境認證參數。
 
 ### 2026-09-02 — PR #8 — fix: close inventory authorization attack surface
-- 交付價值：關閉庫存調整相關端點的未授權攻擊面。
-- 關鍵決策：強制要求特定權限範圍以防止未授權調用。
+- **交付價值**：移除未使用且對外暴露的庫存預留端點，同時於權威性訂單送出流程中保留庫存預留邏輯。
+- **關鍵決策**：移除未使用的攻擊面，而非引入推測性的外部/M2M 授權合約。
 
 ### 2026-09-02 — PR #9 — governance: require programmatic verification evidence
 - 交付價值：將程式化驗證第一 (Programmatic Verification First) 正式納入治理規則。
@@ -66,3 +66,29 @@
   - 內部 Identity Resolver 僅接受專用 M2M Client 認證。
   - 外部 IdP 實體標識與內部領域 CustomerId 保持解耦，由資料庫持久化對應關係。
   - 暫時性通道 (Quick Tunnel) 僅為驗證環境工具，不屬於正式架構。
+
+### 2026-09-04 — PR #11 — feat: add authenticated shopping cart v1
+- **垂直切片**：Shopping Cart v1
+- **交付價值**：
+  - 已認證顧客持久化購物車
+  - 重用 Pending Order 作為購物車載體
+  - 惰性首次加購購物車建立（Lazy First-Add Creation）
+  - 商品加入、數量更新、品項移除功能
+  - 同一商品數量合併
+  - 行總計與購物車總金額計算
+  - Customer Web 加入購物車表單與 `/cart` 頁面 UI
+  - 嚴格的顧客身分隔離（Customer Isolation）
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 330 項後端自動化測試全數通過 (Domain: 71, Application: 111, Infrastructure: 26, WebApi.IntegrationTests: 122)
+  - 前端程式碼檢查 (lint)、TypeScript 型別檢查與 production build 通過
+  - 匿名購物車操作回傳 401 Unauthorized
+  - 缺少 CustomerId claim 回傳 403 Forbidden
+  - 顧客隔離與所有權保護測試全數通過
+  - 治理審計與 git diff --check 檢查通過
+- **關鍵決策**：
+  - 無獨立 ShoppingCart aggregate、無專屬資料庫表、無額外資料庫遷移 (Migration)
+  - CustomerId 嚴格僅自認證 Claims 提取，不接受來自瀏覽器任意指定
+  - Access Token 維持在伺服器端，不暴露至瀏覽器
+  - 首次加購併發競爭情況記錄為已接受之 v1 限制
+  - 連接埠 3000/new-api 未被干擾；未宣稱 Live Browser Cart E2E 驗證

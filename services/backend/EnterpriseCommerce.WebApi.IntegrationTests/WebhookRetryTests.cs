@@ -96,7 +96,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "dummy_provider", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -155,7 +155,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "dummy_provider", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -200,7 +200,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "dummy_provider", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -255,7 +255,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         order.Cancel(); // Order is now cancelled
         db.Orders.Add(order);
 
@@ -301,7 +301,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "dummy_provider", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -389,7 +389,7 @@ public class WebhookRetryTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "dummy_provider", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -429,5 +429,10 @@ public class WebhookRetryTests : IAsyncLifetime
         
         var attemptCount = await verifyDb.PaymentAttempts.CountAsync();
         attemptCount.Should().Be(1, "No dual payment effect occurred");
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

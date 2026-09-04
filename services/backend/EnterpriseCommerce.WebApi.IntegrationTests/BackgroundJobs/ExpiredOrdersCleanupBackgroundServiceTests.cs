@@ -99,7 +99,8 @@ public class ExpiredOrdersCleanupBackgroundServiceTests : IAsyncLifetime
             
             order.AddItem(new ProductId(productId), new Money(100, "TWD"), 5);
             
-            var submitResult = order.Submit(DateTimeOffset.UtcNow.AddMinutes(-1)); // Submitted 1 min ago, so it's expired
+            var shippingAddress = ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
+            var submitResult = order.Submit(shippingAddress, DateTimeOffset.UtcNow.AddMinutes(-1)); // Submitted 1 min ago, so it's expired
             
             dbContext.Orders.Add(order);
             await dbContext.SaveChangesAsync();

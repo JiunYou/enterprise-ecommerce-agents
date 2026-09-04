@@ -2,16 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCart } from "@/lib/cart";
-import { submitOrder, type SubmitOrderResult } from "@/lib/orders";
+import { submitOrder, type SubmitOrderResult, type ShippingAddress } from "@/lib/orders";
 import { AuthControls } from "@/components/AuthControls";
 import { CheckoutReview } from "@/components/CheckoutReview";
 
 export default async function CheckoutPage() {
   const result = await getCart();
 
-  async function handleSubmitOrder(orderId: string): Promise<SubmitOrderResult> {
+  async function handleSubmitOrder(
+    orderId: string,
+    shippingAddress: ShippingAddress
+  ): Promise<SubmitOrderResult> {
     "use server";
-    const res = await submitOrder(orderId);
+    const res = await submitOrder(orderId, shippingAddress);
     if (res.success) {
       revalidatePath("/cart");
       revalidatePath("/checkout");

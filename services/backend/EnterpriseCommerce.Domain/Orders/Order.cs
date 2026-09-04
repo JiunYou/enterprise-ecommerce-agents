@@ -12,6 +12,7 @@ public sealed class Order : AggregateRoot<OrderId>
     public OrderStatus Status { get; private set; }
     public string Currency { get; private set; } = default!;
     public DateTimeOffset? SubmittedAt { get; private set; }
+    public ShippingAddress? ShippingAddress { get; private set; }
     
     public bool IsExpired(DateTimeOffset threshold)
     {
@@ -148,11 +149,17 @@ public sealed class Order : AggregateRoot<OrderId>
         return ChangeStatus(OrderStatus.Cancelled);
     }
 
-    public Result Submit(DateTimeOffset submittedAt)
+    public Result Submit(ShippingAddress shippingAddress, DateTimeOffset submittedAt)
     {
+        if (shippingAddress is null)
+        {
+            return Result.Failure(OrderErrors.ShippingAddressRequired);
+        }
+
         var result = ChangeStatus(OrderStatus.Submitted);
         if (result.IsSuccess)
         {
+            ShippingAddress = shippingAddress;
             SubmittedAt = submittedAt;
         }
         return result;

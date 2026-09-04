@@ -154,3 +154,27 @@
   - 延遲成功或訂單狀態非 Submitted 時 Attempt 轉為 RefundRequired，訂單狀態不重複轉換
   - 現行資料庫結構原生支援一對多 PaymentAttempt 關聯，無需額外資料庫遷移 (ECPAY_SCHEMA_CHANGE_REQUIRED_FINAL=NO)
   - Stripe 因境外測試商戶註冊限制暫緩真實 E2E 驗證，並已自執行期與相依套件中完整移除
+
+### 2026-09-05 — PR #14 — feat: add order shipping address v1
+- **垂直切片**：Order Shipping Address v1（結帳配送地址快照）
+- **交付價值**：
+  - 顧客於結帳流程輸入收件人姓名、電話、國家、郵遞區號、城市與街道地址
+  - 收件地址由訂單聚合根擁有，作為不可變更之歷史快照（ShippingAddress）
+  - 擴充訂單送出流程：於交易與鎖定前執行地址驗證，並原子化持久化地址快照、保留庫存與變更狀態為 Submitted
+  - 擁有者顧客可於訂單詳情頁檢視完整配送收件快照
+  - 完整支援未含地址之歷史舊訂單查詢與渲染相容性（可安全處理 null）
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 474 項後端自動化測試全數通過 (Domain: 105, Application: 119, Infrastructure: 89, WebApi.IntegrationTests: 161)
+  - 前端程式碼檢查 (lint)、TypeScript 型別檢查與 production build 通過
+  - 真實 MySQL 自前一版遷移（AddCustomerIdentities）之真實升級路徑驗證通過 (PREVIOUS_SCHEMA_TO_SHIPPING_MIGRATION_UPGRADE=PASS)
+  - 空白資料庫全新遷移通過 (FRESH_DATABASE_MIGRATION=PASS)
+  - 資料庫 Down 遷移回滾驗證通過 (MIGRATION_DOWN_VALIDATION=PASS)
+  - 專案治理審計與 git diff --check 檢查通過
+  - PII 安全防護邊界驗證通過（無日誌洩漏、無儲存持久化、無 URL 傳遞、權杖伺服端保留）
+- **關鍵決策**：
+  - ShippingAddress 歸屬於訂單聚合（Order Context），不建立 Customer 常用地址簿抽象
+  - 送出後地址快照不可變更，不提供任意修改端點
+  - 僅新增單一最小化 EF Core 資料庫遷移（Orders 表 7 個可為空欄位），不建立額外關聯表
+  - 物流運費計算、貨運商 API 與物流追蹤明確延後至後續垂直切片
+  - 生產環境付款 (Payment) 行為零變更，測試調整僅適配訂單送出之簽名規範

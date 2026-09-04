@@ -12,6 +12,16 @@ export interface OrderItem {
   productName?: string;
 }
 
+export interface ShippingAddress {
+  recipientName: string;
+  phone: string;
+  countryCode: string;
+  postalCode: string;
+  city: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+}
+
 export interface OrderDetail {
   id: string;
   customerId: string;
@@ -19,6 +29,7 @@ export interface OrderDetail {
   currency: string;
   totalAmount: number;
   items: OrderItem[];
+  shippingAddress?: ShippingAddress | null;
 }
 
 export type SubmitOrderResult =
@@ -29,6 +40,7 @@ export type SubmitOrderResult =
       notFound?: boolean;
       insufficientStock?: boolean;
       invalidState?: boolean;
+      invalidShippingAddress?: boolean;
       error: string;
     };
 
@@ -41,7 +53,10 @@ export type GetOrderResult =
       error: string;
     };
 
-export async function submitOrder(orderId: string): Promise<SubmitOrderResult> {
+export async function submitOrder(
+  orderId: string,
+  shippingAddress: ShippingAddress
+): Promise<SubmitOrderResult> {
   const session = await auth0.getSession();
   if (!session || !session.user) {
     return {
@@ -56,6 +71,10 @@ export async function submitOrder(orderId: string): Promise<SubmitOrderResult> {
       `/api/v1/orders/${encodeURIComponent(orderId)}/submit`,
       {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ shippingAddress }),
       }
     );
 
@@ -98,6 +117,13 @@ export async function submitOrder(orderId: string): Promise<SubmitOrderResult> {
             success: false,
             invalidState: true,
             error: "該訂單已經送出或處於無法再次送出的狀態",
+          };
+        }
+        if (detail.includes("Shipping") || problem?.title?.includes("Shipping")) {
+          return {
+            success: false,
+            invalidShippingAddress: true,
+            error: "收件資訊填寫不完整或格式不正確，請檢查後重新送出",
           };
         }
       } catch {

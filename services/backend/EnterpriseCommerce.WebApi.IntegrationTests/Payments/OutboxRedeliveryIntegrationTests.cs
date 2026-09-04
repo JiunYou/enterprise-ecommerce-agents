@@ -97,7 +97,7 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
         // 2. Create and Submit Order (which reserves 2 units)
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(productId), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(50m, "USD"), 2);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         inventoryItem.ReserveStock(new OrderReference(order.Id.Value), new StockQuantity(2));
         db.Orders.Add(order);
 
@@ -115,7 +115,8 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
             var outboxMsgs = await checkDb.OutboxMessages
                 .Where(m => m.EventType == nameof(OrderStatusChangedDomainEvent) && m.Content.Contains("\"NewStatus\":4"))
                 .ToListAsync();
-            outboxMsgs.Should().NotBeEmpty();
+            outboxMsgs.Should().HaveCount(1);
+            outboxMsgs[0].ProcessedOn.Should().BeNull();
         }
 
         // Act 1 - Outbox Attempt 1: Publisher fails
@@ -155,5 +156,10 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
             inv2.AvailableQuantity.Value.Should().Be(10, "Stock must NOT be released twice (must remain exactly 10, not 12)");
             inv2.ReservedQuantity.Value.Should().Be(0, "Reserved quantity must remain 0");
         }
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

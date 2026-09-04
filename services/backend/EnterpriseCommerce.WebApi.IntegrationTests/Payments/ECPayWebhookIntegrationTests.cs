@@ -110,7 +110,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -142,7 +142,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -174,7 +174,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -215,7 +215,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1200m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -256,7 +256,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(800m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -296,7 +296,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1500m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -336,7 +336,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1500m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -374,7 +374,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(2000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         // Attempt 的 Provider 是 Stripe，不是 ECPay
@@ -413,7 +413,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(3000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "ECPay", Guid.NewGuid(), DateTimeOffset.UtcNow);
@@ -452,7 +452,7 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         db.Orders.Add(order);
 
         // Attempt 幣別是 USD
@@ -482,5 +482,10 @@ public class ECPayWebhookIntegrationTests : IAsyncLifetime
 
         var receiptCount = await verifyDb.PaymentWebhookReceipts.CountAsync(r => r.Provider == "ECPay" && r.ProviderEventId == tradeNo);
         receiptCount.Should().Be(0);
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

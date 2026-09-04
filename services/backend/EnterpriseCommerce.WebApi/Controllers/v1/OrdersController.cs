@@ -2,6 +2,7 @@ using Asp.Versioning;
 using EnterpriseCommerce.Application.Orders.Commands.CreateOrder;
 using EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
+using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.WebApi.Contracts.Orders;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -150,14 +151,31 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> SubmitOrder(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> SubmitOrder(
+        Guid id,
+        [FromBody] SubmitOrderRequest? request,
+        CancellationToken cancellationToken)
     {
         if (!TryGetCustomerId(out var customerId))
         {
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        var command = new SubmitOrderCommand(id, customerId);
+        if (request?.ShippingAddress is null)
+        {
+            return HandleFailure(Result.Failure(EnterpriseCommerce.Domain.Orders.OrderErrors.ShippingAddressRequired));
+        }
+
+        var addressDto = new ShippingAddressDto(
+            request.ShippingAddress.RecipientName,
+            request.ShippingAddress.Phone,
+            request.ShippingAddress.CountryCode,
+            request.ShippingAddress.PostalCode,
+            request.ShippingAddress.City,
+            request.ShippingAddress.AddressLine1,
+            request.ShippingAddress.AddressLine2);
+
+        var command = new SubmitOrderCommand(id, customerId, addressDto);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

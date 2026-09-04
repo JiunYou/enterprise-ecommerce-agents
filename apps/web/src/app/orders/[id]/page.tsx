@@ -305,6 +305,40 @@ export default async function OrderConfirmationPage({
                 ))}
               </ul>
 
+              {/* 配送收件資訊快照 */}
+              <div className="border-t border-zinc-200 bg-white px-6 py-5 dark:border-zinc-800 dark:bg-zinc-900">
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                  配送收件資訊
+                </h3>
+                {result.data.shippingAddress ? (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+                    <div>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">收件人</span>
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {result.data.shippingAddress.recipientName}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">聯絡電話</span>
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {result.data.shippingAddress.phone}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">送貨地址</span>
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        [{result.data.shippingAddress.countryCode}] {result.data.shippingAddress.postalCode} {result.data.shippingAddress.city} {result.data.shippingAddress.addressLine1}
+                        {result.data.shippingAddress.addressLine2 ? ` ${result.data.shippingAddress.addressLine2}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 rounded-lg bg-zinc-50 p-3 text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                    此歷史訂單無收件資訊快照 (Shipping information unavailable for this historical order)
+                  </div>
+                )}
+              </div>
+
               {/* 總計摘要與付款按鈕區 */}
               <div className="border-t border-zinc-200 bg-zinc-50 px-6 py-5 dark:border-zinc-800 dark:bg-zinc-900/60">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

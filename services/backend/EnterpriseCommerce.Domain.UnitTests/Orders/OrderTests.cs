@@ -10,6 +10,16 @@ public class OrderTests
     private readonly Guid _customerId = Guid.NewGuid();
     private readonly string _currency = "USD";
 
+    private static ShippingAddress CreateTestShippingAddress() =>
+        ShippingAddress.Create(
+            "Test Recipient",
+            "0912345678",
+            "TW",
+            "100",
+            "Taipei City",
+            "123 Test Street",
+            "Floor 4").Value;
+
     [Fact]
     public void Create_ShouldCreateOrderWithPendingStatusAndRaiseEvent()
     {
@@ -68,7 +78,7 @@ public class OrderTests
         // Arrange
         var order = Order.Create(_customerId, _currency);
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(10, _currency), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         order.MarkAsPaid();
 
         // Act
@@ -182,7 +192,7 @@ public class OrderTests
         var order = Order.Create(_customerId, _currency);
         var productId = new ProductId(Guid.NewGuid());
         order.AddItem(productId, new Money(50, _currency), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         order.MarkAsPaid();
 
         // Act
@@ -217,7 +227,7 @@ public class OrderTests
         order.ClearDomainEvents();
 
         // Act
-        var result = order.Submit(DateTimeOffset.UtcNow);
+        var result = order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -236,11 +246,66 @@ public class OrderTests
         var order = Order.Create(_customerId, _currency);
 
         // Act
-        var result = order.Submit(DateTimeOffset.UtcNow);
+        var result = order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.EmptyOrder, result.Error);
+    }
+
+    [Fact]
+    public void Submit_ShouldFail_WhenShippingAddressIsNull()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+
+        // Act
+        var result = order.Submit(null!, DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ShippingAddressRequired, result.Error);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        Assert.Null(order.ShippingAddress);
+    }
+
+    [Fact]
+    public void Submit_ShouldPersistShippingSnapshot_AndPreserveAcrossPaidAndCancelled()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        var shipping = CreateTestShippingAddress();
+
+        // Act 1: Submit
+        var submitResult = order.Submit(shipping, DateTimeOffset.UtcNow);
+        Assert.True(submitResult.IsSuccess);
+        Assert.NotNull(order.ShippingAddress);
+        Assert.Equal(shipping.RecipientName, order.ShippingAddress.RecipientName);
+        Assert.Equal(shipping.Phone, order.ShippingAddress.Phone);
+        Assert.Equal(shipping.CountryCode, order.ShippingAddress.CountryCode);
+        Assert.Equal(shipping.PostalCode, order.ShippingAddress.PostalCode);
+        Assert.Equal(shipping.City, order.ShippingAddress.City);
+        Assert.Equal(shipping.AddressLine1, order.ShippingAddress.AddressLine1);
+        Assert.Equal(shipping.AddressLine2, order.ShippingAddress.AddressLine2);
+
+        // Act 2: Cannot resubmit or change once submitted
+        var secondSubmit = order.Submit(shipping, DateTimeOffset.UtcNow);
+        Assert.True(secondSubmit.IsFailure);
+        Assert.Equal(OrderErrors.InvalidStatusTransition, secondSubmit.Error);
+
+        // Act 3: Mark as Paid preserves snapshot
+        var paidResult = order.MarkAsPaid();
+        Assert.True(paidResult.IsSuccess);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Equal(shipping, order.ShippingAddress);
+
+        // Act 4: Cancel preserves snapshot
+        var cancelResult = order.Cancel();
+        Assert.True(cancelResult.IsSuccess);
+        Assert.Equal(OrderStatus.Cancelled, order.Status);
+        Assert.Equal(shipping, order.ShippingAddress);
     }
 
     [Fact]
@@ -249,7 +314,7 @@ public class OrderTests
         // Arrange
         var order = Order.Create(_customerId, _currency);
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
         order.ClearDomainEvents();
 
         // Act
@@ -286,7 +351,7 @@ public class OrderTests
         // Arrange
         var order = Order.Create(_customerId, _currency);
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-1));
         order.MarkAsPaid();
         order.ClearDomainEvents();
 
@@ -419,7 +484,7 @@ public class OrderTests
         var order = Order.Create(_customerId, _currency);
         var productId = new ProductId(Guid.NewGuid());
         order.AddItem(productId, new Money(40, _currency), 2);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         // Act
         var result = order.UpdateItemQuantity(productId, 5);

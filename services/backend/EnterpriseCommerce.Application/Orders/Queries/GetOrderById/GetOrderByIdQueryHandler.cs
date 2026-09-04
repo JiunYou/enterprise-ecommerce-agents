@@ -31,13 +31,25 @@ internal sealed class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery
             item.Quantity,
             item.GetTotalPrice().Amount)).ToList();
 
+        ShippingAddressResponse? shippingAddress = order.ShippingAddress is not null
+            ? new ShippingAddressResponse(
+                order.ShippingAddress.RecipientName,
+                order.ShippingAddress.Phone,
+                order.ShippingAddress.CountryCode,
+                order.ShippingAddress.PostalCode,
+                order.ShippingAddress.City,
+                order.ShippingAddress.AddressLine1,
+                order.ShippingAddress.AddressLine2)
+            : null;
+
         var response = new OrderResponse(
             order.Id.Value,
             order.CustomerId,
             order.Status.ToString(),
             order.Currency,
             order.TotalAmount.Amount,
-            items);
+            items,
+            shippingAddress);
 
         return Result.Success(response);
     }

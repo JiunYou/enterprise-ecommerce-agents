@@ -1,4 +1,5 @@
 using EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
+using EnterpriseCommerce.WebApi.Contracts.Orders;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
@@ -122,6 +123,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Content = JsonContent.Create(CreateTestSubmitOrderRequest());
                 request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
@@ -208,6 +210,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Content = JsonContent.Create(CreateTestSubmitOrderRequest());
                 request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
@@ -269,7 +272,7 @@ public class ConcurrencyTests : IAsyncLifetime
         client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
         
 
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/submit", CreateTestSubmitOrderRequest());
         response.IsSuccessStatusCode.Should().BeFalse();
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -347,6 +350,7 @@ public class ConcurrencyTests : IAsyncLifetime
             tasks.Add(Task.Run(async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Orders/{orderId}/submit");
+                request.Content = JsonContent.Create(CreateTestSubmitOrderRequest());
                 request.Headers.Add("X-Test-User-Id", orderToCustomer[orderId].ToString());
                 return await client.SendAsync(request);
             }));
@@ -368,5 +372,11 @@ public class ConcurrencyTests : IAsyncLifetime
             inv1!.AvailableQuantity.Value.Should().Be(0);
             inv2!.AvailableQuantity.Value.Should().Be(0);
         }
+    }
+
+    private static SubmitOrderRequest CreateTestSubmitOrderRequest()
+    {
+        return new SubmitOrderRequest(new ShippingAddressRequest(
+            "Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St", null));
     }
 }

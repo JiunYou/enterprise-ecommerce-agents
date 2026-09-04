@@ -9,16 +9,17 @@ namespace EnterpriseCommerce.Infrastructure.UnitTests.Persistence.Repositories;
 
 public class OrderRepositoryTests
 {
+    private readonly DbContextOptions<EnterpriseCommerceDbContext> _options;
     private readonly EnterpriseCommerceDbContext _dbContext;
     private readonly OrderRepository _repository;
 
     public OrderRepositoryTests()
     {
-        var options = new DbContextOptionsBuilder<EnterpriseCommerceDbContext>()
+        _options = new DbContextOptionsBuilder<EnterpriseCommerceDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        _dbContext = new EnterpriseCommerceDbContext(options);
+        _dbContext = new EnterpriseCommerceDbContext(_options);
         _repository = new OrderRepository(_dbContext);
     }
 
@@ -67,5 +68,60 @@ public class OrderRepositoryTests
 
         // Assert
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetPendingOrderByCustomerIdAsync_WhenPendingOrderExists_ShouldReturnOrderWithItems()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(200, "TWD"), 2);
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _repository.GetPendingOrderByCustomerIdAsync(customerId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.CustomerId.Should().Be(customerId);
+        result.Status.Should().Be(OrderStatus.Pending);
+        result.Items.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task GetPendingOrderByCustomerIdAsync_WhenOrderNotPending_ShouldReturnNull()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(200, "TWD"), 2);
+        order.Submit(DateTimeOffset.UtcNow);
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _repository.GetPendingOrderByCustomerIdAsync(customerId);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetPendingOrderByCustomerIdAsync_ShouldNotCreateAnyRecordInDatabase_WhenNoneExists()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var countBefore = await _dbContext.Orders.CountAsync();
+        countBefore.Should().Be(0);
+
+        // Act
+        var result = await _repository.GetPendingOrderByCustomerIdAsync(customerId);
+
+        // Assert
+        result.Should().BeNull();
+        var countAfter = await _dbContext.Orders.CountAsync();
+        countAfter.Should().Be(0);
     }
 }

@@ -333,4 +333,140 @@ public class OrderTests
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.InvalidStatusTransition, result.Error);
     }
+
+    [Fact]
+    public void AddItem_ShouldIncreaseQuantity_WhenAddingSameProductAgain()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        var price = new Money(50, _currency);
+
+        // Act
+        var result1 = order.AddItem(productId, price, 2);
+        var result2 = order.AddItem(productId, price, 3);
+
+        // Assert
+        Assert.True(result1.IsSuccess);
+        Assert.True(result2.IsSuccess);
+        Assert.Single(order.Items);
+        var item = order.Items.First();
+        Assert.Equal(5, item.Quantity);
+        Assert.Equal(new Money(50, _currency), item.UnitPrice);
+        Assert.Equal(new Money(250, _currency), order.TotalAmount);
+    }
+
+    [Fact]
+    public void UpdateItemQuantity_ShouldSucceed_WhenValidQuantity()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        var price = new Money(40, _currency);
+        order.AddItem(productId, price, 2);
+
+        // Act
+        var result = order.UpdateItemQuantity(productId, 5);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var item = order.Items.First();
+        Assert.Equal(5, item.Quantity);
+        Assert.Equal(new Money(200, _currency), order.TotalAmount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void UpdateItemQuantity_ShouldFail_WhenQuantityIsZeroOrNegative(int invalidQuantity)
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        var price = new Money(40, _currency);
+        order.AddItem(productId, price, 2);
+
+        // Act
+        var result = order.UpdateItemQuantity(productId, invalidQuantity);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidQuantity, result.Error);
+        Assert.Equal(2, order.Items.First().Quantity);
+    }
+
+    [Fact]
+    public void UpdateItemQuantity_ShouldFail_WhenItemNotFound()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var existingProductId = new ProductId(Guid.NewGuid());
+        var nonExistentProductId = new ProductId(Guid.NewGuid());
+        order.AddItem(existingProductId, new Money(40, _currency), 2);
+
+        // Act
+        var result = order.UpdateItemQuantity(nonExistentProductId, 3);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ItemNotFound, result.Error);
+    }
+
+    [Fact]
+    public void UpdateItemQuantity_ShouldFail_WhenOrderIsNotPending()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        order.AddItem(productId, new Money(40, _currency), 2);
+        order.Submit(DateTimeOffset.UtcNow);
+
+        // Act
+        var result = order.UpdateItemQuantity(productId, 5);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidStatusTransition, result.Error);
+    }
+
+    [Fact]
+    public void AddItem_ShouldPreserveExistingUnitPrice_WhenAddingSameProductWithDifferentPrice()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        var originalPrice = new Money(50, _currency);
+        var differentPrice = new Money(80, _currency);
+
+        // Act
+        order.AddItem(productId, originalPrice, 2);
+        order.AddItem(productId, differentPrice, 3);
+
+        // Assert
+        Assert.Single(order.Items);
+        var item = order.Items.First();
+        Assert.Equal(5, item.Quantity);
+        Assert.Equal(originalPrice, item.UnitPrice);
+        Assert.Equal(new Money(250, _currency), order.TotalAmount);
+    }
+
+    [Fact]
+    public void UpdateItemQuantity_ShouldPreserveExistingUnitPrice_WhenQuantityChanges()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        var productId = new ProductId(Guid.NewGuid());
+        var price = new Money(50, _currency);
+        order.AddItem(productId, price, 2);
+
+        // Act
+        order.UpdateItemQuantity(productId, 10);
+
+        // Assert
+        Assert.Single(order.Items);
+        var item = order.Items.First();
+        Assert.Equal(10, item.Quantity);
+        Assert.Equal(price, item.UnitPrice);
+        Assert.Equal(new Money(500, _currency), order.TotalAmount);
+    }
 }

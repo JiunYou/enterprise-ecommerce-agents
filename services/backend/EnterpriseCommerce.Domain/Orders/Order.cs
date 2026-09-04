@@ -60,9 +60,38 @@ public sealed class Order : AggregateRoot<OrderId>
             return Result.Failure(OrderErrors.CurrencyMismatch);
         }
 
+        var existingItem = _items.FirstOrDefault(x => x.ProductId == productId);
+        if (existingItem is not null)
+        {
+            existingItem.AddQuantity(quantity);
+            return Result.Success();
+        }
+
         var orderItem = new OrderItem(Id, productId, unitPrice, quantity);
         _items.Add(orderItem);
 
+        return Result.Success();
+    }
+
+    public Result UpdateItemQuantity(ProductId productId, int quantity)
+    {
+        if (Status != OrderStatus.Pending)
+        {
+            return Result.Failure(OrderErrors.InvalidStatusTransition);
+        }
+
+        if (quantity <= 0)
+        {
+            return Result.Failure(OrderErrors.InvalidQuantity);
+        }
+
+        var item = _items.FirstOrDefault(x => x.ProductId == productId);
+        if (item is null)
+        {
+            return Result.Failure(OrderErrors.ItemNotFound);
+        }
+
+        item.UpdateQuantity(quantity);
         return Result.Success();
     }
 

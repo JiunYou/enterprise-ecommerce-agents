@@ -98,7 +98,13 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                 商品型錄與線上商務展示
               </p>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/cart"
+                className="inline-flex items-center text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+              >
+                購物車
+              </Link>
               <AuthControls />
             </div>
           </div>

@@ -37,4 +37,11 @@ internal sealed class OrderRepository : IOrderRepository
             .Include(o => o.Items)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<Order?> GetPendingOrderByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.Status == OrderStatus.Pending, cancellationToken);
+    }
 }

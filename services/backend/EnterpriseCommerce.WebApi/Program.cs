@@ -2,6 +2,7 @@ using EnterpriseCommerce.Application;
 using EnterpriseCommerce.Infrastructure;
 using EnterpriseCommerce.WebApi.Extensions;
 using EnterpriseCommerce.WebApi.Middleware;
+using EnterpriseCommerce.WebApi.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +27,52 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddApiVersioningConfig();
 builder.Services.AddSwaggerConfig();
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    var identityResolverClientId = builder.Configuration["Authentication:IdentityResolverClientId"] ?? string.Empty;
+
+    options.AddPolicy(AuthorizationPolicies.IdentityResolve, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+        {
+            // 1. Validate required scope or permission: identity:resolve
+            var scopeClaims = context.User.FindAll(c =>
+                c.Type == "scope" ||
+                c.Type == "scp" ||
+                c.Type == "http://schemas.microsoft.com/identity/claims/scope" ||
+                c.Type == "permissions").ToList();
+
+            var hasScope = scopeClaims.Any(claim =>
+                claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Contains("identity:resolve", StringComparer.Ordinal));
+
+            if (!hasScope)
+            {
+                return false;
+            }
+
+            // 2. Validate client identity (azp, client_id, or sub ending with @clients)
+            var clientClaims = context.User.FindAll(c => c.Type == "azp" || c.Type == "client_id").ToList();
+            if (clientClaims.Count == 0)
+            {
+                var subClaim = context.User.FindFirst(c =>
+                    c.Type == "sub" ||
+                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
+
+                if (subClaim != null && subClaim.Value.EndsWith("@clients", StringComparison.Ordinal))
+                {
+                    var m2mClientId = subClaim.Value[..^"@clients".Length];
+                    return string.Equals(m2mClientId, identityResolverClientId, StringComparison.Ordinal);
+                }
+
+                return false;
+            }
+
+            return clientClaims.All(c => string.Equals(c.Value, identityResolverClientId, StringComparison.Ordinal));
+        });
+    });
+});
 
 // Add Layers
 builder.Services.AddApplication();

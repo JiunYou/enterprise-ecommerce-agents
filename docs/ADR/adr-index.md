@@ -33,5 +33,6 @@ Created Date: 2026-08-24
 | **ADR-020** | Infrastructure Architecture | 確立基礎設施層 (EF Core, Outbox Pattern) | Approved | Phase 12.0 (Infra Planning) |
 | **ADR-021** | API Layer Architecture | 確立 API 層 (ASP.NET Core Web API) 作為 Presentation 邊界，制定 RFC 7807 錯誤處理與資安規範 | Proposed | Phase 13.0 (API Planning) |
 | **ADR-022** | Customer Order Ownership Boundary | 確立訂單所有權的安全邊界，於 Application Layer 執行驗證並返回 NotFound 防範 IDOR | Accepted | PR #6 Security Remediation |
+| **ADR-023** | Auth0 Customer Identity Integration and Internal Identity Mapping | 確立 Auth0 外部身份映射至內部 CustomerId 之機制，使用 M2M 專用端點與資料庫持久化防範 ID 假冒 | Accepted | Customer Authentication v1 (Task B) |
 
 > 📁 **備註：** 詳細決策內容請參閱 `docs/ADR/` 與 `.agents/memory/decisions/` 目錄下的 Markdown 原始檔。

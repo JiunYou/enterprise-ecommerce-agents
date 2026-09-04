@@ -31,6 +31,12 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException("Authentication:Audience is required.");
         }
 
+        var identityResolverClientId = configuration["Authentication:IdentityResolverClientId"];
+        if (string.IsNullOrWhiteSpace(identityResolverClientId))
+        {
+            throw new InvalidOperationException("Authentication:IdentityResolverClientId is required.");
+        }
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {

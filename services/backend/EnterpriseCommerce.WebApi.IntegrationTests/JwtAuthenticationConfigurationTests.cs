@@ -16,7 +16,8 @@ public class JwtAuthenticationConfigurationTests
         var inMemorySettings = new Dictionary<string, string?>
         {
             ["Authentication:Authority"] = "https://auth.example.com",
-            ["Authentication:Audience"] = "test-api"
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client"
         };
 
         IConfiguration configuration = new ConfigurationBuilder()
@@ -52,7 +53,8 @@ public class JwtAuthenticationConfigurationTests
         var inMemorySettings = new Dictionary<string, string?>
         {
             ["Authentication:Authority"] = authority,
-            ["Authentication:Audience"] = "test-api"
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client"
         };
 
         IConfiguration configuration = new ConfigurationBuilder()
@@ -80,7 +82,8 @@ public class JwtAuthenticationConfigurationTests
         var inMemorySettings = new Dictionary<string, string?>
         {
             ["Authentication:Authority"] = authority,
-            ["Authentication:Audience"] = "test-api"
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client"
         };
 
         IConfiguration configuration = new ConfigurationBuilder()
@@ -107,7 +110,8 @@ public class JwtAuthenticationConfigurationTests
         var inMemorySettings = new Dictionary<string, string?>
         {
             ["Authentication:Authority"] = "https://auth.example.com",
-            ["Authentication:Audience"] = audience
+            ["Authentication:Audience"] = audience,
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client"
         };
 
         IConfiguration configuration = new ConfigurationBuilder()
@@ -122,5 +126,33 @@ public class JwtAuthenticationConfigurationTests
         // Assert
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Authentication:Audience*required*");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AddJwtAuthentication_WithMissingOrBlankIdentityResolverClientId_ThrowsInvalidOperationException(string? clientId)
+    {
+        // Arrange
+        var inMemorySettings = new Dictionary<string, string?>
+        {
+            ["Authentication:Authority"] = "https://auth.example.com",
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = clientId
+        };
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemorySettings)
+            .Build();
+
+        var services = new ServiceCollection();
+
+        // Act
+        var act = () => services.AddJwtAuthentication(configuration);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Authentication:IdentityResolverClientId*required*");
     }
 }

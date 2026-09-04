@@ -46,6 +46,40 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             }
         }
 
+        if (Request.Headers.TryGetValue("X-Test-Scope", out var scopeHeader))
+        {
+            claims.Add(new Claim("scope", scopeHeader.ToString()));
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-Azp", out var azpHeader))
+        {
+            claims.Add(new Claim("azp", azpHeader.ToString()));
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-ClientId", out var clientIdHeader))
+        {
+            claims.Add(new Claim("client_id", clientIdHeader.ToString()));
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-Permissions", out var permissionsHeader))
+        {
+            foreach (var perm in permissionsHeader.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                claims.Add(new Claim("permissions", perm));
+            }
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-Sub", out var subHeader))
+        {
+            var existingSub = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+            if (existingSub != null)
+            {
+                claims.Remove(existingSub);
+            }
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, subHeader.ToString()));
+            claims.Add(new Claim("sub", subHeader.ToString()));
+        }
+
         var identity = new ClaimsIdentity(claims, DefaultScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DefaultScheme);

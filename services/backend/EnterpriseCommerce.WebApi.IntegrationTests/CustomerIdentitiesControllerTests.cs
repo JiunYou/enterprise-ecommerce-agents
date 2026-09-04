@@ -318,4 +318,80 @@ public class CustomerIdentitiesControllerTests : IClassFixture<WebApplicationFac
         problem!.Status.Should().Be(400);
         problem.Detail.Should().Be("Subject is invalid.");
     }
+
+    [Fact]
+    public async Task Post_Resolve_WithPermissionsClaim_WithCorrectAzp_Returns200OK()
+    {
+        // Arrange
+        var subject = "auth0|test-user-permissions-claim";
+        var expectedCustomerId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+            It.Is<ResolveCustomerIdentityCommand>(c => c.Issuer == ExpectedIssuer && c.Subject == subject),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(expectedCustomerId));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Permissions", "identity:resolve");
+        client.DefaultRequestHeaders.Add("X-Test-Azp", ExpectedClientId);
+
+        var request = new ResolveCustomerIdentityRequest(subject);
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/internal/customer-identities/resolve", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await response.Content.ReadFromJsonAsync<CustomerIdentityResponse>();
+        responseBody.Should().NotBeNull();
+        responseBody!.CustomerId.Should().Be(expectedCustomerId);
+    }
+
+    [Fact]
+    public async Task Post_Resolve_WithScope_WithM2MClientSub_Returns200OK()
+    {
+        // Arrange
+        var subject = "auth0|test-user-m2m-sub";
+        var expectedCustomerId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+            It.Is<ResolveCustomerIdentityCommand>(c => c.Issuer == ExpectedIssuer && c.Subject == subject),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(expectedCustomerId));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Scope", "identity:resolve");
+        client.DefaultRequestHeaders.Add("X-Test-Sub", $"{ExpectedClientId}@clients");
+
+        var request = new ResolveCustomerIdentityRequest(subject);
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/internal/customer-identities/resolve", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await response.Content.ReadFromJsonAsync<CustomerIdentityResponse>();
+        responseBody.Should().NotBeNull();
+        responseBody!.CustomerId.Should().Be(expectedCustomerId);
+    }
+
+    [Fact]
+    public async Task Post_Resolve_WithPermissionsClaim_WithoutCorrectClient_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Permissions", "identity:resolve");
+        client.DefaultRequestHeaders.Add("X-Test-Azp", "wrong-client-id");
+
+        var request = new ResolveCustomerIdentityRequest("auth0|test-user");
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/internal/customer-identities/resolve", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

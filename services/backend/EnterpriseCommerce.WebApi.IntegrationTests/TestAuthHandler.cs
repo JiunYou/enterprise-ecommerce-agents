@@ -61,6 +61,25 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             claims.Add(new Claim("client_id", clientIdHeader.ToString()));
         }
 
+        if (Request.Headers.TryGetValue("X-Test-Permissions", out var permissionsHeader))
+        {
+            foreach (var perm in permissionsHeader.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                claims.Add(new Claim("permissions", perm));
+            }
+        }
+
+        if (Request.Headers.TryGetValue("X-Test-Sub", out var subHeader))
+        {
+            var existingSub = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+            if (existingSub != null)
+            {
+                claims.Remove(existingSub);
+            }
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, subHeader.ToString()));
+            claims.Add(new Claim("sub", subHeader.ToString()));
+        }
+
         var identity = new ClaimsIdentity(claims, DefaultScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DefaultScheme);

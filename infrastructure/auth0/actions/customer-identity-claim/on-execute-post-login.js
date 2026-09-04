@@ -34,34 +34,34 @@ function isAscii(str) {
  * @param {object} api - Interface whose methods can be used to change the behavior of the login.
  */
 exports.onExecutePostLogin = async (event, api) => {
-  const secrets = event.secrets || {};
-  const expectedWebClientId = secrets.CUSTOMER_WEB_CLIENT_ID;
-  const expectedApiAudience = secrets.API_AUDIENCE;
-  const auth0TokenUrl = secrets.AUTH0_TOKEN_URL;
-  const m2mClientId = secrets.M2M_CLIENT_ID;
-  const m2mClientSecret = secrets.M2M_CLIENT_SECRET;
-  const identityResolverUrl = secrets.IDENTITY_RESOLVER_URL;
-
-  // 1. Ignore unrelated clients
-  if (event.client && event.client.client_id !== expectedWebClientId) {
-    return;
-  }
-
-  // 2. Validate API Audience
-  const requestedAudience = event.resource_server ? event.resource_server.identifier : null;
-  if (!requestedAudience || requestedAudience !== expectedApiAudience) {
-    api.access.deny("Access denied: Invalid API audience.");
-    return;
-  }
-
-  // 3. Validate user subject
-  const subject = event.user ? event.user.user_id : null;
-  if (!subject || typeof subject !== "string" || subject.trim().length === 0 || subject.length > 255 || !isAscii(subject)) {
-    api.access.deny("Access denied: Invalid user subject identifier.");
-    return;
-  }
-
   try {
+    const secrets = event.secrets || {};
+    const expectedWebClientId = secrets.CUSTOMER_WEB_CLIENT_ID;
+    const expectedApiAudience = secrets.API_AUDIENCE;
+    const auth0TokenUrl = secrets.AUTH0_TOKEN_URL;
+    const m2mClientId = secrets.M2M_CLIENT_ID;
+    const m2mClientSecret = secrets.M2M_CLIENT_SECRET;
+    const identityResolverUrl = secrets.IDENTITY_RESOLVER_URL;
+
+    // 1. Ignore unrelated clients
+    if (event.client && event.client.client_id !== expectedWebClientId) {
+      return;
+    }
+
+    // 2. Validate API Audience
+    const requestedAudience = event.resource_server ? event.resource_server.identifier : null;
+    if (!requestedAudience || requestedAudience !== expectedApiAudience) {
+      api.access.deny("Access denied: Invalid API audience.");
+      return;
+    }
+
+    // 3. Validate user subject
+    const subject = event.user ? event.user.user_id : null;
+    if (!subject || typeof subject !== "string" || subject.trim().length === 0 || subject.length > 255 || !isAscii(subject)) {
+      api.access.deny("Access denied: Invalid user subject identifier.");
+      return;
+    }
+
     // 4. Request M2M Access Token from Auth0
     const tokenResponse = await fetch(auth0TokenUrl, {
       method: "POST",
@@ -78,6 +78,7 @@ exports.onExecutePostLogin = async (event, api) => {
     });
 
     if (!tokenResponse.ok) {
+      console.log(`M2M_TOKEN_REQUEST_FAILED status=${tokenResponse.status}`);
       api.access.deny("Access denied: Identity resolution authorization failed.");
       return;
     }
@@ -85,6 +86,7 @@ exports.onExecutePostLogin = async (event, api) => {
     const tokenData = await tokenResponse.json();
     const m2mAccessToken = tokenData.access_token;
     if (!m2mAccessToken || typeof m2mAccessToken !== "string") {
+      console.log("M2M_TOKEN_INVALID_RESPONSE");
       api.access.deny("Access denied: Invalid identity resolution authorization token.");
       return;
     }
@@ -102,12 +104,13 @@ exports.onExecutePostLogin = async (event, api) => {
     });
 
     if (!resolverResponse.ok) {
+      console.log(`RESOLVER_REQUEST_FAILED status=${resolverResponse.status}`);
       api.access.deny("Access denied: Identity resolution request failed.");
       return;
     }
 
     const resolverData = await resolverResponse.json();
-    const customerId = resolverData.customerId;
+    const customerId = resolverData ? resolverData.customerId : null;
 
     // 6. Validate CustomerId Guid
     if (
@@ -116,14 +119,25 @@ exports.onExecutePostLogin = async (event, api) => {
       !GUID_REGEX.test(customerId) ||
       customerId === EMPTY_GUID
     ) {
+      console.log("RESOLVER_INVALID_RESPONSE");
       api.access.deny("Access denied: Identity resolution returned an invalid customer ID.");
       return;
     }
 
     // 7. Inject custom claim into Access Token ONLY
+    if (!api.accessToken || typeof api.accessToken.setCustomClaim !== "function") {
+      console.log("CUSTOM_CLAIM_INJECTION_FAILED");
+      api.access.deny("Access denied: Access token claim injection unsupported.");
+      return;
+    }
+
     api.accessToken.setCustomClaim(CLAIM_NAME, customerId);
-  } catch {
+  } catch (error) {
     // Fail closed without exposing internal errors, tokens or secrets
-    api.access.deny("Access denied: Unable to complete customer identity resolution.");
+    const errorClass = error && error.name ? error.name : "UnknownError";
+    console.log(`CUSTOMER_IDENTITY_ACTION_EXCEPTION error_class=${errorClass}`);
+    if (api && api.access && typeof api.access.deny === "function") {
+      api.access.deny("Access denied: Unable to complete customer identity resolution.");
+    }
   }
 };

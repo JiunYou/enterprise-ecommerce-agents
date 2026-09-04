@@ -310,4 +310,41 @@ describe("Auth0 Post-Login Action: customer-identity-claim", () => {
     assert.ok(api.access.deniedReason?.includes("Unable to complete customer identity resolution"));
     assert.deepEqual(api.accessToken.customClaims, {});
   });
+
+  it("should deny access if api.accessToken is missing or setCustomClaim is unsupported", async () => {
+    global.fetch = async (url) => {
+      if (url === defaultSecrets.AUTH0_TOKEN_URL) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: "mock-m2m-jwt-token" }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ customerId: validCustomerId }),
+      };
+    };
+
+    const event = {
+      client: { client_id: defaultSecrets.CUSTOMER_WEB_CLIENT_ID },
+      resource_server: { identifier: defaultSecrets.API_AUDIENCE },
+      user: { user_id: validSubject },
+      secrets: defaultSecrets,
+    };
+    const api = {
+      access: {
+        deniedReason: null,
+        deny(reason) {
+          this.deniedReason = reason;
+        },
+      },
+      // accessToken is undefined
+    };
+
+    await onExecutePostLogin(event, api);
+
+    assert.ok(api.access.deniedReason?.includes("Access token claim injection unsupported"));
+  });
 });

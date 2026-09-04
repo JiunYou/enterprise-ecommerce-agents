@@ -92,3 +92,34 @@
   - Access Token 維持在伺服器端，不暴露至瀏覽器
   - 首次加購併發競爭情況記錄為已接受之 v1 限制
   - 連接埠 3000/new-api 未被干擾；未宣稱 Live Browser Cart E2E 驗證
+
+### 2026-09-04 — PR #12 — feat: add checkout order submission v1
+- **垂直切片**：Checkout / Order Submission v1
+- **交付價值**：
+  - 已認證顧客付款前結帳審查（`/checkout`）
+  - 購物車至結帳頁面導航（Cart &rarr; Checkout Navigation）
+  - 伺服器端訂單送出（Server Action 與 server-only 訂單輔助模組）
+  - 重用既有 Pending Order 進行提交
+  - 權威性庫存保留與 MySQL 交易保護（InnoDB 列級悲觀鎖定與防死鎖排序）
+  - 成功送出後訂單狀態轉換（Pending &rarr; Submitted）
+  - 訂單送出後自動自作用中購物車清除
+  - 已送出訂單確認頁面（`/orders/[id]`）與明細載入
+  - 安全且明確的業務錯誤處理（庫存不足、狀態無效、空購物車等）
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 343 項後端自動化測試全數通過 (Domain: 71, Application: 115, Infrastructure: 26, WebApi.IntegrationTests: 131)
+  - 真實 MySQL OrderSubmission 驗收測試通過 (3 passed, 0 failed)
+  - 真實 MySQL 庫存保留持久化驗證通過 (Available 50 &rarr; 48, Reserved 0 &rarr; 2)
+  - 真實 MySQL 多品項庫存不足交易全額回滾驗證通過 (MYSQL_PARTIAL_RESERVATION_ROLLBACK=PASS)
+  - 匿名訂單送出操作回傳 401 Unauthorized
+  - 缺少 CustomerId claim 回傳 403 Forbidden
+  - 跨顧客訂單查詢與送出阻擋（404 NotFound / Fail-Closed）
+  - 前端程式碼檢查 (lint)、TypeScript 型別檢查與 production build 通過
+  - 專案治理審計與 git diff --check 檢查通過
+- **關鍵決策**：
+  - 重用既有 `PUT /api/v1/orders/{id}/submit` 與 `SubmitOrderCommand` 正式路徑，正式後端零變更 (BACKEND_PRODUCTION_CHANGE_REQUIRED=NO)
+  - 無新建 Checkout aggregate、無 Checkout 資料表、無資料庫遷移 (Migration)
+  - 結帳流程維持為付款前階段（Pre-Payment），最終成功狀態為 `Submitted`，非 `Paid`
+  - 付款整合 (Payment) 與出貨物流 (Shipping) 明確延後至後續垂直切片
+  - 存取權杖嚴格維持於伺服器端，不暴露給瀏覽器
+  - 連接埠 3000 / new-api 未受干擾；未宣稱 Live Browser Checkout E2E 驗證

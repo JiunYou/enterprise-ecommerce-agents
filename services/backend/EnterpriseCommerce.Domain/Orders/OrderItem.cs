@@ -27,4 +27,14 @@ public sealed class OrderItem : Entity<Guid>
     {
         return UnitPrice * Quantity;
     }
+
+    internal void AddQuantity(int additionalQuantity)
+    {
+        Quantity += additionalQuantity;
+    }
+
+    internal void UpdateQuantity(int newQuantity)
+    {
+        Quantity = newQuantity;
+    }
 }

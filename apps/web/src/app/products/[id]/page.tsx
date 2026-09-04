@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { getProductById } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
+import { auth0 } from "@/lib/auth0";
+import { addItemToCart } from "@/lib/cart";
+import { AddToCartForm } from "@/components/AddToCartForm";
+import { AuthControls } from "@/components/AuthControls";
 
 interface ProductDetailPageProps {
   params: Promise<{
@@ -13,13 +18,22 @@ export default async function ProductDetailPage({
 }: ProductDetailPageProps) {
   const { id } = await params;
   const result = await getProductById(id);
+  const session = await auth0.getSession();
+  const isLoggedIn = Boolean(session && session.user);
+
+  async function handleAddToCart(productId: string, quantity: number) {
+    "use server";
+    const res = await addItemToCart(productId, quantity);
+    revalidatePath("/cart");
+    return res;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {/* 頂部導航列 */}
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Link href="/" className="inline-block">
                 <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
@@ -29,6 +43,15 @@ export default async function ProductDetailPage({
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 商品型錄與線上商務展示
               </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/cart"
+                className="inline-flex items-center text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+              >
+                購物車
+              </Link>
+              <AuthControls />
             </div>
           </div>
         </div>
@@ -118,6 +141,13 @@ export default async function ProductDetailPage({
                   {formatPrice(result.data.price, result.data.currency)}
                 </span>
               </div>
+
+              {/* 加入購物車區塊 */}
+              <AddToCartForm
+                productId={result.data.id}
+                isLoggedIn={isLoggedIn}
+                onAddToCart={handleAddToCart}
+              />
             </div>
           </article>
         )}

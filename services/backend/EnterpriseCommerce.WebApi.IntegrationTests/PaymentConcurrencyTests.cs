@@ -56,34 +56,78 @@ public class PaymentConcurrencyTests : IAsyncLifetime
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task InitiatePayment_ConcurrentRequests_OnlyOneSucceeds()
+    public async Task InitiatePayment_ConcurrentRequests_SameIdempotencyKey_SafelyReusesSinglePendingAttempt_AndProducesSingleAttemptInDb()
     {
         // 1. Arrange a real database and a Submitted Order
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
-        
+
         await db.Database.EnsureDeletedAsync();
         await db.Database.EnsureCreatedAsync();
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
         order.Submit(DateTimeOffset.UtcNow);
-        
+
         db.Orders.Add(order);
         await db.SaveChangesAsync();
 
-        var idempotencyKey = Guid.NewGuid();
-        
-        // 2. Act: Send 5 concurrent initiation requests
-        var tasks = new List<Task<Domain.Primitives.Result<EnterpriseCommerce.Application.Payments.InitiatePaymentResponse>>>();
-        
+        // 2. Act: Send 5 concurrent initiation requests with the SAME idempotency key
+        var sharedIdempotencyKey = Guid.NewGuid();
+        var tasks = new List<Task<Domain.Primitives.Result<InitiatePaymentResponse>>>();
+
+        for (int i = 0; i < 5; i++)
+        {
+            tasks.Add(Task.Run(async () =>
+            {
+                using var innerScope = _factory.Services.CreateScope();
+                var innerSender = innerScope.ServiceProvider.GetRequiredService<ISender>();
+                var command = new InitiatePaymentCommand(order.Id.Value, sharedIdempotencyKey, order.CustomerId);
+                return await innerSender.Send(command);
+            }));
+        }
+
+        var results = await Task.WhenAll(tasks);
+
+        // 3. Assert: All succeed by safely reusing the single attempt under pessimistic lock
+        var successes = results.Count(r => r.IsSuccess);
+        var failures = results.Count(r => r.IsFailure);
+
+        successes.Should().Be(5, "Because same idempotency key safely reuses the pending attempt under pessimistic lock");
+        failures.Should().Be(0);
+
+        results.Select(r => r.Value.ProviderTransactionId).Distinct().Should().ContainSingle("All callers with the same idempotency key receive the exact same provider transaction identity");
+
+        var attemptCount = await db.PaymentAttempts.CountAsync();
+        attemptCount.Should().Be(1, "Exactly one PaymentAttempt row must be persisted in database for same idempotency key");
+    }
+
+    [Fact]
+    public async Task InitiatePayment_ConcurrentRequests_DifferentIdempotencyKeys_CreatesMultiplePaymentAttempts()
+    {
+        // 1. Arrange a real database and a Submitted Order
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
+
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.EnsureCreatedAsync();
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
+        order.Submit(DateTimeOffset.UtcNow);
+
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        // 2. Act: Send 5 concurrent initiation requests with different idempotency keys
+        var tasks = new List<Task<Domain.Primitives.Result<InitiatePaymentResponse>>>();
+
         for (int i = 0; i < 5; i++)
         {
             var uniqueIdempotencyKey = Guid.NewGuid();
-            tasks.Add(Task.Run(async () => 
+            tasks.Add(Task.Run(async () =>
             {
                 using var innerScope = _factory.Services.CreateScope();
-                var innerDb = innerScope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
                 var innerSender = innerScope.ServiceProvider.GetRequiredService<ISender>();
                 var command = new InitiatePaymentCommand(order.Id.Value, uniqueIdempotencyKey, order.CustomerId);
                 return await innerSender.Send(command);
@@ -92,15 +136,168 @@ public class PaymentConcurrencyTests : IAsyncLifetime
 
         var results = await Task.WhenAll(tasks);
 
-        // 3. Assert
+        // 3. Assert: Each distinct idempotency key creates a distinct PaymentAttempt
         var successes = results.Count(r => r.IsSuccess);
         var failures = results.Count(r => r.IsFailure);
-        
 
-        successes.Should().Be(1, "Because pessimistic row lock ensures only one request creates the pending attempt");
-        failures.Should().Be(4);
-        
+        successes.Should().Be(5, "Because each distinct idempotency key represents a distinct attempt and succeeds");
+        failures.Should().Be(0);
+
+        results.Select(r => r.Value.ProviderTransactionId).Distinct().Should().HaveCount(5, "Each different-key caller should receive a distinct provider transaction identity");
+
         var attemptCount = await db.PaymentAttempts.CountAsync();
-        attemptCount.Should().Be(1);
+        attemptCount.Should().Be(5, "Exactly 5 PaymentAttempt rows must be persisted for 5 distinct idempotency keys");
+    }
+
+    [Fact]
+    public async Task OverlappingPaymentAttempts_LateSuccess_AThenB_MarksSecondRefundRequired()
+    {
+        // 1. Arrange a real database and a Submitted Order
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
+
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.EnsureCreatedAsync();
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
+        order.Submit(DateTimeOffset.UtcNow);
+
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Act 1: Initiate with Key A
+        var keyA = Guid.NewGuid();
+        var resA = await sender.Send(new InitiatePaymentCommand(order.Id.Value, keyA, order.CustomerId));
+        resA.IsSuccess.Should().BeTrue();
+
+        // Act 2: Customer retries with Key B (abandon-style retry)
+        var keyB = Guid.NewGuid();
+        var resB = await sender.Send(new InitiatePaymentCommand(order.Id.Value, keyB, order.CustomerId));
+        resB.IsSuccess.Should().BeTrue();
+
+        // Verify both are Pending in DB
+        var attemptA = await db.PaymentAttempts.FirstAsync(pa => pa.IdempotencyKey == keyA);
+        var attemptB = await db.PaymentAttempts.FirstAsync(pa => pa.IdempotencyKey == keyB);
+        attemptA.Status.Should().Be(PaymentAttemptStatus.Pending);
+        attemptB.Status.Should().Be(PaymentAttemptStatus.Pending);
+        attemptA.Id.Should().NotBe(attemptB.Id);
+
+        // Act 3: A succeeds first
+        var webhookA = new ProcessPaymentWebhookCommand(
+            attemptA.Id.Value,
+            "dummy_provider",
+            "evt_A_123",
+            "tx_A_456",
+            100m,
+            "USD",
+            true);
+        var webhookResA = await sender.Send(webhookA);
+        webhookResA.IsSuccess.Should().BeTrue();
+
+        // Verify Order is Paid, A is Succeeded
+        await db.Entry(order).ReloadAsync();
+        await db.Entry(attemptA).ReloadAsync();
+        order.Status.Should().Be(OrderStatus.Paid);
+        attemptA.Status.Should().Be(PaymentAttemptStatus.Succeeded);
+        attemptA.ProviderTransactionId.Should().Be("tx_A_456");
+
+        // Act 4: B subsequently succeeds
+        var webhookB = new ProcessPaymentWebhookCommand(
+            attemptB.Id.Value,
+            "dummy_provider",
+            "evt_B_789",
+            "tx_B_999",
+            100m,
+            "USD",
+            true);
+        var webhookResB = await sender.Send(webhookB);
+        webhookResB.IsSuccess.Should().BeTrue();
+
+        // Verify Order remains Paid, B is RefundRequired
+        await db.Entry(order).ReloadAsync();
+        await db.Entry(attemptB).ReloadAsync();
+        order.Status.Should().Be(OrderStatus.Paid);
+        attemptB.Status.Should().Be(PaymentAttemptStatus.RefundRequired);
+        attemptB.ProviderTransactionId.Should().Be("tx_B_999");
+
+        // Receipt count is 2
+        var receiptCount = await db.PaymentWebhookReceipts.CountAsync();
+        receiptCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task OverlappingPaymentAttempts_LateSuccess_BThenA_MarksSecondRefundRequired()
+    {
+        // 1. Arrange a real database and a Submitted Order
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
+
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.EnsureCreatedAsync();
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
+        order.Submit(DateTimeOffset.UtcNow);
+
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Act 1: Initiate with Key A
+        var keyA = Guid.NewGuid();
+        var resA = await sender.Send(new InitiatePaymentCommand(order.Id.Value, keyA, order.CustomerId));
+        resA.IsSuccess.Should().BeTrue();
+
+        // Act 2: Customer retries with Key B
+        var keyB = Guid.NewGuid();
+        var resB = await sender.Send(new InitiatePaymentCommand(order.Id.Value, keyB, order.CustomerId));
+        resB.IsSuccess.Should().BeTrue();
+
+        var attemptA = await db.PaymentAttempts.FirstAsync(pa => pa.IdempotencyKey == keyA);
+        var attemptB = await db.PaymentAttempts.FirstAsync(pa => pa.IdempotencyKey == keyB);
+
+        // Act 3: B succeeds first
+        var webhookB = new ProcessPaymentWebhookCommand(
+            attemptB.Id.Value,
+            "dummy_provider",
+            "evt_B_789",
+            "tx_B_999",
+            100m,
+            "USD",
+            true);
+        var webhookResB = await sender.Send(webhookB);
+        webhookResB.IsSuccess.Should().BeTrue();
+
+        // Verify Order is Paid, B is Succeeded
+        await db.Entry(order).ReloadAsync();
+        await db.Entry(attemptB).ReloadAsync();
+        order.Status.Should().Be(OrderStatus.Paid);
+        attemptB.Status.Should().Be(PaymentAttemptStatus.Succeeded);
+
+        // Act 4: A subsequently succeeds
+        var webhookA = new ProcessPaymentWebhookCommand(
+            attemptA.Id.Value,
+            "dummy_provider",
+            "evt_A_123",
+            "tx_A_456",
+            100m,
+            "USD",
+            true);
+        var webhookResA = await sender.Send(webhookA);
+        webhookResA.IsSuccess.Should().BeTrue();
+
+        // Verify Order remains Paid, A is RefundRequired
+        await db.Entry(order).ReloadAsync();
+        await db.Entry(attemptA).ReloadAsync();
+        order.Status.Should().Be(OrderStatus.Paid);
+        attemptA.Status.Should().Be(PaymentAttemptStatus.RefundRequired);
+
+        // Receipt count is 2
+        var receiptCount = await db.PaymentWebhookReceipts.CountAsync();
+        receiptCount.Should().Be(2);
     }
 }

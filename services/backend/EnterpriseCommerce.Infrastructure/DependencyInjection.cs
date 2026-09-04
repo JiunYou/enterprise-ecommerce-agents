@@ -30,9 +30,26 @@ public static class DependencyInjection
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentAttemptRepository, PaymentAttemptRepository>();
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentWebhookReceiptRepository, PaymentWebhookReceiptRepository>();
         services.AddScoped<ICustomerIdentityStore, CustomerIdentityStore>();
-        // In production, no real provider is configured yet. 
-        // We register a stub that throws to ensure it fails closed until a real provider is implemented.
-        services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentProvider>(sp => throw new NotImplementedException("A real payment provider is not configured."));
+
+        services.Configure<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentOptions>(options =>
+        {
+            var section = configuration.GetSection("Payments:ECPay");
+            options.MerchantId = section["MerchantId"];
+            options.HashKey = section["HashKey"];
+            options.HashIv = section["HashIv"];
+            options.ReturnUrl = section["ReturnUrl"];
+            options.ClientBackUrlBase = section["ClientBackUrlBase"]
+                ?? section["CustomerWebBaseUrl"]
+                ?? configuration["Payments:CheckoutReturnBaseUrl"];
+            if (!string.IsNullOrWhiteSpace(section["ActionUrl"]))
+            {
+                options.ActionUrl = section["ActionUrl"]!;
+            }
+        });
+        services.AddScoped<EnterpriseCommerce.Infrastructure.Payments.ECPay.IECPayPaymentNotificationService, EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentNotificationService>();
+
+        // ECPay 為目前唯一的作用中 IPaymentProvider
+        services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentProvider, EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentProvider>();
         // Messaging components are currently disabled as they rely on unconfigured external infrastructure.
         // The durable Outbox pattern is used for internal Eventual Consistency via in-process DomainEvent dispatching.
 

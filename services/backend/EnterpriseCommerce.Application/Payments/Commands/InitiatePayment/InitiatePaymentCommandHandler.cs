@@ -75,39 +75,37 @@ internal sealed class InitiatePaymentCommandHandler : ICommandHandler<InitiatePa
                 return Result.Failure<InitiatePaymentResponse>(PaymentErrors.InvalidStatusTransition); // Expired
             }
 
-            // Check if there is an active pending attempt
-            var pendingAttempt = await _paymentAttemptRepository.GetActivePendingAttemptAsync(orderId, cancellationToken);
-            if (pendingAttempt != null)
+            // Check if an attempt already exists for this specific OrderId and IdempotencyKey
+            var existingAttempt = await _paymentAttemptRepository.GetByOrderIdAndIdempotencyKeyAsync(orderId, request.IdempotencyKey, cancellationToken);
+            if (existingAttempt != null)
             {
-                // Idempotency check: if the active attempt has the same idempotency key, we might return it?
-                // Wait, if it has the SAME idempotency key, should we return the existing URL?
-                // The MVP proposal says: "Idempotency identity/key: PaymentAttempts(OrderId, IdempotencyKey) UNIQUE"
-                // "Behavior on repeated request: returns the existing pending Attempt URL/Secret without creating a new one or charging again."
-                if (pendingAttempt.IdempotencyKey == request.IdempotencyKey)
+                // Rollback transaction as we do not need to persist a new attempt or mutate state
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+
+                if (existingAttempt.Status == PaymentAttemptStatus.Pending)
                 {
-                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    
-                    // Call provider again with the SAME PaymentAttemptId.
-                    // An idempotent provider will return the same ProviderTransactionId and URL.
+                    // Same-key idempotency: reuse the active pending PaymentAttempt
                     var existingProviderResponse = await _paymentProvider.InitiatePaymentAsync(
-                        pendingAttempt.Id,
+                        existingAttempt.Id,
                         orderId,
                         order.TotalAmount.Amount,
                         order.TotalAmount.Currency,
+                        existingAttempt.CreatedAt,
                         cancellationToken);
 
                     return Result.Success(existingProviderResponse);
                 }
 
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Result.Failure<InitiatePaymentResponse>(PaymentErrors.ConcurrentInitiation);
+                // If the same idempotency key already mapped to a non-Pending attempt, do not re-initiate with the same key.
+                return Result.Failure<InitiatePaymentResponse>(PaymentErrors.InvalidStatusTransition);
             }
 
             // Create new pending attempt in DB (BEFORE provider call)
+            // Even if older PaymentAttempts for the same Order remain Pending, each distinct IdempotencyKey represents a new provider attempt.
             var attempt = PaymentAttempt.Create(
                 orderId,
                 order.TotalAmount,
-                "DummyProvider",
+                _paymentProvider.ProviderName,
                 request.IdempotencyKey,
                 _timeProvider.GetUtcNow());
 
@@ -121,6 +119,7 @@ internal sealed class InitiatePaymentCommandHandler : ICommandHandler<InitiatePa
                 orderId,
                 order.TotalAmount.Amount,
                 order.TotalAmount.Currency,
+                attempt.CreatedAt,
                 cancellationToken);
 
             return Result.Success(providerResponse);

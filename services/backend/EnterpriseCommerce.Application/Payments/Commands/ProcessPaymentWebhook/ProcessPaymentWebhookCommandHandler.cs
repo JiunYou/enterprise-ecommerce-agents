@@ -75,13 +75,19 @@ internal sealed class ProcessPaymentWebhookCommandHandler : ICommandHandler<Proc
             }
 
             // Verify integrity
+            if (attempt.Provider != request.Provider)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result.Failure(PaymentErrors.ProviderMismatch);
+            }
+
             if (attempt.Amount.Amount != request.Amount)
             {
                 await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return Result.Failure(PaymentErrors.AmountMismatch);
             }
 
-            if (attempt.Amount.Currency != request.Currency)
+            if (!string.Equals(attempt.Amount.Currency, request.Currency, StringComparison.OrdinalIgnoreCase))
             {
                 await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return Result.Failure(PaymentErrors.CurrencyMismatch);
@@ -161,7 +167,7 @@ internal sealed class ProcessPaymentWebhookCommandHandler : ICommandHandler<Proc
                     if (existingAttempt != null 
                         && existingAttempt.Id.Value == request.PaymentAttemptId
                         && existingAttempt.Amount.Amount == request.Amount 
-                        && existingAttempt.Amount.Currency == request.Currency
+                        && string.Equals(existingAttempt.Amount.Currency, request.Currency, StringComparison.OrdinalIgnoreCase)
                         && existingAttempt.Status != PaymentAttemptStatus.Pending)
                     {
                         return Result.Success();

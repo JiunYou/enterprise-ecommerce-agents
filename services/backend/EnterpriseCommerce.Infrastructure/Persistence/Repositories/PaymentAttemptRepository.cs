@@ -26,11 +26,10 @@ internal sealed class PaymentAttemptRepository : IPaymentAttemptRepository
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
-    public async Task<PaymentAttempt?> GetActivePendingAttemptAsync(OrderId orderId, CancellationToken cancellationToken = default)
+    public async Task<PaymentAttempt?> GetByOrderIdAndIdempotencyKeyAsync(OrderId orderId, Guid idempotencyKey, CancellationToken cancellationToken = default)
     {
         return await _dbContext.PaymentAttempts
-            .Where(p => p.OrderId == orderId && p.Status == PaymentAttemptStatus.Pending)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(p => p.OrderId == orderId && p.IdempotencyKey == idempotencyKey, cancellationToken);
     }
 
     public async Task<PaymentAttempt?> GetByProviderTransactionIdAsync(string provider, string providerTransactionId, CancellationToken cancellationToken = default)

@@ -164,6 +164,16 @@ export function CartItemList({
           </span>
         </div>
       </div>
+
+      {/* 結帳動作連結 */}
+      <div className="flex justify-end">
+        <Link
+          href="/checkout"
+          className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          前往結帳 &rarr;
+        </Link>
+      </div>
     </div>
   );
 }

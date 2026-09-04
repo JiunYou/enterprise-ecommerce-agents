@@ -639,4 +639,108 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task SubmitOrder_WithoutAuthToken_Returns401Unauthorized()
+    {
+        var client = _factory.CreateClient();
+        var orderId = Guid.NewGuid();
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _senderMock.Verify(m => m.Send(It.IsAny<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WithoutCustomerIdClaim_Returns403Forbidden()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        // Do not add X-Test-User-Id header
+        var orderId = Guid.NewGuid();
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenOrderNotFoundOrNotOwned_Returns404NotFound()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(404);
+        problemDetails.Title.Should().Be("Not Found");
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenInsufficientStock_Returns400BadRequest()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(EnterpriseCommerce.Domain.Inventory.InventoryErrors.InsufficientStock));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(EnterpriseCommerce.Domain.Inventory.InventoryErrors.InsufficientStock.Message);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenEmptyOrder_Returns400BadRequest()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.EmptyOrder));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.EmptyOrder.Message);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenAlreadySubmitted_Returns400BadRequest()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.SubmitOrder.SubmitOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.InvalidStatusTransition.Message);
+    }
 }

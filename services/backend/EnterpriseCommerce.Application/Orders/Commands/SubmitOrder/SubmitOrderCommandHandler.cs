@@ -27,6 +27,25 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
 
     public async Task<Result> Handle(SubmitOrderCommand request, CancellationToken cancellationToken)
     {
+        if (request.ShippingAddress is null)
+        {
+            return Result.Failure(OrderErrors.ShippingAddressRequired);
+        }
+
+        var shippingAddressResult = ShippingAddress.Create(
+            request.ShippingAddress.RecipientName,
+            request.ShippingAddress.Phone,
+            request.ShippingAddress.CountryCode,
+            request.ShippingAddress.PostalCode,
+            request.ShippingAddress.City,
+            request.ShippingAddress.AddressLine1,
+            request.ShippingAddress.AddressLine2);
+
+        if (shippingAddressResult.IsFailure)
+        {
+            return Result.Failure(shippingAddressResult.Error);
+        }
+
         var orderId = new OrderId(request.OrderId);
         var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
 
@@ -73,7 +92,7 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
                 }
             }
 
-            var submitResult = order.Submit(DateTimeOffset.UtcNow);
+            var submitResult = order.Submit(shippingAddressResult.Value, DateTimeOffset.UtcNow);
             if (submitResult.IsFailure)
             {
                 await _unitOfWork.RollbackTransactionAsync(cancellationToken);

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using EnterpriseCommerce.WebApi.Contracts.Orders;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Authentication;
@@ -96,7 +98,9 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
         using var client = _factory!.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
         client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/submit", null);
+        var request = new SubmitOrderRequest(new ShippingAddressRequest(
+            "Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St", null));
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/submit", request);
         if (!response.IsSuccessStatusCode)
         {
             var content = await response.Content.ReadAsStringAsync();

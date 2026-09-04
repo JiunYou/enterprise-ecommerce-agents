@@ -27,7 +27,8 @@ public class MarkOrderAsPaidCommandHandlerTests
         // Arrange
         var order = Order.Create(Guid.NewGuid(), "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        var shippingAddress = ShippingAddress.Create("Test", "0912345678", "TW", "100", "Taipei", "St 1").Value;
+        order.Submit(shippingAddress, DateTimeOffset.UtcNow);
 
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);

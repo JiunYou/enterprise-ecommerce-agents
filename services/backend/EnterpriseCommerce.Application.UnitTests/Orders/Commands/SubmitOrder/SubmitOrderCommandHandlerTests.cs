@@ -30,6 +30,44 @@ public class SubmitOrderCommandHandlerTests
             _unitOfWorkMock.Object);
     }
 
+    private static ShippingAddressDto CreateValidShippingAddressDto() =>
+        new("Jane Doe", "0912345678", "TW", "100", "Taipei", "123 Main St", "Apt 4B");
+
+    private static ShippingAddress CreateTestShippingAddress() =>
+        ShippingAddress.Create("Jane Doe", "0912345678", "TW", "100", "Taipei", "123 Main St", "Apt 4B").Value;
+
+    [Fact]
+    public async Task Handle_WhenShippingAddressIsNull_ShouldReturnShippingAddressRequired_BeforeTransaction()
+    {
+        // Arrange
+        var command = new SubmitOrderCommand(Guid.NewGuid(), Guid.NewGuid(), null!);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ShippingAddressRequired.Code, result.Error.Code);
+        _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _orderRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<OrderId>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenShippingAddressIsInvalid_ShouldReturnValidationError_BeforeTransaction()
+    {
+        // Arrange
+        var invalidAddressDto = new ShippingAddressDto("", "0912345678", "INVALID", "100", "Taipei", "123 Main St", null);
+        var command = new SubmitOrderCommand(Guid.NewGuid(), Guid.NewGuid(), invalidAddressDto);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _orderRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<OrderId>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Handle_WhenCustomerMismatch_ShouldReturnNotFound()
     {
@@ -39,7 +77,7 @@ public class SubmitOrderCommandHandlerTests
             .ReturnsAsync(order);
 
         var differentCustomerId = Guid.NewGuid();
-        var command = new SubmitOrderCommand(order.Id.Value, differentCustomerId);
+        var command = new SubmitOrderCommand(order.Id.Value, differentCustomerId, CreateValidShippingAddressDto());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -54,7 +92,7 @@ public class SubmitOrderCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenValidOrder_ShouldReserveInventoryAndCommitTransaction()
+    public async Task Handle_WhenValidOrder_ShouldReserveInventory_PersistShippingSnapshot_AndCommitTransaction()
     {
         // Arrange
         var customerId = Guid.NewGuid();
@@ -73,7 +111,8 @@ public class SubmitOrderCommandHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(inventoryItem);
 
-        var command = new SubmitOrderCommand(order.Id.Value, customerId);
+        var addressDto = CreateValidShippingAddressDto();
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, addressDto);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -81,6 +120,15 @@ public class SubmitOrderCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(OrderStatus.Submitted, order.Status);
+        Assert.NotNull(order.ShippingAddress);
+        Assert.Equal(addressDto.RecipientName, order.ShippingAddress.RecipientName);
+        Assert.Equal(addressDto.Phone, order.ShippingAddress.Phone);
+        Assert.Equal("TW", order.ShippingAddress.CountryCode);
+        Assert.Equal(addressDto.PostalCode, order.ShippingAddress.PostalCode);
+        Assert.Equal(addressDto.City, order.ShippingAddress.City);
+        Assert.Equal(addressDto.AddressLine1, order.ShippingAddress.AddressLine1);
+        Assert.Equal(addressDto.AddressLine2, order.ShippingAddress.AddressLine2);
+
         Assert.Equal(48, inventoryItem.AvailableQuantity.Value);
         Assert.Equal(2, inventoryItem.ReservedQuantity.Value);
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -95,12 +143,12 @@ public class SubmitOrderCommandHandlerTests
         var order = Order.Create(customerId, "TWD");
         var productId = Guid.NewGuid();
         order.AddItem(new ProductId(productId), new Money(100, "TWD"), 2);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var command = new SubmitOrderCommand(order.Id.Value, customerId);
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -122,7 +170,7 @@ public class SubmitOrderCommandHandlerTests
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
-        var command = new SubmitOrderCommand(order.Id.Value, customerId);
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -154,7 +202,7 @@ public class SubmitOrderCommandHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(inventoryItem);
 
-        var command = new SubmitOrderCommand(order.Id.Value, customerId);
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -163,6 +211,7 @@ public class SubmitOrderCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(InventoryErrors.InsufficientStock.Code, result.Error.Code);
         Assert.Equal(OrderStatus.Pending, order.Status);
+        Assert.Null(order.ShippingAddress); // Order remains untouched!
         Assert.Equal(2, inventoryItem.AvailableQuantity.Value);
         Assert.Equal(0, inventoryItem.ReservedQuantity.Value);
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -206,7 +255,7 @@ public class SubmitOrderCommandHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(inventory2);
 
-        var command = new SubmitOrderCommand(order.Id.Value, customerId);
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -215,6 +264,7 @@ public class SubmitOrderCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(InventoryErrors.InsufficientStock.Code, result.Error.Code);
         Assert.Equal(OrderStatus.Pending, order.Status);
+        Assert.Null(order.ShippingAddress); // Order remains untouched!
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);

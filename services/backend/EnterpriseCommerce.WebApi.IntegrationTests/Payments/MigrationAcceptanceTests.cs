@@ -102,4 +102,99 @@ public class MigrationAcceptanceTests : IAsyncLifetime
 
         receiptUniqueIndexes.Should().Contain("IX_PaymentWebhookReceipts_Provider_ProviderEventId");
     }
+
+    [Fact]
+    public async Task EFCoreMigration_AddOrderShippingAddress_AppliesSuccessfully_AndCreatesExpectedColumns()
+    {
+        // Arrange
+        var connectionString = _mySqlContainer.GetConnectionString();
+        var options = new DbContextOptionsBuilder<EnterpriseCommerceDbContext>()
+            .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+            .Options;
+
+        await using var dbContext = new EnterpriseCommerceDbContext(options);
+
+        // Act - Run actual migrations
+        await dbContext.Database.MigrateAsync();
+
+        // Assert 1 - Verify migration applied
+        var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
+        appliedMigrations.Should().Contain(m => m.Contains("AddOrderShippingAddress"));
+
+        // Assert 2 - Verify Orders table has 7 nullable shipping columns in MySQL
+        using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = @"
+            SELECT COLUMN_NAME, IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = 'migration_test_db'
+              AND TABLE_NAME = 'Orders'
+              AND COLUMN_NAME LIKE 'Shipping%'";
+
+        await dbContext.Database.OpenConnectionAsync();
+        var shippingColumns = new System.Collections.Generic.Dictionary<string, (string IsNullable, string DataType, long? MaxLength)>();
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                var colName = reader.GetString(0);
+                var isNullable = reader.GetString(1);
+                var dataType = reader.GetString(2);
+                long? maxLen = reader.IsDBNull(3) ? null : reader.GetInt64(3);
+                shippingColumns[colName] = (isNullable, dataType, maxLen);
+            }
+        }
+
+        shippingColumns.Should().ContainKey("ShippingRecipientName");
+        shippingColumns["ShippingRecipientName"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingRecipientName"].MaxLength.Should().Be(100);
+
+        shippingColumns.Should().ContainKey("ShippingPhone");
+        shippingColumns["ShippingPhone"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingPhone"].MaxLength.Should().Be(30);
+
+        shippingColumns.Should().ContainKey("ShippingCountryCode");
+        shippingColumns["ShippingCountryCode"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingCountryCode"].MaxLength.Should().Be(2);
+
+        shippingColumns.Should().ContainKey("ShippingPostalCode");
+        shippingColumns["ShippingPostalCode"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingPostalCode"].MaxLength.Should().Be(20);
+
+        shippingColumns.Should().ContainKey("ShippingCity");
+        shippingColumns["ShippingCity"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingCity"].MaxLength.Should().Be(100);
+
+        shippingColumns.Should().ContainKey("ShippingAddressLine1");
+        shippingColumns["ShippingAddressLine1"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingAddressLine1"].MaxLength.Should().Be(200);
+
+        shippingColumns.Should().ContainKey("ShippingAddressLine2");
+        shippingColumns["ShippingAddressLine2"].IsNullable.Should().Be("YES");
+        shippingColumns["ShippingAddressLine2"].MaxLength.Should().Be(200);
+
+        // Assert 3 - Historical Null & New Snapshot Compatibility via Real MySQL
+        var historicalOrder = EnterpriseCommerce.Domain.Orders.Order.Create(Guid.NewGuid(), "USD");
+        historicalOrder.AddItem(new EnterpriseCommerce.Domain.Orders.ValueObjects.ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(50, "USD"), 1);
+        historicalOrder.ChangeStatus(EnterpriseCommerce.Domain.Orders.OrderStatus.Submitted);
+
+        var newOrder = EnterpriseCommerce.Domain.Orders.Order.Create(Guid.NewGuid(), "USD");
+        newOrder.AddItem(new EnterpriseCommerce.Domain.Orders.ValueObjects.ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100, "USD"), 2);
+        var syntheticShipping = EnterpriseCommerce.Domain.Orders.ValueObjects.ShippingAddress.Create(
+            "Test Recipient", "0912345678", "TW", "100", "Taipei", "123 Main St", "Apt 1B").Value;
+        newOrder.Submit(syntheticShipping, DateTimeOffset.UtcNow);
+
+        dbContext.Orders.AddRange(historicalOrder, newOrder);
+        await dbContext.SaveChangesAsync();
+
+        // Reload via fresh context
+        await using var verifyContext = new EnterpriseCommerceDbContext(options);
+        var reloadedHistorical = await verifyContext.Orders.SingleAsync(o => o.Id == historicalOrder.Id);
+        reloadedHistorical.ShippingAddress.Should().BeNull();
+
+        var reloadedNew = await verifyContext.Orders.SingleAsync(o => o.Id == newOrder.Id);
+        reloadedNew.ShippingAddress.Should().NotBeNull();
+        reloadedNew.ShippingAddress!.RecipientName.Should().Be("Test Recipient");
+        reloadedNew.ShippingAddress.AddressLine1.Should().Be("123 Main St");
+        reloadedNew.ShippingAddress.CountryCode.Should().Be("TW");
+    }
 }

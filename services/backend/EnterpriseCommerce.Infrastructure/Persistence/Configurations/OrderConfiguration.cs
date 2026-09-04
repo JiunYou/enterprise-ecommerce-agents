@@ -34,6 +34,37 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.HasIndex(o => new { o.Status, o.SubmittedAt });
 
+        builder.OwnsOne(o => o.ShippingAddress, shippingBuilder =>
+        {
+            shippingBuilder.Property(s => s.RecipientName)
+                .HasColumnName("ShippingRecipientName")
+                .HasMaxLength(100);
+
+            shippingBuilder.Property(s => s.Phone)
+                .HasColumnName("ShippingPhone")
+                .HasMaxLength(30);
+
+            shippingBuilder.Property(s => s.CountryCode)
+                .HasColumnName("ShippingCountryCode")
+                .HasMaxLength(2);
+
+            shippingBuilder.Property(s => s.PostalCode)
+                .HasColumnName("ShippingPostalCode")
+                .HasMaxLength(20);
+
+            shippingBuilder.Property(s => s.City)
+                .HasColumnName("ShippingCity")
+                .HasMaxLength(100);
+
+            shippingBuilder.Property(s => s.AddressLine1)
+                .HasColumnName("ShippingAddressLine1")
+                .HasMaxLength(200);
+
+            shippingBuilder.Property(s => s.AddressLine2)
+                .HasColumnName("ShippingAddressLine2")
+                .HasMaxLength(200);
+        });
+
         builder.HasMany(o => o.Items)
             .WithOne()
             .HasForeignKey(i => i.OrderId)

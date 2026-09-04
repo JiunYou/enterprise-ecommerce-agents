@@ -82,7 +82,7 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using var scope = _factory!.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -107,7 +107,7 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var nonOwnerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using var scope = _factory!.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -130,7 +130,7 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using var scope = _factory!.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -171,7 +171,7 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using var scope = _factory!.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -224,7 +224,7 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         var key = Guid.NewGuid();
         var attempt = PaymentAttempt.Create(order.Id, order.TotalAmount, "DummyProvider", key, DateTimeOffset.UtcNow);
@@ -262,11 +262,11 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order1 = Order.Create(ownerId, "USD");
         order1.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order1.Submit(DateTimeOffset.UtcNow);
+        order1.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         var order2 = Order.Create(ownerId, "USD");
         order2.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(200m, "USD"), 1);
-        order2.Submit(DateTimeOffset.UtcNow);
+        order2.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using var scope = _factory!.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -292,7 +292,9 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
         response1.StatusCode.Should().Be(HttpStatusCode.OK);
         response2.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        content2!.ProviderTransactionId.Should().NotBe(content1!.ProviderTransactionId, "Because they are different orders, so they generate different PaymentAttempts despite having the same client idempotency key");
+        content1.Should().NotBeNull();
+        content2.Should().NotBeNull();
+        content1!.ProviderTransactionId.Should().NotBe(content2!.ProviderTransactionId, "Because different orders must receive distinct transaction IDs even with same key");
     }
 
     [Fact]
@@ -319,5 +321,10 @@ public class PaymentApiIntegrationTests : IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound, "Because the dummy webhook controller does not exist in the production assembly.");
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

@@ -67,7 +67,7 @@ public class PaymentConcurrencyTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
@@ -114,7 +114,7 @@ public class PaymentConcurrencyTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
@@ -161,7 +161,7 @@ public class PaymentConcurrencyTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
@@ -240,7 +240,7 @@ public class PaymentConcurrencyTests : IAsyncLifetime
 
         var order = Order.Create(Guid.NewGuid(), "USD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
@@ -299,5 +299,10 @@ public class PaymentConcurrencyTests : IAsyncLifetime
         // Receipt count is 2
         var receiptCount = await db.PaymentWebhookReceipts.CountAsync();
         receiptCount.Should().Be(2);
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

@@ -107,7 +107,7 @@ public class ECPayPaymentInitiationIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(ownerId, "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -159,7 +159,7 @@ public class ECPayPaymentInitiationIntegrationTests : IAsyncLifetime
 
         var order = Order.Create(ownerId, "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(2500m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -227,7 +227,7 @@ public class ECPayPaymentInitiationIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -274,7 +274,7 @@ public class ECPayPaymentInitiationIntegrationTests : IAsyncLifetime
         var ownerId = Guid.NewGuid();
         var order = Order.Create(ownerId, "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(1000m, "TWD"), 1);
-        order.Submit(DateTimeOffset.UtcNow);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -319,5 +319,10 @@ public class ECPayPaymentInitiationIntegrationTests : IAsyncLifetime
 
             attempts[0].Id.Should().NotBe(attempts[1].Id);
         }
+    }
+
+    private static ShippingAddress CreateTestShippingAddress()
+    {
+        return ShippingAddress.Create("Test Customer", "0912345678", "TW", "100", "Taipei", "123 Main St").Value;
     }
 }

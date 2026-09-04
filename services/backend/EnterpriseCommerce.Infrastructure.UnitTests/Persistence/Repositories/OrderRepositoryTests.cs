@@ -97,7 +97,8 @@ public class OrderRepositoryTests
         var customerId = Guid.NewGuid();
         var order = Order.Create(customerId, "TWD");
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(200, "TWD"), 2);
-        order.Submit(DateTimeOffset.UtcNow);
+        var shippingAddress = ShippingAddress.Create("Test Recipient", "0912345678", "TW", "100", "Taipei", "123 St").Value;
+        order.Submit(shippingAddress, DateTimeOffset.UtcNow);
         _dbContext.Orders.Add(order);
         await _dbContext.SaveChangesAsync();
 
@@ -106,6 +107,33 @@ public class OrderRepositoryTests
 
         // Assert
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnOrderWithShippingAddress_WhenSubmittedWithShippingAddress()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(200, "TWD"), 1);
+        var shippingAddress = ShippingAddress.Create("Jane Doe", "0912345678", "TW", "100", "Taipei", "123 Main St", "Suite 2").Value;
+        order.Submit(shippingAddress, DateTimeOffset.UtcNow);
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _repository.GetByIdAsync(order.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.ShippingAddress.Should().NotBeNull();
+        result.ShippingAddress!.RecipientName.Should().Be("Jane Doe");
+        result.ShippingAddress.Phone.Should().Be("0912345678");
+        result.ShippingAddress.CountryCode.Should().Be("TW");
+        result.ShippingAddress.PostalCode.Should().Be("100");
+        result.ShippingAddress.City.Should().Be("Taipei");
+        result.ShippingAddress.AddressLine1.Should().Be("123 Main St");
+        result.ShippingAddress.AddressLine2.Should().Be("Suite 2");
     }
 
     [Fact]

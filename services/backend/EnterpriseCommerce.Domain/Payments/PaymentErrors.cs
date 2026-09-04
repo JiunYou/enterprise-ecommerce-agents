@@ -27,4 +27,8 @@ public static class PaymentErrors
     public static readonly Error DuplicateTransactionIdMismatch = new(
         "Payment.DuplicateTransactionIdMismatch",
         "A duplicate webhook was received but the semantic payment data does not match the finalized authoritative state.");
+
+    public static readonly Error ProviderMismatch = new(
+        "Payment.ProviderMismatch",
+        "The webhook provider does not match the payment attempt provider.");
 }

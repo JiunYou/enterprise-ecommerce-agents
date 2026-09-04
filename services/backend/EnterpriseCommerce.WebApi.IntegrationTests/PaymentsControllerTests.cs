@@ -56,7 +56,7 @@ public class PaymentsControllerTests : IClassFixture<WebApplicationFactory<Progr
         var idempotencyKey = Guid.NewGuid();
         var request = new InitiatePaymentRequest(orderId, idempotencyKey);
 
-        var expectedResponse = new InitiatePaymentResponse("provider_tx_id_123", "https://checkout.url");
+        var expectedResponse = new InitiatePaymentResponse("provider_tx_id_123", "https://checkout.url", PaymentLaunchMethod.Get, null);
         var customerIdStr = Guid.NewGuid().ToString();
         _senderMock.Setup(x => x.Send(
                 It.Is<InitiatePaymentCommand>(c => c.OrderId == orderId && c.IdempotencyKey == idempotencyKey && c.CustomerId == Guid.Parse(customerIdStr)),
@@ -75,6 +75,56 @@ public class PaymentsControllerTests : IClassFixture<WebApplicationFactory<Progr
         var result = await response.Content.ReadFromJsonAsync<InitiatePaymentResponse>();
         result.Should().NotBeNull();
         result!.ProviderTransactionId.Should().Be("provider_tx_id_123");
+        result.ActionUrl.Should().Be("https://checkout.url");
+        result.Method.Should().Be(PaymentLaunchMethod.Get);
+        result.FormFields.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task InitiatePayment_PostLaunch_SerializesCorrectlyWithFormFieldsAndNullProviderTransactionId()
+    {
+        // Arrange: Test provider-neutral POST launch shape (e.g. for future ECPay)
+        var orderId = Guid.NewGuid();
+        var idempotencyKey = Guid.NewGuid();
+        var request = new InitiatePaymentRequest(orderId, idempotencyKey);
+
+        var formFields = new Dictionary<string, string>
+        {
+            { "MerchantID", "2000132" },
+            { "TotalAmount", "500" },
+            { "CheckMacValue", "TEST_MAC_VALUE" }
+        };
+
+        var expectedResponse = new InitiatePaymentResponse(
+            ProviderTransactionId: null,
+            ActionUrl: "https://payment-stage.example.com/Cashier/AioCheckOut/V5",
+            Method: PaymentLaunchMethod.Post,
+            FormFields: formFields);
+
+        var customerIdStr = Guid.NewGuid().ToString();
+        _senderMock.Setup(x => x.Send(
+                It.Is<InitiatePaymentCommand>(c => c.OrderId == orderId && c.IdempotencyKey == idempotencyKey && c.CustomerId == Guid.Parse(customerIdStr)),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(expectedResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerIdStr);
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/payments/initiate", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<InitiatePaymentResponse>();
+        result.Should().NotBeNull();
+        result!.ProviderTransactionId.Should().BeNull("Because POST launch provider transaction ID is not yet known at initiation");
+        result.ActionUrl.Should().Be("https://payment-stage.example.com/Cashier/AioCheckOut/V5");
+        result.Method.Should().Be(PaymentLaunchMethod.Post);
+        result.FormFields.Should().NotBeNull();
+        result.FormFields.Should().ContainKey("MerchantID").WhoseValue.Should().Be("2000132");
+        result.FormFields.Should().ContainKey("TotalAmount").WhoseValue.Should().Be("500");
+        result.FormFields.Should().ContainKey("CheckMacValue").WhoseValue.Should().Be("TEST_MAC_VALUE");
     }
 
     [Fact]

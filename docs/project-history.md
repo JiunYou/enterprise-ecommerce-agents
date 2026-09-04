@@ -123,3 +123,34 @@
   - 付款整合 (Payment) 與出貨物流 (Shipping) 明確延後至後續垂直切片
   - 存取權杖嚴格維持於伺服器端，不暴露給瀏覽器
   - 連接埠 3000 / new-api 未受干擾；未宣稱 Live Browser Checkout E2E 驗證
+
+### 2026-09-04 — PR #13 — feat: add payment integration v1
+- **垂直切片**：Payment Integration v1
+- **交付價值**：
+  - 已認證顧客付款發起（POST /api/v1/payments/initiate）與所有權校驗
+  - 綠界科技（ECPay AIO V5）託管信用卡支付整合
+  - 提供者中立之 PaymentAttempt 狀態機與領域生命週期管理
+  - 同訂單相同 IdempotencyKey 冪等重複使用作用中 Pending Attempt
+  - 同訂單不同 IdempotencyKey 重試建立全新 PaymentAttempt 與獨立 MerchantTradeNo
+  - 權威性綠界 ReturnURL 背景回調處理（POST /api/v1/payments/webhooks/ecpay）
+  - 回調 CheckMacValue 雜湊簽章與特店編號安全驗證
+  - 重複通知冪等性保障（PaymentWebhookReceipts 唯一約束）
+  - SimulatePaid 模擬付款防護（不誤標記訂單為 Paid）
+  - 延遲成功付款或已取消訂單之退款標記防護（RefundRequired）
+  - Customer Web 安全託管 POST 表單跳轉與嚴格 ActionUrl 白名單
+  - 移除未啟用之 Stripe 適配器原始碼、相依套件與測試，消除無效代碼
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 431 項後端自動化測試全數通過 (Domain: 71, Application: 117, Infrastructure: 88, WebApi.IntegrationTests: 155)
+  - 前端程式碼檢查 (lint)、TypeScript 型別檢查與 production build 通過
+  - 綠界 Stage 測試環境真實端到端付款驗證通過 (ECPAY_GENUINE_STAGE_HAPPY_PATH=PASS)
+  - 綠界真實背景回調通知接收與驗簽通過 (ECPAY_GENUINE_RETURNURL=PASS)
+  - 失敗/未付款後重試生命週期供應商相容性驗證通過 (ECPAY_PROVIDER_RETRY_COMPATIBILITY=PASS)
+  - 供應商端成功收費筆數確切為 1 筆，無重複扣款 (SUCCESSFUL_PROVIDER_CHARGE_COUNT=1, DUPLICATE_SUCCESSFUL_PROVIDER_CHARGE=NO)
+  - 專案治理審計與 git diff --check 檢查通過
+- **關鍵決策**：
+  - 綠界科技 ECPay 為 Payment v1 唯一作用中提供者，不引入多供應商選擇器或執行期動態切換
+  - 相同 OrderId + IdempotencyKey 重用現有 Pending Attempt；不同 IdempotencyKey 建立新 Attempt
+  - 延遲成功或訂單狀態非 Submitted 時 Attempt 轉為 RefundRequired，訂單狀態不重複轉換
+  - 現行資料庫結構原生支援一對多 PaymentAttempt 關聯，無需額外資料庫遷移 (ECPAY_SCHEMA_CHANGE_REQUIRED_FINAL=NO)
+  - Stripe 因境外測試商戶註冊限制暫緩真實 E2E 驗證，並已自執行期與相依套件中完整移除

@@ -37,18 +37,27 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException("Authentication:IdentityResolverClientId is required.");
         }
 
+        var roleClaimType = configuration["Authentication:RoleClaimType"];
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
                 options.Authority = authority;
                 options.Audience = audience;
-                options.TokenValidationParameters = new TokenValidationParameters
+                var tokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true
                 };
+
+                if (!string.IsNullOrWhiteSpace(roleClaimType))
+                {
+                    tokenValidationParameters.RoleClaimType = roleClaimType;
+                }
+
+                options.TokenValidationParameters = tokenValidationParameters;
             });
 
         return services;

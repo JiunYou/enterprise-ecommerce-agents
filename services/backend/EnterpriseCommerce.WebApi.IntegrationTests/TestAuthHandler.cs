@@ -40,9 +40,14 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
         if (Request.Headers.TryGetValue("X-Test-Role", out var roleHeader))
         {
+            var roleClaimType = Request.Headers.TryGetValue("X-Test-Role-Claim-Type", out var customRoleClaimType) &&
+                                !string.IsNullOrWhiteSpace(customRoleClaimType.ToString())
+                ? customRoleClaimType.ToString()
+                : ClaimTypes.Role;
+
             foreach (var role in roleHeader.ToString().Split(','))
             {
-                claims.Add(new Claim(ClaimTypes.Role, role.Trim()));
+                claims.Add(new Claim(roleClaimType, role.Trim()));
             }
         }
 

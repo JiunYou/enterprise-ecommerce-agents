@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using EnterpriseCommerce.Application.Orders.Commands.CreateOrder;
 using EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
+using EnterpriseCommerce.Application.Orders.Queries.GetFulfillmentOrders;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.WebApi.Contracts.Orders;
@@ -222,6 +223,24 @@ public class OrdersController : ApiControllerBase
         }
 
         return Ok();
+    }
+
+    [HttpGet("fulfillment")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetFulfillmentOrders([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var query = new GetFulfillmentOrdersQuery(limit);
+        var result = await Sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
     }
 }
 

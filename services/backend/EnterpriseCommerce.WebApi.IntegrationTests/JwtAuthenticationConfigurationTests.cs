@@ -155,4 +155,107 @@ public class JwtAuthenticationConfigurationTests
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Authentication:IdentityResolverClientId*required*");
     }
+
+    [Fact]
+    public void AddJwtAuthentication_WithoutRoleClaimType_RetainsDefaultRoleClaimType()
+    {
+        // Arrange
+        var inMemorySettings = new Dictionary<string, string?>
+        {
+            ["Authentication:Authority"] = "https://auth.example.com",
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client"
+        };
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemorySettings)
+            .Build();
+
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddJwtAuthentication(configuration);
+        var serviceProvider = services.BuildServiceProvider();
+        var optionsMonitor = serviceProvider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>();
+        var jwtOptions = optionsMonitor.Get(JwtBearerDefaults.AuthenticationScheme);
+
+        // Assert
+        jwtOptions.TokenValidationParameters.Should().NotBeNull();
+        jwtOptions.TokenValidationParameters.RoleClaimType.Should().Be(System.Security.Claims.ClaimTypes.Role);
+        jwtOptions.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateAudience.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateLifetime.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateIssuerSigningKey.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("roles")]
+    [InlineData("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")]
+    [InlineData("https://enterprisecommerce.internal/claims/role")]
+    public void AddJwtAuthentication_WithConfiguredRoleClaimType_SetsRoleClaimTypeCorrectly(string configuredRoleClaimType)
+    {
+        // Arrange
+        var inMemorySettings = new Dictionary<string, string?>
+        {
+            ["Authentication:Authority"] = "https://auth.example.com",
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client",
+            ["Authentication:RoleClaimType"] = configuredRoleClaimType
+        };
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemorySettings)
+            .Build();
+
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddJwtAuthentication(configuration);
+        var serviceProvider = services.BuildServiceProvider();
+        var optionsMonitor = serviceProvider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>();
+        var jwtOptions = optionsMonitor.Get(JwtBearerDefaults.AuthenticationScheme);
+
+        // Assert
+        jwtOptions.TokenValidationParameters.Should().NotBeNull();
+        jwtOptions.TokenValidationParameters.RoleClaimType.Should().Be(configuredRoleClaimType);
+        jwtOptions.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateAudience.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateLifetime.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateIssuerSigningKey.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AddJwtAuthentication_WithBlankRoleClaimType_RetainsDefaultRoleClaimType(string blankRoleClaimType)
+    {
+        // Arrange
+        var inMemorySettings = new Dictionary<string, string?>
+        {
+            ["Authentication:Authority"] = "https://auth.example.com",
+            ["Authentication:Audience"] = "test-api",
+            ["Authentication:IdentityResolverClientId"] = "test-resolver-client",
+            ["Authentication:RoleClaimType"] = blankRoleClaimType
+        };
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemorySettings)
+            .Build();
+
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddJwtAuthentication(configuration);
+        var serviceProvider = services.BuildServiceProvider();
+        var optionsMonitor = serviceProvider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>();
+        var jwtOptions = optionsMonitor.Get(JwtBearerDefaults.AuthenticationScheme);
+
+        // Assert
+        jwtOptions.TokenValidationParameters.Should().NotBeNull();
+        jwtOptions.TokenValidationParameters.RoleClaimType.Should().Be(System.Security.Claims.ClaimTypes.Role);
+        jwtOptions.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateAudience.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateLifetime.Should().BeTrue();
+        jwtOptions.TokenValidationParameters.ValidateIssuerSigningKey.Should().BeTrue();
+    }
 }

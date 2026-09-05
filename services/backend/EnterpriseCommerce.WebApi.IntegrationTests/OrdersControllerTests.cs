@@ -1,4 +1,6 @@
 using EnterpriseCommerce.Application.Orders.Commands.CreateOrder;
+using EnterpriseCommerce.Application.Orders.Queries.GetFulfillmentOrders;
+using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.WebApi.Contracts.Orders;
@@ -843,5 +845,301 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         problemDetails.Should().NotBeNull();
         problemDetails!.Status.Should().Be(400);
         problemDetails.Detail.Should().Be(OrderErrors.InvalidStatusTransition.Message);
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithoutAuthToken_Returns401Unauthorized()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _senderMock.Verify(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithCustomerToken_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Customer");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", Guid.NewGuid().ToString());
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().NotContain("ShippingAddress");
+        body.Should().NotContain("RecipientName");
+        body.Should().NotContain("AddressLine1");
+        _senderMock.Verify(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithCustomerIdentityClaimAlone_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", Guid.NewGuid().ToString());
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithWrongRoleClaimType_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+        client.DefaultRequestHeaders.Add("X-Test-Role-Claim-Type", "urn:custom:wrong_role_type");
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Guest")]
+    [InlineData("Manager")]
+    public async Task GetFulfillmentOrders_WithNonAdminOrMalformedRole_Returns403Forbidden(string role)
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", role);
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _senderMock.Verify(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithAdminToken_Returns200OKAndOnlyPaidOrders()
+    {
+        // Arrange
+        var expectedOrders = new List<OrderResponse>
+        {
+            new(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Paid",
+                "TWD",
+                300m,
+                new List<OrderItemResponse>
+                {
+                    new(Guid.NewGuid(), 150m, "TWD", 2, 300m)
+                },
+                new ShippingAddressResponse(
+                    "Jane Doe",
+                    "+886912345678",
+                    "TW",
+                    "100",
+                    "Taipei",
+                    "Main St",
+                    "Floor 2"))
+        };
+
+        _senderMock.Setup(m => m.Send(It.Is<GetFulfillmentOrdersQuery>(q => q.Limit == 25), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<IReadOnlyList<OrderResponse>>(expectedOrders));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment?limit=25");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var orders = await response.Content.ReadFromJsonAsync<List<OrderResponse>>();
+        orders.Should().NotBeNull();
+        orders!.Should().HaveCount(1);
+        orders[0].Status.Should().Be("Paid");
+        orders[0].ShippingAddress.Should().NotBeNull();
+        orders[0].ShippingAddress!.RecipientName.Should().Be("Jane Doe");
+    }
+
+    [Fact]
+    public async Task GetFulfillmentOrders_WithHistoricalPaidOrderHavingNullShippingAddress_Returns200OKWithNullAddress()
+    {
+        // Arrange
+        var expectedOrders = new List<OrderResponse>
+        {
+            new(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Paid",
+                "USD",
+                100m,
+                new List<OrderItemResponse>
+                {
+                    new(Guid.NewGuid(), 100m, "USD", 1, 100m)
+                },
+                null)
+        };
+
+        _senderMock.Setup(m => m.Send(It.IsAny<GetFulfillmentOrdersQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<IReadOnlyList<OrderResponse>>(expectedOrders));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Orders/fulfillment");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var orders = await response.Content.ReadFromJsonAsync<List<OrderResponse>>();
+        orders.Should().NotBeNull();
+        orders!.Should().HaveCount(1);
+        orders[0].Status.Should().Be("Paid");
+        orders[0].ShippingAddress.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithSubmittedOrder_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.InvalidStatusTransition.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithCancelledOrder_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.InvalidStatusTransition.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithAlreadyShippedOrder_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.InvalidStatusTransition.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithMissingOrder_Returns404NotFound()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(404);
+        problemDetails.Detail.Should().Be(OrderErrors.NotFound.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_ConcurrentDuplicateRequests_OnlyOneSucceedsAndOneRejectsDeterministically()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var callCount = 0;
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var current = Interlocked.Increment(ref callCount);
+                return current == 1 ? Result.Success() : Result.Failure(OrderErrors.InvalidStatusTransition);
+            });
+
+        var client1 = _factory.CreateClient();
+        client1.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client1.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        var client2 = _factory.CreateClient();
+        client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client2.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var task1 = client1.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var task2 = client2.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var responses = await Task.WhenAll(task1, task2);
+
+        // Assert
+        var statusCodes = responses.Select(r => r.StatusCode).ToList();
+        statusCodes.Should().Contain(HttpStatusCode.OK);
+        statusCodes.Should().Contain(HttpStatusCode.BadRequest);
     }
 }

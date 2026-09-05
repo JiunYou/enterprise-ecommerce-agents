@@ -10,5 +10,11 @@ public interface IOrderRepository
     Task<Order?> GetByIdForUpdateAsync(OrderId id, CancellationToken cancellationToken = default);
     Task<Order?> GetPendingOrderByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetFulfillmentQueueAsync(int limit, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<Order> Items, int TotalCount)> GetAdminOrdersAsync(
+        OrderStatus? status,
+        OrderId? orderId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }
 

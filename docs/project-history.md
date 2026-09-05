@@ -205,3 +205,35 @@
   - 重用既有 ShipOrder / Order.Ship()，不建立第二套 Shipment state machine
   - 無資料庫 migration、無 Payment production 變更、無 Customer Web 變更
   - 完整 Admin Order Management 明確延後至下一個獨立 Vertical Slice
+
+### 2026-09-05 — PR #16 — feat: add admin order management read view
+- **垂直切片**：Admin Order Management v1 — Read-Only
+- **交付價值**：
+  - 新增 Admin-only 全訂單唯讀總覽
+  - Admin 可查閱 Pending、Submitted、Paid、Shipped、Cancelled 歷史與目前訂單
+  - 支援 status 與 exact OrderId 篩選
+  - 提供 bounded pagination 與 deterministic ordering
+  - 新增 Admin 訂單詳細頁，授權成功後可查看 Items 與 ShippingAddress
+  - 保留既有 Fulfillment Dashboard 與 Ship workflow，不以 Order Management 取代履約工作佇列
+- **驗證成果**：
+  - Backend build 通過 (0 warnings, 0 errors)
+  - 542 項後端自動化測試全數通過 (Domain 105 / Application 153 / Infrastructure 89 / WebApi Integration 195)
+  - Admin lint、TypeScript typecheck、production build 通過
+  - Genuine Auth0 non-Admin list/detail 均 403 且無訂單 PII 洩漏
+  - Genuine Auth0 Admin read E2E 通過
+  - 五種 Order lifecycle state 均可由 Admin 查閱
+  - status / exact OrderId filter E2E 通過
+  - historical null ShippingAddress 安全處理
+  - Fulfillment regression 通過
+  - E2E 前後 DB Order count (5/5)、status distribution、ID set 完全不變
+  - PaymentAttempts 維持 0
+  - git diff --check 與 governance audit 通過
+- **關鍵決策**：
+  - 此 Slice 嚴格維持 Read-Only
+  - Admin list 採資料最小化，不回傳 ShippingAddress / Items
+  - Admin detail 使用獨立 Admin query，不弱化 Customer ownership endpoint
+  - Access Token 保持 server-side 並重用既有 authenticatedFetch/origin containment
+  - 不新增 Admin Cancel、Reject、Refund
+  - 不修改 Order lifecycle、Payment、Inventory
+  - 無資料庫 migration
+  - Admin Cancel / Paid Cancel / Refund capability 留給後續獨立 Vertical Slice

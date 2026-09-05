@@ -56,4 +56,36 @@ internal sealed class OrderRepository : IOrderRepository
             .Take(limit)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<(IReadOnlyList<Order> Items, int TotalCount)> GetAdminOrdersAsync(
+        OrderStatus? status,
+        OrderId? orderId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Orders.AsNoTracking();
+
+        if (status.HasValue)
+        {
+            query = query.Where(o => o.Status == status.Value);
+        }
+
+        if (orderId is not null)
+        {
+            query = query.Where(o => o.Id == orderId);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Include(o => o.Items)
+            .OrderByDescending(o => o.SubmittedAt)
+            .ThenBy(o => o.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

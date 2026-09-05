@@ -178,3 +178,30 @@
   - 僅新增單一最小化 EF Core 資料庫遷移（Orders 表 7 個可為空欄位），不建立額外關聯表
   - 物流運費計算、貨運商 API 與物流追蹤明確延後至後續垂直切片
   - 生產環境付款 (Payment) 行為零變更，測試調整僅適配訂單送出之簽名規範
+
+### 2026-09-05 — PR #15 — feat: add admin fulfillment v1
+- **垂直切片**：Admin Fulfillment v1
+- **交付價值**：
+  - 建立 Admin-only Paid Order fulfillment queue
+  - 建立 Auth0-backed Admin Web 履約儀表板
+  - 管理員可檢視已付款訂單、品項及 ShippingAddress
+  - 重用既有 ShipOrder 流程完成 Paid → Shipped
+  - 已出貨訂單自 Paid fulfillment queue 移除
+- **驗證成果**：
+  - 後端建置通過，505 項後端自動化測試全數通過 (Domain 105 / Application 128 / Infrastructure 89 / WebApi Integration 183)
+  - MySQL fulfillment acceptance test 通過
+  - Admin lint、TypeScript typecheck、production build 通過
+  - Genuine Auth0 non-Admin E2E 回傳 403 且無訂單/ShippingAddress PII 洩漏
+  - Genuine Auth0 Admin login 與 role authorization 通過
+  - Genuine browser Ship E2E 通過
+  - DB 狀態 Paid → Shipped
+  - fulfillment queue 1 → 0
+  - git diff --check 與 governance audit 通過
+- **關鍵決策**：
+  - ASP.NET RoleClaimType 採 provider-neutral 可配置設計
+  - genuine Auth0 Admin role claim 使用 `urn:enterprisecommerce:roles`
+  - Admin Web 使用獨立 Auth0 Regular Web Application，但重用既有 EnterpriseCommerce API audience
+  - Access Token 僅留在 server-side，並限制只能轉送至 configured API origin
+  - 重用既有 ShipOrder / Order.Ship()，不建立第二套 Shipment state machine
+  - 無資料庫 migration、無 Payment production 變更、無 Customer Web 變更
+  - 完整 Admin Order Management 明確延後至下一個獨立 Vertical Slice

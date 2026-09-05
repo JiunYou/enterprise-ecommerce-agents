@@ -44,4 +44,16 @@ internal sealed class OrderRepository : IOrderRepository
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.Status == OrderStatus.Pending, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Order>> GetFulfillmentQueueAsync(int limit, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Orders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .Where(o => o.Status == OrderStatus.Paid)
+            .OrderBy(o => o.SubmittedAt)
+            .ThenBy(o => o.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
 }

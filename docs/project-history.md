@@ -237,3 +237,29 @@
   - 不修改 Order lifecycle、Payment、Inventory
   - 無資料庫 migration
   - Admin Cancel / Paid Cancel / Refund capability 留給後續獨立 Vertical Slice
+
+### 2026-09-06 — PR #17 — feat: add admin order cancellation
+- **垂直切片**：Admin Order Cancellation v1 — Pending / Submitted
+- **交付價值**：
+  - 管理員可取消 Pending / Submitted 訂單
+  - Paid / Shipped / Cancelled 明確禁止
+  - 持久化管理員取消審計
+  - 審計保存 trusted Actor Issuer / Subject、server timestamp 與 required Reason
+  - Submitted cancellation 重用既有 Outbox 庫存預留釋放流程
+  - Admin 訂單明細提供取消操作與取消紀錄
+  - 409 optimistic concurrency safety
+- **驗證成果**：
+  - backend build 0 warnings/errors
+  - 592 backend automated tests PASS (Domain 105 / Application 176 / Infrastructure 89 / WebApi Integration 222)
+  - migration acceptance 5 PASS
+  - Admin lint / TypeScript / Next.js build PASS
+  - genuine Auth0 Admin / non-Admin browser E2E PASS
+  - Real MySQL audit / inventory / payment-race / concurrency PASS
+  - Real EF DbUpdateConcurrencyException → actual handler → HTTP 409 PASS
+  - git diff --check and governance PASS
+- **關鍵決策**：
+  - Paid cancellation remains blocked until genuine Refund Processing capability exists
+  - Refund and Reject are not part of this slice
+  - trusted actor identity never comes from request body
+  - reuse existing Order.Cancel + Outbox + inventory release flow instead of duplicating cancellation logic
+  - independent durable Admin audit table rather than generic audit framework

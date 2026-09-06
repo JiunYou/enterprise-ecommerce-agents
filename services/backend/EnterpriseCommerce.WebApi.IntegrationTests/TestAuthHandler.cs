@@ -74,7 +74,11 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             }
         }
 
-        if (Request.Headers.TryGetValue("X-Test-Sub", out var subHeader))
+        if (Request.Headers.ContainsKey("X-Test-No-Sub"))
+        {
+            claims.RemoveAll(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "sub");
+        }
+        else if (Request.Headers.TryGetValue("X-Test-Sub", out var subHeader))
         {
             var existingSub = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
             if (existingSub != null)
@@ -83,6 +87,20 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             }
             claims.Add(new Claim(ClaimTypes.NameIdentifier, subHeader.ToString()));
             claims.Add(new Claim("sub", subHeader.ToString()));
+        }
+
+        if (Request.Headers.ContainsKey("X-Test-No-Issuer"))
+        {
+            claims.RemoveAll(c => c.Type == "iss");
+        }
+        else if (Request.Headers.TryGetValue("X-Test-Issuer", out var issuerHeader))
+        {
+            claims.RemoveAll(c => c.Type == "iss");
+            claims.Add(new Claim("iss", issuerHeader.ToString()));
+        }
+        else
+        {
+            claims.Add(new Claim("iss", "https://auth.enterprisecommerce.com/"));
         }
 
         var identity = new ClaimsIdentity(claims, DefaultScheme);

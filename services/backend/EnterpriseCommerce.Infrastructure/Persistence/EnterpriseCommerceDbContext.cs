@@ -5,6 +5,7 @@ using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.Domain.Payments;
 using EnterpriseCommerce.Infrastructure.Persistence.Identity;
+using EnterpriseCommerce.Infrastructure.Persistence.Orders;
 using EnterpriseCommerce.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -22,6 +23,7 @@ public sealed class EnterpriseCommerceDbContext : DbContext, IApplicationUnitOfW
     public DbSet<PaymentAttempt> PaymentAttempts { get; set; } = null!;
     public DbSet<PaymentWebhookReceipt> PaymentWebhookReceipts { get; set; } = null!;
     public DbSet<CustomerIdentity> CustomerIdentities { get; set; } = null!;
+    public DbSet<AdminOrderCancellation> AdminOrderCancellations { get; set; } = null!;
 
     public EnterpriseCommerceDbContext(DbContextOptions<EnterpriseCommerceDbContext> options)
         : base(options)

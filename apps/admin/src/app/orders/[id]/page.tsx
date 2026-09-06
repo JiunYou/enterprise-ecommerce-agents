@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
 import { getAdminOrderById, OrderItem } from "@/lib/orders";
+import { CancelOrderSection } from "./CancelOrderSection";
 
 export const dynamic = "force-dynamic";
 
@@ -317,10 +318,55 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
                 </span>
               </div>
               <div className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                本系統僅提供只讀檢視與歷史查詢服務
+                本系統提供訂單檢視與管理員操作服務
               </div>
             </div>
           </div>
+
+          {/* 管理員取消紀錄（僅在有管理員取消紀錄時顯示，不顯示假資料） */}
+          {order.adminCancellation && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-6 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/20">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900 dark:text-rose-400 text-xs font-bold">
+                  ✕
+                </span>
+                <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">
+                  管理員取消紀錄 (Admin Cancellation Audit)
+                </h3>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
+                <div>
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">
+                    取消時間 (Cancelled At)：
+                  </span>
+                  <p className="mt-0.5 font-mono text-zinc-800 dark:text-zinc-200">
+                    {new Date(order.adminCancellation.cancelledAt).toLocaleString("zh-TW", {
+                      timeZone: "Asia/Taipei",
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">
+                    操作者識別 (Actor ID)：
+                  </span>
+                  <p className="mt-0.5 font-mono text-zinc-800 dark:text-zinc-200 break-all">
+                    {order.adminCancellation.actorIssuer} | {order.adminCancellation.actorSubject}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 text-xs">
+                <span className="font-semibold text-rose-800 dark:text-rose-300">
+                  取消原因 (Reason)：
+                </span>
+                <p className="mt-0.5 rounded-md border border-rose-200 bg-white/80 p-3 text-zinc-800 dark:border-rose-900/40 dark:bg-zinc-900/60 dark:text-zinc-200 whitespace-pre-wrap">
+                  {order.adminCancellation.reason}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 訂單取消操作區（包含 Pending / Submitted 可取消，及 Paid 狀態不可取消之說明） */}
+          <CancelOrderSection orderId={order.id} status={order.status} />
 
           {/* 雙欄格線：左側訂單商品，右側配送收件地址 */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

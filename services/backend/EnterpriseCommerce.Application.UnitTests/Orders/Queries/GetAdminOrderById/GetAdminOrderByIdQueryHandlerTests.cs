@@ -10,12 +10,14 @@ namespace EnterpriseCommerce.Application.UnitTests.Orders.Queries.GetAdminOrderB
 public class GetAdminOrderByIdQueryHandlerTests
 {
     private readonly Mock<IOrderRepository> _orderRepositoryMock;
+    private readonly Mock<IAdminOrderCancellationStore> _cancellationStoreMock;
     private readonly GetAdminOrderByIdQueryHandler _handler;
 
     public GetAdminOrderByIdQueryHandlerTests()
     {
         _orderRepositoryMock = new Mock<IOrderRepository>();
-        _handler = new GetAdminOrderByIdQueryHandler(_orderRepositoryMock.Object);
+        _cancellationStoreMock = new Mock<IAdminOrderCancellationStore>();
+        _handler = new GetAdminOrderByIdQueryHandler(_orderRepositoryMock.Object, _cancellationStoreMock.Object);
     }
 
     [Fact]
@@ -121,5 +123,66 @@ public class GetAdminOrderByIdQueryHandlerTests
         // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.NotFound.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WithAdminOrderCancellationAudit_PopulatesAdminCancellationMetadata()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        order.Cancel();
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var cancelledAt = new DateTimeOffset(2026, 9, 5, 10, 0, 0, TimeSpan.Zero);
+        var audit = new AdminOrderCancellationAudit(
+            order.Id.Value,
+            "https://auth.example.com/",
+            "auth0|admin-user-123",
+            cancelledAt,
+            "Customer requested phone cancellation");
+
+        _cancellationStoreMock.Setup(s => s.GetByOrderIdAsync(order.Id.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(audit);
+
+        var query = new GetAdminOrderByIdQuery(order.Id.Value);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value.AdminCancellation);
+        var cancellation = result.Value.AdminCancellation!;
+        Assert.Equal("https://auth.example.com/", cancellation.ActorIssuer);
+        Assert.Equal("auth0|admin-user-123", cancellation.ActorSubject);
+        Assert.Equal(cancelledAt, cancellation.CancelledAt);
+        Assert.Equal("Customer requested phone cancellation", cancellation.Reason);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutAdminOrderCancellationAudit_LeavesAdminCancellationNull()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        order.Cancel();
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _cancellationStoreMock.Setup(s => s.GetByOrderIdAsync(order.Id.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AdminOrderCancellationAudit?)null);
+
+        var query = new GetAdminOrderByIdQuery(order.Id.Value);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value.AdminCancellation);
     }
 }

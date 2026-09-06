@@ -9,10 +9,14 @@ namespace EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderById;
 internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrderByIdQuery, AdminOrderDetailResponse>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IAdminOrderCancellationStore _adminOrderCancellationStore;
 
-    public GetAdminOrderByIdQueryHandler(IOrderRepository orderRepository)
+    public GetAdminOrderByIdQueryHandler(
+        IOrderRepository orderRepository,
+        IAdminOrderCancellationStore adminOrderCancellationStore)
     {
         _orderRepository = orderRepository;
+        _adminOrderCancellationStore = adminOrderCancellationStore;
     }
 
     public async Task<Result<AdminOrderDetailResponse>> Handle(GetAdminOrderByIdQuery request, CancellationToken cancellationToken)
@@ -43,6 +47,15 @@ internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrde
                 order.ShippingAddress.AddressLine2)
             : null;
 
+        var audit = await _adminOrderCancellationStore.GetByOrderIdAsync(order.Id.Value, cancellationToken);
+        AdminCancellationResponse? adminCancellation = audit is not null
+            ? new AdminCancellationResponse(
+                audit.ActorIssuer,
+                audit.ActorSubject,
+                audit.CancelledAt,
+                audit.Reason)
+            : null;
+
         var response = new AdminOrderDetailResponse(
             order.Id.Value,
             order.CustomerId,
@@ -51,7 +64,8 @@ internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrde
             order.TotalAmount.Amount,
             order.SubmittedAt,
             items,
-            shippingAddress);
+            shippingAddress,
+            adminCancellation);
 
         return Result.Success(response);
     }

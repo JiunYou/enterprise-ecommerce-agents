@@ -10,4 +10,11 @@ public sealed record AdminOrderDetailResponse(
     decimal TotalAmount,
     DateTimeOffset? SubmittedAt,
     IReadOnlyCollection<OrderItemResponse> Items,
-    ShippingAddressResponse? ShippingAddress = null);
+    ShippingAddressResponse? ShippingAddress = null,
+    AdminCancellationResponse? AdminCancellation = null);
+
+public sealed record AdminCancellationResponse(
+    string ActorIssuer,
+    string ActorSubject,
+    DateTimeOffset CancelledAt,
+    string Reason);

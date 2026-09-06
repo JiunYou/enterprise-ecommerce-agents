@@ -35,6 +35,13 @@ export interface ShippingAddress {
   addressLine2?: string | null;
 }
 
+export interface AdminCancellation {
+  actorIssuer: string;
+  actorSubject: string;
+  cancelledAt: string;
+  reason: string;
+}
+
 export interface AdminOrderDetail {
   id: string;
   customerId: string;
@@ -44,6 +51,7 @@ export interface AdminOrderDetail {
   submittedAt: string | null;
   items: OrderItem[];
   shippingAddress: ShippingAddress | null;
+  adminCancellation: AdminCancellation | null;
 }
 
 export type GetAdminOrdersResult =

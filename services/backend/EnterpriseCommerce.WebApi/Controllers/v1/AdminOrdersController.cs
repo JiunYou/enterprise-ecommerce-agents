@@ -57,4 +57,80 @@ public sealed class AdminOrdersController : ApiControllerBase
 
         return Ok(result.Value);
     }
+
+    [HttpPut("{id:guid}/cancel")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelOrder(
+        Guid id,
+        [FromBody] EnterpriseCommerce.WebApi.Contracts.Orders.AdminCancelOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Bad Request",
+                Detail = "Request body is required."
+            });
+        }
+
+        if (!TryGetAdminActor(out var issuer, out var subject))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "Unauthorized",
+                Detail = "Missing trusted actor identity."
+            });
+        }
+
+        var command = new EnterpriseCommerce.Application.Orders.Commands.AdminCancelOrder.AdminCancelOrderCommand(
+            id,
+            issuer,
+            subject,
+            request.Reason);
+
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    private bool TryGetAdminActor(out string issuer, out string subject)
+    {
+        issuer = string.Empty;
+        subject = string.Empty;
+
+        var subjectClaim = HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? HttpContext.User.FindFirst("sub");
+
+        if (subjectClaim is null || string.IsNullOrWhiteSpace(subjectClaim.Value))
+        {
+            return false;
+        }
+
+        var issuerClaim = HttpContext.User.FindFirst("iss");
+        var resolvedIssuer = !string.IsNullOrWhiteSpace(issuerClaim?.Value)
+            ? issuerClaim.Value
+            : (!string.IsNullOrWhiteSpace(subjectClaim.Issuer) && subjectClaim.Issuer != "LOCAL AUTHORITY" ? subjectClaim.Issuer : null);
+
+        if (string.IsNullOrWhiteSpace(resolvedIssuer))
+        {
+            return false;
+        }
+
+        issuer = resolvedIssuer;
+        subject = subjectClaim.Value;
+        return true;
+    }
 }

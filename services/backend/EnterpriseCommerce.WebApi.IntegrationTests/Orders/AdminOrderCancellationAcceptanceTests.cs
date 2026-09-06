@@ -602,4 +602,72 @@ public class AdminOrderCancellationAcceptanceTests : IAsyncLifetime
             inv.ReservedQuantity.Value.Should().Be(0);
         }
     }
+
+    [Fact]
+    public async Task ADMIN_CANCEL_REAL_EF_CONCURRENCY_EXCEPTION_ACTUAL_HANDLER_HTTP_409()
+    {
+        // Arrange: 建立真實 Submitted 訂單寫入 MySQL
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(99m, "USD"), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+
+        await using (var db = CreateFreshDbContext())
+        {
+            db.Orders.Add(order);
+            await db.SaveChangesAsync();
+        }
+
+        // 僅替換 IApplicationUnitOfWork，保留真實 Order/Store/Controller/MediatR/Handler Pipeline
+        using var concurrencyFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IApplicationUnitOfWork));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+
+                services.AddScoped<IApplicationUnitOfWork, RealEfConcurrencyThrowingUnitOfWork>();
+            });
+        });
+
+        var client = concurrencyFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+        client.DefaultRequestHeaders.Add("X-Test-Sub", "auth0|admin-concurrency");
+        client.DefaultRequestHeaders.Add("X-Test-Issuer", "https://auth.enterprisecommerce.com/");
+
+        // Act: 呼叫真實端點，走完整 Controller -> MediatR -> AdminCancelOrderCommandHandler，不 mock ISender
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{order.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Real EF Concurrency Conflict Test"));
+
+        // Assert 1: HTTP 回應必須為 409 Conflict
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // Assert 2: 查詢全新的 DbContext，確認 Order 維持原狀態且未產生審計紀錄
+        await using (var verifyDb = CreateFreshDbContext())
+        {
+            var currentOrder = await verifyDb.Orders.FirstAsync(o => o.Id == order.Id);
+            currentOrder.Status.Should().Be(OrderStatus.Submitted, "Order must remain in original state when concurrency exception occurs.");
+            currentOrder.Version.Should().Be(0);
+
+            var auditCount = await verifyDb.AdminOrderCancellations.CountAsync(a => a.OrderId == order.Id);
+            auditCount.Should().Be(0, "No AdminOrderCancellation audit should be persisted upon concurrency conflict.");
+        }
+    }
+
+    private sealed class RealEfConcurrencyThrowingUnitOfWork : IApplicationUnitOfWork
+    {
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            throw new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException("Simulated real EF Core concurrency conflict.");
+        }
+
+        public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 }

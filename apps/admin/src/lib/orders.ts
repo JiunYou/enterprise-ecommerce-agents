@@ -42,6 +42,14 @@ export interface AdminCancellation {
   reason: string;
 }
 
+export interface AdminRefundRequiredPayment {
+  paymentAttemptId: string;
+  amount: number;
+  currency: string;
+  refundCapability: string;
+  refundStatus: string | null;
+}
+
 export interface AdminOrderDetail {
   id: string;
   customerId: string;
@@ -52,6 +60,7 @@ export interface AdminOrderDetail {
   items: OrderItem[];
   shippingAddress: ShippingAddress | null;
   adminCancellation: AdminCancellation | null;
+  refundRequiredPayments?: AdminRefundRequiredPayment[];
 }
 
 export type GetAdminOrdersResult =

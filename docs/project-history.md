@@ -263,3 +263,38 @@
   - trusted actor identity never comes from request body
   - reuse existing Order.Cancel + Outbox + inventory release flow instead of duplicating cancellation logic
   - independent durable Admin audit table rather than generic audit framework
+
+### 2026-09-07 — PR #18 — feat: add refund processing v1
+- **垂直切片**：Refund Processing v1 — RefundRequired Full Refund
+- **交付價值**：
+  - 支援 PaymentAttempt.Status == RefundRequired 的安全全額退款
+  - 持久化 provider authorization reference 以支援退款查詢
+  - 一筆 PaymentAttempt 僅一筆 durable PaymentRefund intent
+  - provider-neutral refund boundary
+  - ECPay classic AIO QueryTrade/V2 + CreditDetail/DoAction adapter
+  - Admin-only refund API
+  - Admin Order detail refund read model and UI
+  - existing uncertain refunds use reconciliation-only path
+- **驗證成果**：
+  - Domain 146 PASS
+  - Application 219 PASS
+  - Infrastructure 206 PASS
+  - WebApi 235 PASS
+  - Backend total 806 PASS
+  - Admin ESLint PASS
+  - Admin production build PASS
+  - Real MySQL one-executor concurrency acceptance PASS
+  - Server-side refund amount trust PASS
+  - Local provider contract simulation PASS
+  - Real ECPay refund network calls during validation = 0
+- **關鍵決策**：
+  - full refund only
+  - no partial refunds
+  - client never supplies refund amount/currency/provider
+  - no automatic retry of ambiguous money operations
+  - reconciliation never moves money
+  - no background refund retry worker/DLQ
+  - no Paid Admin Cancellation
+  - ambiguous provider outcome remains Unresolved/manual
+  - no exactly-once provider claim
+  - genuine ECPay refund E2E remains ENVIRONMENT_BLOCKED because no usable safe authoritative test environment is available

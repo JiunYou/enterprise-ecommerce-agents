@@ -114,12 +114,12 @@ internal sealed class ProcessPaymentWebhookCommandHandler : ICommandHandler<Proc
                 if (order.Status != OrderStatus.Submitted || order.IsExpired(threshold))
                 {
                     // Refund Required path
-                    attempt.MarkAsRefundRequired(request.ProviderTransactionId, _timeProvider.GetUtcNow());
+                    attempt.MarkAsRefundRequired(request.ProviderTransactionId, _timeProvider.GetUtcNow(), request.ProviderAuthorizationReference);
                 }
                 else
                 {
                     // Success path
-                    attempt.MarkAsSucceeded(request.ProviderTransactionId, _timeProvider.GetUtcNow());
+                    attempt.MarkAsSucceeded(request.ProviderTransactionId, _timeProvider.GetUtcNow(), request.ProviderAuthorizationReference);
 
                     var markPaidResult = order.MarkAsPaid();
                     if (markPaidResult.IsFailure)

@@ -47,6 +47,10 @@ internal sealed class PaymentAttemptConfiguration : IEntityTypeConfiguration<Pay
         builder.Property(p => p.ProviderTransactionId)
             .HasMaxLength(100);
 
+        builder.Property(p => p.ProviderAuthorizationReference)
+            .HasMaxLength(100)
+            .IsUnicode(false);
+
         builder.Property(p => p.Status)
             .HasConversion<string>()
             .IsRequired();

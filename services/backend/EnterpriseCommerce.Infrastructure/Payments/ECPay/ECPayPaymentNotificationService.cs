@@ -93,6 +93,17 @@ public sealed class ECPayPaymentNotificationService : IECPayPaymentNotificationS
             throw new ECPayNotificationValidationException("Invalid TradeAmt in payment notification.");
         }
 
+        // 9. 讀取 gwsr (刷卡核准碼) — 選填，安全正規化為 ProviderAuthorizationReference
+        //    規則：缺少/空白/空字串 → null；1-100 字元且非純空白 → 原值完全保存；>100 → null
+        //    安全約束：不記錄、不持久化 gwsr 原始值以外的授權碼、PAN、CVV
+        string? providerAuthorizationReference = null;
+        if (formFields.TryGetValue("gwsr", out var gwsrRaw) &&
+            !string.IsNullOrWhiteSpace(gwsrRaw) &&
+            gwsrRaw.Length <= 100)
+        {
+            providerAuthorizationReference = gwsrRaw;
+        }
+
         return new ProcessPaymentWebhookCommand(
             PaymentAttemptId: new PaymentAttemptId(attemptGuid),
             Provider: "ECPay",
@@ -100,6 +111,7 @@ public sealed class ECPayPaymentNotificationService : IECPayPaymentNotificationS
             ProviderTransactionId: tradeNo,
             Amount: (decimal)tradeAmt,
             Currency: "TWD",
-            IsSuccess: true);
+            IsSuccess: true,
+            ProviderAuthorizationReference: providerAuthorizationReference);
     }
 }

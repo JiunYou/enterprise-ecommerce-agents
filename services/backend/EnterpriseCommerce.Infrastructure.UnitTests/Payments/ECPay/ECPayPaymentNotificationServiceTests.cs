@@ -303,4 +303,183 @@ public class ECPayPaymentNotificationServiceTests
         command.Should().NotBeNull();
         command!.PaymentAttemptId.Should().Be(originalAttemptGuid);
     }
+
+    // ── gwsr (ProviderAuthorizationReference) normalization ───────────────────
+
+    [Fact]
+    public void VerifyAndParseNotification_WhenGwsrPresent_CapturesAsProviderAuthorizationReference()
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var fields = new Dictionary<string, string>
+        {
+            ["MerchantID"] = MerchantId,
+            ["MerchantTradeNo"] = "MTRADENO1234567890",
+            ["RtnCode"] = "1",
+            ["RtnMsg"] = "Succeeded",
+            ["TradeNo"] = "TXN_GWSR_TEST",
+            ["TradeAmt"] = "500",
+            ["PaymentDate"] = "2026/09/04 16:00:00",
+            ["PaymentType"] = "Credit_CreditCard",
+            ["TradeDate"] = "2026/09/04 15:59:00",
+            ["SimulatePaid"] = "0",
+            ["CustomField1"] = attemptGuid.ToString(),
+            ["CustomField2"] = Guid.NewGuid().ToString(),
+            ["gwsr"] = "AUTH_CODE_123"
+        };
+        fields["CheckMacValue"] = ECPayCheckMacValue.Generate(fields, HashKey, HashIv);
+
+        var command = service.VerifyAndParseNotification(fields);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().Be("AUTH_CODE_123");
+    }
+
+    [Fact]
+    public void VerifyAndParseNotification_WhenGwsrMissing_ProviderAuthorizationReferenceIsNull()
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var payload = CreateValidPayload(attemptGuid);
+
+        var command = service.VerifyAndParseNotification(payload);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void VerifyAndParseNotification_WhenGwsrBlankOrWhitespace_ProviderAuthorizationReferenceIsNull(string blank)
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var fields = new Dictionary<string, string>
+        {
+            ["MerchantID"] = MerchantId,
+            ["MerchantTradeNo"] = "MTRADENO1234567890",
+            ["RtnCode"] = "1",
+            ["RtnMsg"] = "Succeeded",
+            ["TradeNo"] = "TXN_BLANK_GWSR",
+            ["TradeAmt"] = "500",
+            ["PaymentDate"] = "2026/09/04 16:00:00",
+            ["PaymentType"] = "Credit_CreditCard",
+            ["TradeDate"] = "2026/09/04 15:59:00",
+            ["SimulatePaid"] = "0",
+            ["CustomField1"] = attemptGuid.ToString(),
+            ["CustomField2"] = Guid.NewGuid().ToString(),
+            ["gwsr"] = blank
+        };
+        fields["CheckMacValue"] = ECPayCheckMacValue.Generate(fields, HashKey, HashIv);
+
+        var command = service.VerifyAndParseNotification(fields);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void VerifyAndParseNotification_WhenGwsrExceeds100Chars_ProviderAuthorizationReferenceIsNull()
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var fields = new Dictionary<string, string>
+        {
+            ["MerchantID"] = MerchantId,
+            ["MerchantTradeNo"] = "MTRADENO1234567890",
+            ["RtnCode"] = "1",
+            ["RtnMsg"] = "Succeeded",
+            ["TradeNo"] = "TXN_LONG_GWSR",
+            ["TradeAmt"] = "500",
+            ["PaymentDate"] = "2026/09/04 16:00:00",
+            ["PaymentType"] = "Credit_CreditCard",
+            ["TradeDate"] = "2026/09/04 15:59:00",
+            ["SimulatePaid"] = "0",
+            ["CustomField1"] = attemptGuid.ToString(),
+            ["CustomField2"] = Guid.NewGuid().ToString(),
+            ["gwsr"] = new string('G', 101)
+        };
+        fields["CheckMacValue"] = ECPayCheckMacValue.Generate(fields, HashKey, HashIv);
+
+        var command = service.VerifyAndParseNotification(fields);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void VerifyAndParseNotification_WhenGwsrExactly100Chars_CapturedExactly()
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var gwsr100 = new string('G', 100);
+        var fields = new Dictionary<string, string>
+        {
+            ["MerchantID"] = MerchantId,
+            ["MerchantTradeNo"] = "MTRADENO1234567890",
+            ["RtnCode"] = "1",
+            ["RtnMsg"] = "Succeeded",
+            ["TradeNo"] = "TXN_100_GWSR",
+            ["TradeAmt"] = "500",
+            ["PaymentDate"] = "2026/09/04 16:00:00",
+            ["PaymentType"] = "Credit_CreditCard",
+            ["TradeDate"] = "2026/09/04 15:59:00",
+            ["SimulatePaid"] = "0",
+            ["CustomField1"] = attemptGuid.ToString(),
+            ["CustomField2"] = Guid.NewGuid().ToString(),
+            ["gwsr"] = gwsr100
+        };
+        fields["CheckMacValue"] = ECPayCheckMacValue.Generate(fields, HashKey, HashIv);
+
+        var command = service.VerifyAndParseNotification(fields);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().Be(gwsr100);
+    }
+
+    [Fact]
+    public void VerifyAndParseNotification_MissingGwsr_StillProcessesNormally()
+    {
+        // MISSING_GWSR_PAYMENT_PROCESSING_SAFE proof: valid signed callback without gwsr still succeeds
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        var payload = CreateValidPayload(attemptGuid, tradeNo: "TXN_NO_GWSR", tradeAmt: "999");
+
+        var command = service.VerifyAndParseNotification(payload);
+
+        command.Should().NotBeNull("A valid callback without gwsr must still produce a processable command");
+        command!.IsSuccess.Should().BeTrue();
+        command.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void VerifyAndParseNotification_WhenGwsrContainsWhitespace_PreservesExactValueWithoutTrimming()
+    {
+        var service = CreateService();
+        var attemptGuid = Guid.NewGuid();
+        const string rawGwsr = "  GWSR_123  ";
+        var fields = new Dictionary<string, string>
+        {
+            ["MerchantID"] = MerchantId,
+            ["MerchantTradeNo"] = "MTRADENO1234567890",
+            ["RtnCode"] = "1",
+            ["RtnMsg"] = "Succeeded",
+            ["TradeNo"] = "TXN_SPACE_GWSR",
+            ["TradeAmt"] = "500",
+            ["PaymentDate"] = "2026/09/04 16:00:00",
+            ["PaymentType"] = "Credit_CreditCard",
+            ["TradeDate"] = "2026/09/04 15:59:00",
+            ["SimulatePaid"] = "0",
+            ["CustomField1"] = attemptGuid.ToString(),
+            ["CustomField2"] = Guid.NewGuid().ToString(),
+            ["gwsr"] = rawGwsr
+        };
+        fields["CheckMacValue"] = ECPayCheckMacValue.Generate(fields, HashKey, HashIv);
+
+        var command = service.VerifyAndParseNotification(fields);
+
+        command.Should().NotBeNull();
+        command!.ProviderAuthorizationReference.Should().Be(rawGwsr);
+    }
 }

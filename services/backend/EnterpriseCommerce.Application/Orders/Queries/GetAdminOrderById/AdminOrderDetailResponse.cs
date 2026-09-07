@@ -11,7 +11,11 @@ public sealed record AdminOrderDetailResponse(
     DateTimeOffset? SubmittedAt,
     IReadOnlyCollection<OrderItemResponse> Items,
     ShippingAddressResponse? ShippingAddress = null,
-    AdminCancellationResponse? AdminCancellation = null);
+    AdminCancellationResponse? AdminCancellation = null,
+    IReadOnlyCollection<AdminRefundRequiredPaymentResponse>? RefundRequiredPayments = null)
+{
+    public IReadOnlyCollection<AdminRefundRequiredPaymentResponse> RefundRequiredPayments { get; init; } = RefundRequiredPayments ?? Array.Empty<AdminRefundRequiredPaymentResponse>();
+}
 
 public sealed record AdminCancellationResponse(
     string ActorIssuer,

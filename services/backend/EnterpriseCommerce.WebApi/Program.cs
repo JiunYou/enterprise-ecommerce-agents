@@ -77,6 +77,7 @@ builder.Services.AddAuthorization(options =>
 // Add Layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddRefundPersistence();
 
 builder.Services.AddHealthChecks(); // Health Check
 

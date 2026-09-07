@@ -82,4 +82,101 @@ public class PaymentAttemptTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(PaymentErrors.InvalidStatusTransition);
     }
+    [Fact]
+    public void MarkAsSucceeded_WithValidReference_PersistsNormalizedReference()
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, "AUTH123");
+
+        attempt.ProviderAuthorizationReference.Should().Be("AUTH123");
+    }
+
+    [Fact]
+    public void MarkAsSucceeded_WithReferenceContainingWhitespace_PreservesExactOriginalValue()
+    {
+        var attempt = CreatePendingAttempt();
+        const string refWithSpaces = "  AUTH123  ";
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, refWithSpaces);
+
+        attempt.ProviderAuthorizationReference.Should().Be(refWithSpaces);
+    }
+
+    [Fact]
+    public void MarkAsRefundRequired_WithValidReference_PersistsNormalizedReference()
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsRefundRequired("tx-123", DateTimeOffset.UtcNow, "AUTH456");
+
+        attempt.ProviderAuthorizationReference.Should().Be("AUTH456");
+    }
+
+    [Fact]
+    public void MarkAsSucceeded_WithNullReference_LeavesNull()
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, null);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void MarkAsSucceeded_WithBlankOrWhitespaceReference_StoresNull(string badRef)
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, badRef);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsSucceeded_WithReferenceExceeding100Chars_StoresNull()
+    {
+        var attempt = CreatePendingAttempt();
+        var longRef = new string('X', 101);
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, longRef);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsSucceeded_WithReferenceExactly100Chars_Persists()
+    {
+        var attempt = CreatePendingAttempt();
+        var ref100 = new string('A', 100);
+        attempt.MarkAsSucceeded("tx-123", DateTimeOffset.UtcNow, ref100);
+
+        attempt.ProviderAuthorizationReference.Should().Be(ref100);
+    }
+
+    [Fact]
+    public void MarkAsRefundRequired_WithNullReference_LeavesNull()
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsRefundRequired("tx-123", DateTimeOffset.UtcNow, null);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void MarkAsRefundRequired_WithBlankOrWhitespaceReference_StoresNull(string badRef)
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsRefundRequired("tx-123", DateTimeOffset.UtcNow, badRef);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarkAsRefundRequired_WithReferenceExceeding100Chars_StoresNull()
+    {
+        var attempt = CreatePendingAttempt();
+        var longRef = new string('X', 101);
+        attempt.MarkAsRefundRequired("tx-123", DateTimeOffset.UtcNow, longRef);
+
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
 }

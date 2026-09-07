@@ -9,7 +9,8 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
 {
     public OrderId OrderId { get; private set; }
     public Money Amount { get; private set; }
-    public string Provider { get; private set; }
+    public string? Provider { get; private set; }
+    public string? ProviderAuthorizationReference { get; private set; }
     public string? ProviderTransactionId { get; private set; }
     public PaymentAttemptStatus Status { get; private set; }
     public Guid IdempotencyKey { get; private set; }
@@ -28,6 +29,7 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
         OrderId = orderId;
         Amount = amount;
         Provider = provider;
+            ProviderAuthorizationReference = null;
         IdempotencyKey = idempotencyKey;
         Status = PaymentAttemptStatus.Pending;
         CreatedAt = createdAt;
@@ -45,18 +47,38 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
         Money amount,
         string provider,
         Guid idempotencyKey,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? providerAuthorizationReference = null)
     {
-        return new PaymentAttempt(
+        var attempt = new PaymentAttempt(
             new PaymentAttemptId(Guid.NewGuid()),
             orderId,
             amount,
             provider,
             idempotencyKey,
             createdAt);
+        attempt.SetProviderAuthorizationReference(providerAuthorizationReference);
+        return attempt;
     }
 
-    public Result MarkAsSucceeded(string providerTransactionId, DateTimeOffset completedAt)
+    /// <summary>
+    /// Sets the ProviderAuthorizationReference according to business rules.
+    /// - null / empty / whitespace => null
+    /// - length 1-100 => keep original value
+    /// - length >100 => null (treated as unavailable)
+    /// </summary>
+    public void SetProviderAuthorizationReference(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 100)
+        {
+            ProviderAuthorizationReference = null;
+            return;
+        }
+
+        ProviderAuthorizationReference = value;
+    }
+
+    public Result MarkAsSucceeded(string providerTransactionId, DateTimeOffset completedAt, string? providerAuthorizationReference = null)
     {
         if (Status != PaymentAttemptStatus.Pending)
         {
@@ -64,6 +86,7 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
         }
 
         ProviderTransactionId = providerTransactionId;
+        SetProviderAuthorizationReference(providerAuthorizationReference);
         Status = PaymentAttemptStatus.Succeeded;
         CompletedAt = completedAt;
 
@@ -84,7 +107,7 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
         return Result.Success();
     }
 
-    public Result MarkAsRefundRequired(string providerTransactionId, DateTimeOffset completedAt)
+    public Result MarkAsRefundRequired(string providerTransactionId, DateTimeOffset completedAt, string? providerAuthorizationReference = null)
     {
         if (Status != PaymentAttemptStatus.Pending)
         {
@@ -92,6 +115,7 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
         }
 
         ProviderTransactionId = providerTransactionId;
+        SetProviderAuthorizationReference(providerAuthorizationReference);
         Status = PaymentAttemptStatus.RefundRequired;
         CompletedAt = completedAt;
 

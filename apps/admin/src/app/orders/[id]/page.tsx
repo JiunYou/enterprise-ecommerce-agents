@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
 import { getAdminOrderById, OrderItem } from "@/lib/orders";
 import { CancelOrderSection } from "./CancelOrderSection";
+import { RefundRequiredPaymentsSection } from "./RefundRequiredPaymentsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -367,6 +368,12 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
 
           {/* 訂單取消操作區（包含 Pending / Submitted 可取消，及 Paid 狀態不可取消之說明） */}
           <CancelOrderSection orderId={order.id} status={order.status} />
+
+          {/* 待退款款項操作區（包含 Eligible / Completed / ManualProviderResolutionRequired / NotEligible / ReconciliationOnly） */}
+          <RefundRequiredPaymentsSection
+            orderId={order.id}
+            refundRequiredPayments={order.refundRequiredPayments}
+          />
 
           {/* 雙欄格線：左側訂單商品，右側配送收件地址 */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

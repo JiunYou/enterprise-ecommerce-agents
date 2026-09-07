@@ -301,3 +301,101 @@ export async function getCustomerOrders(): Promise<GetCustomerOrdersResult> {
     };
   }
 }
+
+export type CancelOrderResult =
+  | { success: true }
+  | {
+      success: false;
+      unauthorized?: boolean;
+      notFound?: boolean;
+      concurrencyConflict?: boolean;
+      invalidState?: boolean;
+      error: string;
+    };
+
+export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
+  const session = await auth0.getSession();
+  if (!session || !session.user) {
+    return {
+      success: false,
+      unauthorized: true,
+      error: "尚未登入，請登入後繼續操作",
+    };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/orders/${encodeURIComponent(orderId)}/cancel`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "登入狀態無效或已過期，請重新登入",
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        notFound: true,
+        error: "找不到該訂單或您沒有存取權限",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        concurrencyConflict: true,
+        error: "訂單已被其他操作變更，請重新整理頁面確認最新狀態",
+      };
+    }
+
+    if (!response.ok) {
+      try {
+        const problem = await response.json();
+        const detail = problem?.detail || problem?.title || "";
+        if (detail.includes("Paid orders cannot be cancelled") || detail.includes("Paid")) {
+          return {
+            success: false,
+            invalidState: true,
+            error: "此訂單已完成付款，無法透過線上取消。如有退款需求請聯繫客服支援",
+          };
+        }
+        if (detail.includes("Invalid status transition") || problem?.title?.includes("Invalid status")) {
+          return {
+            success: false,
+            invalidState: true,
+            error: "該訂單目前處於無法取消的狀態",
+          };
+        }
+      } catch {
+        // Fallback to generic message
+      }
+
+      return {
+        success: false,
+        error: `取消訂單失敗 (HTTP ${response.status})，請稍後再試`,
+      };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "連線錯誤";
+    if (errorMessage.includes("Unauthorized")) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "尚未登入或存取權杖不可用",
+      };
+    }
+    return {
+      success: false,
+      error: "目前無法連線至訂單服務，請稍後再試",
+    };
+  }
+}

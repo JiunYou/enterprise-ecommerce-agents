@@ -176,6 +176,12 @@ export default async function AdminFulfillmentPage() {
               >
                 訂單管理
               </Link>
+              <Link
+                href="/products"
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              >
+                商品管理
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">

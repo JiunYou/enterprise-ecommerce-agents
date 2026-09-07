@@ -58,5 +58,51 @@ public class DeactivateProductCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(ProductErrors.AlreadyDeactivated);
         _productRepositoryMock.Verify(repo => repo.Update(It.IsAny<Product>()), Times.Never);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithNonExistingProduct_ReturnsFailure()
+    {
+        // Arrange
+        var command = new DeactivateProductCommand(Guid.NewGuid());
+
+        _productRepositoryMock.Setup(repo => repo.GetByIdAsync(command.ProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Product?)null);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.NotFound);
+        _productRepositoryMock.Verify(repo => repo.Update(It.IsAny<Product>()), Times.Never);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenDbUpdateConcurrencyExceptionOccurs_ShouldReturnConflictResultAndNotRetry()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-1", 100m, "TWD").Value;
+        var command = new DeactivateProductCommand(product.Id);
+
+        _productRepositoryMock.Setup(repo => repo.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _unitOfWorkMock.Setup(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.ConcurrencyConflict);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once, "Should not retry on concurrency conflict");
+    }
+
+    private sealed class DbUpdateConcurrencyException : Exception
+    {
     }
 }

@@ -359,3 +359,48 @@
   - 無新增 npm 或 NuGet 相依套件
   - 不支援顧客端直接線上取消已付款訂單，亦不引入顧客退款流程
   - 維持既有 README.md 不變
+
+### 2026-09-08 — PR #21 — feat: add admin catalog management v1
+- **垂直切片**：Admin Catalog Management v1 — Read + Price + Deactivate
+- **交付價值**：
+  - 系統管理員可檢視包含已停用下架商品在內之完整商品目錄
+  - 提供商品關鍵字搜尋、欄位排序與分頁檢索功能
+  - 檢視個別商品詳情
+  - 調整既有商品售價
+  - 停用下架有效商品
+- **授權與安全防護邊界**：
+  - 管理端讀取路由採用專屬之 `/api/v1/admin/products` 端點門面
+  - 匿名管理端讀取請求一律回傳 401 Unauthorized
+  - 經身分驗證之非管理員存取一律回傳 403 Forbidden
+  - 前台顧客公開商品目錄語意維持不變，不因傳入 onlyActive=false 參數而外洩未啟用商品
+- **併發控制**：
+  - 商品版本（Version）作為既有樂觀併發衝突權杖（Concurrency Token）
+  - 價格更新與商品停用之併發衝突精確映射為 HTTP 409 Conflict
+  - 無自動重試機制，不引入推測性併發基礎設施
+- **停用下架語意**：
+  - 停用表示自前台公開目錄中移除，並阻擋後續加入購物車操作
+  - 不自動作廢既有購物車項目，亦不保證硬阻絕所有可能的結帳競態
+  - 當前版本 (v1) 不包含重新上架（Reactivate）功能
+- **關鍵決策**：
+  - 管理端 UI 刻意不暴露建立商品（Create Product）介面，因後端既有建立流程尚無法自動初始化 InventoryItem
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 後端測試 854 項全數通過 (Domain: 146, Application: 229, Infrastructure: 207, WebApi Integration: 272)
+  - WebApi 測試清單探索數與 TRX 執行數完全相等 (272 / 272)
+  - 商品價格更新處理常式測試 4 項通過
+  - 商品停用處理常式測試 4 項通過
+  - 公開商品控制器測試 20 項通過
+  - 管理端商品控制器測試 9 項通過
+  - 真實 MySQL 生命週期驗收測試 1 項通過
+  - Admin Web ESLint 檢查通過 (0 errors, 0 warnings)
+  - Admin Web 生產環境打包構建通過 (成功產生 `/products` 與 `/products/[id]` 動態路由)
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **明確非範疇（Out of Scope）與限制說明**：
+  - 未交付商品建立 UI 與建立流程
+  - 未交付庫存初始化與庫存管理功能
+  - 未交付重新上架功能
+  - 停用不具備硬阻絕所有結帳語意
+  - MySQL 驗收測試不涵蓋 CreateProduct 端點，而是直接驗證管理端讀取、調價與停用持久化
+  - 無資料庫結構變更（無 Migration）
+  - 無新增相依套件
+  - 維持既有 README.md 不變

@@ -56,5 +56,52 @@ public class UpdateProductPriceCommandHandlerTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(ProductErrors.NotFound);
         _productRepositoryMock.Verify(repo => repo.Update(It.IsAny<Product>()), Times.Never);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithInvalidPrice_ReturnsFailure()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-1", 100m, "TWD").Value;
+        var command = new UpdateProductPriceCommand(product.Id, -10m);
+
+        _productRepositoryMock.Setup(repo => repo.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidPrice);
+        _productRepositoryMock.Verify(repo => repo.Update(It.IsAny<Product>()), Times.Never);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenDbUpdateConcurrencyExceptionOccurs_ShouldReturnConflictResultAndNotRetry()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-1", 100m, "TWD").Value;
+        var command = new UpdateProductPriceCommand(product.Id, 150m);
+
+        _productRepositoryMock.Setup(repo => repo.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _unitOfWorkMock.Setup(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.ConcurrencyConflict);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once, "Should not retry on concurrency conflict");
+    }
+
+    private sealed class DbUpdateConcurrencyException : Exception
+    {
     }
 }

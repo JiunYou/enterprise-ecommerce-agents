@@ -72,7 +72,8 @@ public sealed class ECPayPaymentProvider : IPaymentProvider
             ["ClientBackURL"] = clientBackUrl,
             ["EncryptType"] = "1",
             ["CustomField1"] = paymentAttemptId.Value.ToString("N"),
-            ["CustomField2"] = orderId.Value.ToString("N")
+            ["CustomField2"] = orderId.Value.ToString("N"),
+            ["NeedExtraPaidInfo"] = "Y"
         };
 
         var checkMacValue = ECPayCheckMacValue.Generate(fields, _options.HashKey!, _options.HashIv!);

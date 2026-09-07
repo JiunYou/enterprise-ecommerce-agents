@@ -22,6 +22,7 @@ public sealed class EnterpriseCommerceDbContext : DbContext, IApplicationUnitOfW
     public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
     public DbSet<PaymentAttempt> PaymentAttempts { get; set; } = null!;
     public DbSet<PaymentWebhookReceipt> PaymentWebhookReceipts { get; set; } = null!;
+    public DbSet<PaymentRefund> PaymentRefunds { get; set; } = null!;
     public DbSet<CustomerIdentity> CustomerIdentities { get; set; } = null!;
     public DbSet<AdminOrderCancellation> AdminOrderCancellations { get; set; } = null!;
 

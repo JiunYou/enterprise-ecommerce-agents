@@ -31,4 +31,21 @@ public static class PaymentErrors
     public static readonly Error ProviderMismatch = new(
         "Payment.ProviderMismatch",
         "The webhook provider does not match the payment attempt provider.");
+    // New refund-related errors
+    public static readonly Error InvalidRefundReason = new(
+        "Payment.InvalidRefundReason",
+        "The refund reason is invalid.");
+
+    public static readonly Error InvalidActorIssuer = new(
+        "Payment.InvalidActorIssuer",
+        "The actor issuer is invalid.");
+
+    public static readonly Error InvalidActorSubject = new(
+        "Payment.InvalidActorSubject",
+        "The actor subject is invalid.");
+
+    public static readonly Error InvalidRefundStatusTransition = new(
+        "Payment.InvalidRefundStatusTransition",
+        "Invalid status transition for refund.");
+
 }

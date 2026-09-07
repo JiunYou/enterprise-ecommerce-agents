@@ -10,4 +10,5 @@ public sealed record ProcessPaymentWebhookCommand(
     string ProviderTransactionId,
     decimal Amount,
     string Currency,
-    bool IsSuccess) : ICommand;
+    bool IsSuccess,
+    string? ProviderAuthorizationReference = null) : ICommand;

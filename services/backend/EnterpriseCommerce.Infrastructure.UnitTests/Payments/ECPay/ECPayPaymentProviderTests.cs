@@ -57,6 +57,31 @@ public class ECPayPaymentProviderTests
         fields["CustomField2"].Should().Be(orderId.Value.ToString("N"));
         fields.Should().ContainKey("CheckMacValue");
         fields["CheckMacValue"].Should().NotBeNullOrWhiteSpace();
+
+        // NeedExtraPaidInfo must appear in fields BEFORE CheckMacValue is computed
+        fields["NeedExtraPaidInfo"].Should().Be("Y");
+    }
+
+    [Fact]
+    public async Task InitiatePaymentAsync_NeedExtraPaidInfo_IsIncludedInCheckMacValueCalculation()
+    {
+        // The CheckMacValue is computed from the complete field set which includes NeedExtraPaidInfo.
+        // If NeedExtraPaidInfo were added after signing, verification against the original payload would fail.
+        var options = CreateValidOptions();
+        var provider = new ECPayPaymentProvider(options);
+        var attemptId = new PaymentAttemptId(Guid.NewGuid());
+        var orderId = new OrderId(Guid.NewGuid());
+
+        var response = await provider.InitiatePaymentAsync(attemptId, orderId, 500m, "TWD", DateTimeOffset.UtcNow);
+        var fields = response.FormFields!;
+
+        fields.Should().ContainKey("NeedExtraPaidInfo");
+        fields["NeedExtraPaidInfo"].Should().Be("Y");
+
+        // Re-verify the CheckMacValue using the full signed field set (includes NeedExtraPaidInfo)
+        var fieldsForVerify = new Dictionary<string, string>(fields);
+        ECPayCheckMacValue.Verify(fieldsForVerify, options.HashKey!, options.HashIv!).Should().BeTrue(
+            "NeedExtraPaidInfo must be part of the signed payload before CheckMacValue is computed");
     }
 
     [Theory]

@@ -51,6 +51,21 @@ public static class DependencyInjection
 
         // ECPay 為目前唯一的作用中 IPaymentProvider
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentProvider, EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentProvider>();
+
+        // ECPay 退款提供者註冊
+        services.Configure<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayRefundOptions>(options =>
+        {
+            var section = configuration.GetSection("Payments:ECPay");
+            options.MerchantId = section["MerchantId"];
+            options.HashKey = section["HashKey"];
+            options.HashIv = section["HashIv"];
+            options.CreditCheckCode = section["CreditCheckCode"];
+            options.QueryTradeUrl = section["QueryTradeUrl"];
+            options.DoActionUrl = section["DoActionUrl"];
+        });
+        services.AddHttpClient<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayRefundProvider>();
+        services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentRefundProvider>(sp =>
+            sp.GetRequiredService<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayRefundProvider>());
         // Messaging components are currently disabled as they rely on unconfigured external infrastructure.
         // The durable Outbox pattern is used for internal Eventual Consistency via in-process DomainEvent dispatching.
 

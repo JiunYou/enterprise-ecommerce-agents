@@ -37,4 +37,11 @@ internal sealed class PaymentAttemptRepository : IPaymentAttemptRepository
         return await _dbContext.PaymentAttempts
             .FirstOrDefaultAsync(p => p.Provider == provider && p.ProviderTransactionId == providerTransactionId, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<PaymentAttempt>> GetByOrderIdAsync(OrderId orderId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.PaymentAttempts
+            .Where(p => p.OrderId == orderId)
+            .ToListAsync(cancellationToken);
+    }
 }

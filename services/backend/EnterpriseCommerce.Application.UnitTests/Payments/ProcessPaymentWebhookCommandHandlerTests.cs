@@ -102,4 +102,78 @@ public class ProcessPaymentWebhookCommandHandlerTests
         _paymentAttemptRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<PaymentAttemptId>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    private PaymentAttempt CreateAttemptWithProvider(string provider, decimal amount, string currency)
+    {
+        return PaymentAttempt.Create(
+            new OrderId(Guid.NewGuid()),
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(amount, currency),
+            provider,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task Handle_Succeeded_PersistsAuthorizationReference()
+    {
+        // Arrange: Submitted order within expiration window
+        var attempt = CreateAttemptWithProvider("ECPay", 500m, "TWD");
+
+        var order = EnterpriseCommerce.Domain.Orders.Order.Create(Guid.NewGuid(), "TWD");
+        var shippingAddress = EnterpriseCommerce.Domain.Orders.ValueObjects.ShippingAddress
+            .Create("John Doe", "+886900000000", "TW", "100", "Taipei", "123 Main St").Value;
+        order.AddItem(
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.ProductId(Guid.NewGuid()),
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(500m, "TWD"), 1);
+        order.Submit(shippingAddress, DateTimeOffset.UtcNow); // Submitted recently → not expired
+
+        _webhookReceiptRepositoryMock.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _paymentAttemptRepositoryMock.Setup(r => r.GetByIdAsync(attempt.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(attempt);
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(attempt.OrderId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var command = new ProcessPaymentWebhookCommand(
+            attempt.Id.Value, "ECPay", "evt_001", "TXN_001", 500m, "TWD", true,
+            ProviderAuthorizationReference: "AUTH_REF_OK");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        attempt.ProviderAuthorizationReference.Should().Be("AUTH_REF_OK");
+        attempt.Status.Should().Be(PaymentAttemptStatus.Succeeded);
+    }
+
+    [Fact]
+    public async Task Handle_Succeeded_WithoutAuthorizationReference_StillSucceeds()
+    {
+        var attempt = CreateAttemptWithProvider("ECPay", 500m, "TWD");
+
+        var order = EnterpriseCommerce.Domain.Orders.Order.Create(Guid.NewGuid(), "TWD");
+        var shippingAddress = EnterpriseCommerce.Domain.Orders.ValueObjects.ShippingAddress
+            .Create("Jane Doe", "+886900000001", "TW", "100", "Taipei", "456 Other St").Value;
+        order.AddItem(
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.ProductId(Guid.NewGuid()),
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(500m, "TWD"), 1);
+        order.Submit(shippingAddress, DateTimeOffset.UtcNow);
+
+        _webhookReceiptRepositoryMock.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _paymentAttemptRepositoryMock.Setup(r => r.GetByIdAsync(attempt.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(attempt);
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(attempt.OrderId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var command = new ProcessPaymentWebhookCommand(
+            attempt.Id.Value, "ECPay", "evt_002", "TXN_002", 500m, "TWD", true,
+            ProviderAuthorizationReference: null);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        attempt.ProviderAuthorizationReference.Should().BeNull();
+    }
 }

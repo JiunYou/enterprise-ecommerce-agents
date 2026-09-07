@@ -282,3 +282,183 @@ export async function refundAdminPaymentAction(
     };
   }
 }
+
+export interface UpdateProductPriceResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function updateProductPriceAction(
+  productId: string,
+  newPrice: number
+): Promise<UpdateProductPriceResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  if (
+    typeof newPrice !== "number" ||
+    isNaN(newPrice) ||
+    !isFinite(newPrice) ||
+    newPrice <= 0
+  ) {
+    return { success: false, error: "商品價格必須為大於零的有效數值。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/price`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          newPrice,
+        }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "商品價格無效或更新格式錯誤。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可調整商品價格。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "更新商品價格失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成價格調整。",
+    };
+  }
+}
+
+export interface DeactivateProductResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function deactivateProductAction(
+  productId: string
+): Promise<DeactivateProductResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/deactivate`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "該商品已經處於停用下架狀態。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可執行商品停用下架。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "停用商品失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成商品停用。",
+    };
+  }
+}

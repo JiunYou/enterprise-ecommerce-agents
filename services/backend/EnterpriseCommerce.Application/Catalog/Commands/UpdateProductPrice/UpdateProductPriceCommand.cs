@@ -43,7 +43,15 @@ internal sealed class UpdateProductPriceCommandHandler : ICommandHandler<UpdateP
         }
 
         _productRepository.Update(product);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.GetType().FullName?.Contains("DbUpdateConcurrencyException") == true)
+        {
+            return Result.Failure(ProductErrors.ConcurrencyConflict);
+        }
 
         return Result.Success();
     }

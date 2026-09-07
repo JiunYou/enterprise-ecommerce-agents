@@ -1,9 +1,13 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using EnterpriseCommerce.Application.Catalog.Commands.CreateProduct;
+using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
+using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.WebApi.Contracts.Catalog;
 using FluentAssertions;
@@ -193,5 +197,300 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         var content = await response.Content.ReadFromJsonAsync<ProductResponse>();
         content.Should().NotBeNull();
         content!.Sku.Should().Be(sku);
+    }
+
+    [Fact]
+    public async Task GetProducts_NonAdminUser_ForcesOnlyActiveTrue()
+    {
+        // Arrange
+        var pagedList = EnterpriseCommerce.Application.Common.Models.PagedList<ProductResponse>.Create(
+            new List<ProductResponse>(),
+            page: 1,
+            pageSize: 10,
+            totalCount: 0);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductsQuery>(q => q.OnlyActive == true),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(pagedList));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, "/api/v1/Products?page=1&pageSize=10&onlyActive=false");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act: 非 Admin 顧客即使帶入 onlyActive=false，後端防禦仍強制轉為 true
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(
+            It.Is<GetProductsQuery>(q => q.OnlyActive == true),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetProductById_NonAdminUser_WhenInactive_ReturnsNotFound()
+    {
+        // Arrange: 模擬非活躍商品對非 Admin 查詢回傳 NotFound 失敗
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<ProductResponse>(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/Products/{productId}");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_AnonymousUser_ReturnsUnauthorized()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        var request = new UpdateProductPriceRequest(120m);
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Products/{productId}/price", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_NonAdminUser_ReturnsForbidden()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductPriceRequest(120m);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/price");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_AdminUser_Success_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<UpdateProductPriceCommand>(c => c.ProductId == productId && c.NewPrice == 150m), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductPriceRequest(150m);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/price");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_InvalidPrice_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductPriceCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidPrice));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductPriceRequest(-10m);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/price");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductPriceCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductPriceRequest(100m);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/price");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductPrice_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductPriceCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductPriceRequest(120m);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/price");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_AnonymousUser_ReturnsUnauthorized()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Products/{productId}/deactivate", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_NonAdminUser_ReturnsForbidden()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/deactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_AdminUser_Success_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<DeactivateProductCommand>(c => c.ProductId == productId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/deactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_AlreadyDeactivated_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<DeactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.AlreadyDeactivated));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/deactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<DeactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/deactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeactivateProduct_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<DeactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/deactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

@@ -19,4 +19,8 @@ public static class ProductErrors
     public static readonly Error NotActive = new(
         "Product.NotActive",
         "The product is not active and cannot be purchased.");
+
+    public static readonly Error ConcurrencyConflict = new(
+        "Product.ConcurrencyConflict",
+        "The product was modified by another operation.");
 }

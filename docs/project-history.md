@@ -322,3 +322,40 @@
   - 回應合約嚴格精簡為純唯讀摘要欄位 (id, status, submittedAt, totalAmount, currency)，不外洩內部資料
   - 本垂直切片純為顧客歷史檢視，不混雜取消操作、退款流程或金流變更
   - 無資料庫結構變更（`DATABASE_MIGRATION_REQUIRED=NO`）
+
+### 2026-09-08 — PR #20 — feat: add customer order cancellation v1
+- **垂直切片**：Customer Order Cancellation v1
+- **交付價值**：
+  - 經身分驗證之顧客可於訂單詳情頁（`/orders/[id]`）安全取消自己已送出但尚未付款（Submitted）的訂單
+  - 透過兩步驟確認互動（保留訂單 / 確認取消訂單）防止誤觸取消操作
+  - 取消成功後自動重新驗證訂單詳情與訂單列表之伺服器狀態快照
+- **安全防護與生命週期邊界**：
+  - CustomerId 嚴格僅源自受信任之 JWT Claim (`urn:enterprisecommerce:customer_id`)，禁止瀏覽器端代入
+  - 跨顧客訂單存取維持 Fail-Closed（一律回傳 404 NotFound 並保持狀態不變）
+  - 顧客端取消已付款訂單（Paid）明確受到阻擋（回傳 400 BadRequest，訂單維持 Paid）
+  - 已出貨（Shipped）與已取消（Cancelled）訂單取消維持阻擋（回傳 400 BadRequest）
+  - UI 取消控制元件僅在訂單為 `Submitted` 狀態下渲染，其餘狀態均不渲染
+  - 本切片未引入任何顧客退款 API 或金流操作端點
+- **併發與資金安全**：
+  - 取消與付款競態條件已受機械式驗證
+  - 先取消後付款（cancellation-first + late webhook success）自動標記為 `RefundRequired`，訂單安全維持 `Cancelled`
+  - 先付款後取消（payment-first + customer cancellation）客戶端取消請求被阻擋，訂單安全維持 `Paid`
+  - 樂觀併發衝突安全映射為 HTTP 409 Conflict
+  - 無自動重試機制，不產生重複非等冪請求
+- **庫存釋放**：
+  - 完整重用現有 Outbox `OrderStatusChangedDomainEvent` 取消事件
+  - 完整重用現有 `ReleaseInventoryReservationCommand` 與其事件處理常式
+  - 無建立任何額外的庫存釋放邏輯（`NEW_INVENTORY_RELEASE_LOGIC_REQUIRED=NO`）
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 後端自動化測試 826 項全數通過 (Domain: 146, Application: 225, Infrastructure: 207, WebApi Integration: 248)
+  - 聚焦單元與整合測試全數通過 (CancelOrderCommandHandler: 15, OrderCancelledDomainEventHandler: 3, OrdersController.CancelOrder: 7, CustomerOrderCancellationAcceptance: 7)
+  - 真實 MySQL 驗收測試與付款競態測試全數通過 (CUSTOMER_CANCEL_PAYMENT_RACE_SAFETY=PASS)
+  - Customer Web ESLint 檢查通過 (0 errors, 0 warnings)
+  - Customer Web 生產環境打包構建通過 (0 errors)
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **關鍵決策**：
+  - 無資料庫結構變更（無 Migration）
+  - 無新增 npm 或 NuGet 相依套件
+  - 不支援顧客端直接線上取消已付款訂單，亦不引入顧客退款流程
+  - 維持既有 README.md 不變

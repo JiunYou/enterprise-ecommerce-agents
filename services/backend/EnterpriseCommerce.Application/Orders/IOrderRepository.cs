@@ -16,5 +16,8 @@ public interface IOrderRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Order>> GetCustomerOrderHistoryAsync(
+        Guid customerId,
+        CancellationToken cancellationToken = default);
 }
 

@@ -234,3 +234,70 @@ export async function getOrderById(orderId: string): Promise<GetOrderResult> {
     };
   }
 }
+
+export interface CustomerOrderSummary {
+  id: string;
+  status: string;
+  submittedAt: string;
+  totalAmount: number;
+  currency: string;
+}
+
+export type GetCustomerOrdersResult =
+  | { success: true; data: CustomerOrderSummary[] }
+  | {
+      success: false;
+      unauthorized?: boolean;
+      error: string;
+    };
+
+export async function getCustomerOrders(): Promise<GetCustomerOrdersResult> {
+  const session = await auth0.getSession();
+  if (!session || !session.user) {
+    return {
+      success: false,
+      unauthorized: true,
+      error: "尚未登入，請登入後查看訂單紀錄",
+    };
+  }
+
+  try {
+    const response = await authenticatedFetch("/api/v1/orders", {
+      cache: "no-store",
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "登入狀態無效或已過期，請重新登入",
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `取得訂單紀錄失敗 (HTTP ${response.status})`,
+      };
+    }
+
+    const data: CustomerOrderSummary[] = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "連線錯誤";
+    if (errorMessage.includes("Unauthorized")) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "尚未登入或存取權杖不可用",
+      };
+    }
+    return {
+      success: false,
+      error: "目前無法連線至訂單服務，請稍後再試",
+    };
+  }
+}

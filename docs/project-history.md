@@ -298,3 +298,27 @@
   - ambiguous provider outcome remains Unresolved/manual
   - no exactly-once provider claim
   - genuine ECPay refund E2E remains ENVIRONMENT_BLOCKED because no usable safe authoritative test environment is available
+
+### 2026-09-08 — PR #19 — feat: add customer order history v1
+- **垂直切片**：Customer Order History v1
+- **交付價值**：
+  - 經身分驗證之顧客可安全存取 `/orders` 頁面
+  - 僅能檢視自身先前已送出結帳之歷史訂單清單
+  - 未送出之購物車草稿（Pending 或直接 Cancelled）均被嚴格排除
+  - 已送出結帳之訂單即使後續取消（Submitted + Cancelled）依然保留於歷史清單
+  - 完整複用現有之顧客訂單詳情頁 `/orders/[id]`
+  - 顧客端頂部導航於已登入狀態新增「我的訂單」導航入口
+- **驗證成果**：
+  - 後端建置通過 (0 warnings, 0 errors)
+  - 後端自動化測試 812 項全數通過 (Domain: 146, Application: 221, Infrastructure: 207, WebApi Integration: 238)
+  - 歷史訂單驗收測試 3 項通過 (TRX 驗證通過，涵蓋匿名 401、無 Claim 403、資料隔離、會員資格規則、降序排序與 Payload 欄位邊界)
+  - Customer Web ESLint 檢查通過 (0 errors, 0 warnings)
+  - Customer Web 生產環境打包構建通過 (成功產生 `/orders` 動態路由)
+  - 專案治理稽核 (audit-governance.py) 通過
+- **關鍵決策**：
+  - 歷史訂單隸屬判定嚴格採用 `SubmittedAt != null`，而非僅是 `Status != Pending`
+  - CustomerId 嚴格源自 JWT Claim (`urn:enterprisecommerce:customer_id`)，禁止瀏覽器端指定
+  - v1 不引入分頁機制（`PAGINATION_REQUIRED_FOR_V1=NO`），亦不隱藏資料上限（無 silent Take 限制）
+  - 回應合約嚴格精簡為純唯讀摘要欄位 (id, status, submittedAt, totalAmount, currency)，不外洩內部資料
+  - 本垂直切片純為顧客歷史檢視，不混雜取消操作、退款流程或金流變更
+  - 無資料庫結構變更（`DATABASE_MIGRATION_REQUIRED=NO`）

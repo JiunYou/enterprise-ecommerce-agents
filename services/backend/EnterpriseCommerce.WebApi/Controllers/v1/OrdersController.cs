@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using EnterpriseCommerce.Application.Orders.Commands.CreateOrder;
 using EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
+using EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders;
 using EnterpriseCommerce.Application.Orders.Queries.GetFulfillmentOrders;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
 using EnterpriseCommerce.Domain.Primitives;
@@ -18,6 +19,28 @@ public class OrdersController : ApiControllerBase
 {
     public OrdersController(ISender sender) : base(sender)
     {
+    }
+
+    [HttpGet(Name = nameof(GetCustomerOrders))]
+    [ProducesResponseType(typeof(IReadOnlyList<CustomerOrderSummaryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetCustomerOrders(CancellationToken cancellationToken)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var query = new GetCustomerOrdersQuery(customerId);
+        var result = await Sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("{id:guid}", Name = nameof(GetOrderById))]

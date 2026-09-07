@@ -152,4 +152,68 @@ public class OrderRepositoryTests
         var countAfter = await _dbContext.Orders.CountAsync();
         countAfter.Should().Be(0);
     }
+
+    [Fact]
+    public async Task GetCustomerOrderHistoryAsync_ShouldEnforceCustomerIdIsolationAndMembershipRule()
+    {
+        // Arrange
+        var customerA = Guid.NewGuid();
+        var customerB = Guid.NewGuid();
+        var address = ShippingAddress.Create("Test", "0912345678", "TW", "100", "Taipei", "Addr").Value;
+
+        // 1. Customer A: 正常已送出訂單 (Submitted)
+        var orderA1 = Order.Create(customerA, "TWD");
+        orderA1.AddItem(new ProductId(Guid.NewGuid()), new Money(100, "TWD"), 1);
+        orderA1.Submit(address, DateTimeOffset.UtcNow.AddHours(-3));
+        _dbContext.Orders.Add(orderA1);
+
+        // 2. Customer A: 已送出且後續取消之訂單 (Submitted + Cancelled) -> 必須包含！
+        var orderA2 = Order.Create(customerA, "TWD");
+        orderA2.AddItem(new ProductId(Guid.NewGuid()), new Money(200, "TWD"), 1);
+        orderA2.Submit(address, DateTimeOffset.UtcNow.AddHours(-2));
+        orderA2.Cancel();
+        _dbContext.Orders.Add(orderA2);
+
+        // 3. Customer A: 購物車/未送出訂單 (Pending, SubmittedAt == null) -> 必須排除！
+        var orderA3Pending = Order.Create(customerA, "TWD");
+        orderA3Pending.AddItem(new ProductId(Guid.NewGuid()), new Money(300, "TWD"), 1);
+        _dbContext.Orders.Add(orderA3Pending);
+
+        // 4. Customer A: 未送出即取消的購物車 (Cancelled, SubmittedAt == null) -> 必須排除！
+        var orderA4CancelledUnsubmitted = Order.Create(customerA, "TWD");
+        orderA4CancelledUnsubmitted.Cancel();
+        _dbContext.Orders.Add(orderA4CancelledUnsubmitted);
+
+        // 5. Customer B: 已送出訂單 (Submitted, Customer B) -> 必須被 Customer A 隔離排除！
+        var orderB = Order.Create(customerB, "TWD");
+        orderB.AddItem(new ProductId(Guid.NewGuid()), new Money(400, "TWD"), 1);
+        orderB.Submit(address, DateTimeOffset.UtcNow.AddHours(-1));
+        _dbContext.Orders.Add(orderB);
+
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var resultA = await _repository.GetCustomerOrderHistoryAsync(customerA);
+        var resultB = await _repository.GetCustomerOrderHistoryAsync(customerB);
+
+        // Assert
+        // Customer A: 只有 orderA2 (最新) 與 orderA1
+        resultA.Should().HaveCount(2);
+        resultA[0].Id.Should().Be(orderA2.Id);
+        resultA[0].Status.Should().Be(OrderStatus.Cancelled);
+        resultA[0].SubmittedAt.Should().NotBeNull();
+        resultA[1].Id.Should().Be(orderA1.Id);
+        resultA[1].Status.Should().Be(OrderStatus.Submitted);
+
+        // 驗證未送出的 Pending 與未送出的 Cancelled 均不存在
+        resultA.Select(o => o.Id).Should().NotContain(orderA3Pending.Id);
+        resultA.Select(o => o.Id).Should().NotContain(orderA4CancelledUnsubmitted.Id);
+
+        // 驗證 Customer B 訂單絕不出現在 Customer A
+        resultA.Select(o => o.Id).Should().NotContain(orderB.Id);
+
+        // Customer B: 只有 orderB
+        resultB.Should().HaveCount(1);
+        resultB[0].Id.Should().Be(orderB.Id);
+    }
 }

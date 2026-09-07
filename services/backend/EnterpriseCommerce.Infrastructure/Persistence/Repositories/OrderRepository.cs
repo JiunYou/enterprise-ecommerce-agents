@@ -88,4 +88,17 @@ internal sealed class OrderRepository : IOrderRepository
 
         return (items, totalCount);
     }
+
+    public async Task<IReadOnlyList<Order>> GetCustomerOrderHistoryAsync(
+        Guid customerId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Orders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .Where(o => o.CustomerId == customerId && o.SubmittedAt != null)
+            .OrderByDescending(o => o.SubmittedAt)
+            .ThenByDescending(o => o.Id)
+            .ToListAsync(cancellationToken);
+    }
 }

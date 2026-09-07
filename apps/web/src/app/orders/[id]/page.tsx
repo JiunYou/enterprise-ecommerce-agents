@@ -3,6 +3,7 @@ import { getOrderById } from "@/lib/orders";
 import { formatPrice } from "@/lib/format";
 import { AuthControls } from "@/components/AuthControls";
 import { PaymentButton } from "@/components/PaymentButton";
+import { CancelOrderButton } from "@/components/CancelOrderButton";
 
 interface OrderConfirmationPageProps {
   params: Promise<{
@@ -351,10 +352,11 @@ export default async function OrderConfirmationPage({
                     </p>
                   </div>
 
-                  {/* 僅在 Submitted 狀態下顯示安全付款動作 */}
+                  {/* 僅在 Submitted 狀態下顯示安全付款與取消動作 */}
                   {isSubmitted && (
-                    <div className="sm:text-right">
+                    <div className="flex flex-col items-end gap-3 sm:text-right">
                       <PaymentButton orderId={result.data.id} />
+                      <CancelOrderButton orderId={result.data.id} />
                     </div>
                   )}
                 </div>

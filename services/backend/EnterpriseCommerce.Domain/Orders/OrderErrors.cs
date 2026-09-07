@@ -59,4 +59,8 @@ public static class OrderErrors
     public static readonly Error InvalidShippingAddressLine2 = new(
         "Order.InvalidShippingAddressLine2",
         "Address line 2 must not exceed 200 characters.");
+
+    public static readonly Error CannotCancelPaidOrder = new(
+        "Order.CannotCancelPaidOrder",
+        "Paid orders cannot be cancelled by this operation.");
 }

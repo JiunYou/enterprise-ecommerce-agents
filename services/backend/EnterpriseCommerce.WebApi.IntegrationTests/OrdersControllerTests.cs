@@ -431,6 +431,72 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task CancelOrder_WhenOrderIsPaid_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.CannotCancelPaidOrder));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Title.Should().Be("Bad Request");
+        problemDetails.Detail.Should().Be("Paid orders cannot be cancelled by this operation.");
+    }
+
+    [Fact]
+    public async Task CancelOrder_WhenConcurrencyConflict_Returns409Conflict()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.CancelOrder.CancelOrderCommand>(c => c.OrderId == orderId && c.CustomerId == customerId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error("Order.ConcurrencyConflict", "The order was modified by another operation.")));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(409);
+        problemDetails.Title.Should().Be("Conflict");
+        problemDetails.Detail.Should().Be("The order was modified by another operation.");
+    }
+
+    [Fact]
+    public async Task CancelOrder_WhenMissingCustomerIdClaim_Returns403Forbidden()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        // Do NOT add X-Test-User-Id header
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/cancel", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task RemoveOrderItem_WithoutAuthToken_Returns401Unauthorized()
     {
         // Arrange

@@ -27,6 +27,16 @@ internal sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderCom
             return Result.Failure(OrderErrors.NotFound);
         }
 
+        if (order.Status == OrderStatus.Paid)
+        {
+            return Result.Failure(OrderErrors.CannotCancelPaidOrder);
+        }
+
+        if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Submitted)
+        {
+            return Result.Failure(OrderErrors.InvalidStatusTransition);
+        }
+
         var cancelResult = order.Cancel();
 
         if (cancelResult.IsFailure)
@@ -34,7 +44,14 @@ internal sealed class CancelOrderCommandHandler : ICommandHandler<CancelOrderCom
             return cancelResult;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.GetType().FullName?.Contains("DbUpdateConcurrencyException") == true)
+        {
+            return Result.Failure(new Error("Order.ConcurrencyConflict", "The order was modified by another operation."));
+        }
 
         return Result.Success();
     }

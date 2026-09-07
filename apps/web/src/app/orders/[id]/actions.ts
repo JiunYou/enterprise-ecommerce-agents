@@ -1,7 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { initiatePayment } from "@/lib/payments";
+import { cancelOrder } from "@/lib/orders";
 
 export type StartOrderPaymentResult =
   | { success: false; error: string }
@@ -31,4 +33,29 @@ export async function startOrderPayment(orderId: string): Promise<StartOrderPaym
     actionUrl: result.actionUrl,
     formFields: result.formFields ?? {},
   };
+}
+
+export type CancelCustomerOrderResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export async function cancelCustomerOrder(orderId: string): Promise<CancelCustomerOrderResult> {
+  const trimmedId = typeof orderId === "string" ? orderId.trim() : "";
+  if (!trimmedId) {
+    return { success: false, error: "無效的訂單識別碼" };
+  }
+
+  const result = await cancelOrder(trimmedId);
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+    };
+  }
+
+  revalidatePath(`/orders/${encodeURIComponent(trimmedId)}`);
+  revalidatePath("/orders");
+
+  return { success: true };
 }

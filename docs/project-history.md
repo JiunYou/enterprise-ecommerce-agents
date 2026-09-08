@@ -404,3 +404,48 @@
   - 無資料庫結構變更（無 Migration）
   - 無新增相依套件
   - 維持既有 README.md 不變
+
+### 2026-09-08 — PR #22 — feat: add admin inventory management v1
+- **垂直切片**：Admin Inventory Management v1 — Read + Adjust + ProductReference Uniqueness
+- **交付價值**：
+  - 系統管理員可檢視既有商品的可用庫存 (AvailableQuantity) 與預留庫存 (ReservedQuantity)
+  - 系統管理員可增加可用庫存（正整數 delta）
+  - 系統管理員可減少可用庫存（正整數 delta，且扣減數量不可超過可用庫存）
+  - 查無庫存時回傳 404 Not Found（`Inventory.NotFound`），前端呈現安全空狀態「此商品尚未建立庫存紀錄。」且不提供調整或建立控制項
+- **庫存安全性與預留隔離**：
+  - 預留庫存 (ReservedQuantity) 保持唯讀，管理端絕對無法直接編輯或修改
+  - 不支援絕對庫存覆寫 (SetStock / SetAvailableQuantity)
+  - 不提供管理端手動建立庫存或自動補齊庫存
+  - 不包含任何預留建立、修改或取消操作
+- **資料庫層不變量 (Database Invariant)**：
+  - 透過 EF Core 遷移為 `InventoryItems.ProductReference` 建立 UNIQUE 唯一索引
+  - 嚴格落實系統對「一個 ProductReference 僅對應至多一個 InventoryItem」的核心假設
+  - 遷移範疇嚴格限制為單一唯一索引，絕無外鍵關聯、新欄位、種子資料或破壞性資料異動
+- **併發控制與授權防護**：
+  - 採用樂觀併發控制 (Optimistic Concurrency)，以 Version 作為並發衝突權杖，不使用悲觀鎖
+  - 併發衝突精確映射為 HTTP 409 Conflict，無自動重試機制
+  - 管理端端點強制套用 `[Authorize(Roles = "Admin")]`，匿名回傳 401，非管理員回傳 403
+  - 先前已移除之公開庫存端點保持移除，瀏覽器端絕不接觸存取權杖
+- **關鍵決策**：
+  - 建立商品與建立庫存之原子性關聯明確延後至 Safe Product Creation v1 切片處理，本切片不先行建立庫存
+- **驗證成果**：
+  - 後端方案建置通過 (0 warnings, 0 errors)
+  - 後端測試 885 項全數通過 (Domain: 146, Application: 242, Infrastructure: 207, WebApi: 290)
+  - WebApi 測試清單探索數與 TRX 執行數完全相等 (290 / 290 PASS, 0 failed, 0 error, 0 timeout, 0 aborted, 0 notExecuted)
+  - Application 庫存讀取與增減單元測試 13 項全數通過
+  - AdminProductsController 庫存端點測試 16 項全數通過
+  - 真實 MySQL 遷移驗收測試通過（乾淨 DB 套用、存在 UNIQUE 索引、拒絕重複 ProductReference 寫入）
+  - 真實 MySQL 庫存生命週期與樂觀併發驗收測試通過
+  - Admin Web ESLint 檢查通過 (0 errors, 0 warnings)
+  - Admin Web 生產環境打包構建通過
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **明確非範疇（Out of Scope）與限制說明**：
+  - 未交付商品建立 (Product Creation)
+  - 未交付庫存建立 (Inventory Creation) 或初始化補齊
+  - 未交付絕對庫存設定 (SetStock)
+  - 未交付預留庫存編輯或預留管理
+  - 未交付顧客端公開庫存端點
+  - 顧客端前端未變更 (CUSTOMER_WEB_CHANGED=NO)
+  - 訂單、付款、退款、金流與身分領域未變更
+  - 無新增 npm 相依套件
+  - 維持既有 README.md 不變

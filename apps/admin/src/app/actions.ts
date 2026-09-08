@@ -462,3 +462,178 @@ export async function deactivateProductAction(
     };
   }
 }
+
+export interface AdjustInventoryStockResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function increaseInventoryStockAction(
+  productId: string,
+  quantity: number
+): Promise<AdjustInventoryStockResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity <= 0) {
+    return { success: false, error: "調整數量必須為大於 0 的正整數。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/admin/products/${encodeURIComponent(productId.trim())}/inventory/increase`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quantity }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "增加庫存請求參數不正確。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可執行庫存調整。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return {
+        success: false,
+        error: "此商品尚未建立庫存紀錄或商品不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "庫存已被其他操作修改，發生併發衝突，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "增加庫存失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成庫存增加。",
+    };
+  }
+}
+
+export async function decreaseInventoryStockAction(
+  productId: string,
+  quantity: number
+): Promise<AdjustInventoryStockResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity <= 0) {
+    return { success: false, error: "調整數量必須為大於 0 的正整數。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/admin/products/${encodeURIComponent(productId.trim())}/inventory/decrease`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quantity }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "扣減數量不可大於可用庫存，且數量須為正整數。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可執行庫存調整。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return {
+        success: false,
+        error: "此商品尚未建立庫存紀錄或商品不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "庫存已被其他操作修改，發生併發衝突，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "扣減庫存失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成庫存扣減。",
+    };
+  }
+}

@@ -4,8 +4,13 @@ using System.Net.Http.Json;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
 using EnterpriseCommerce.Application.Common.Models;
+using EnterpriseCommerce.Application.Inventory.Commands.DecreaseInventoryStock;
+using EnterpriseCommerce.Application.Inventory.Commands.IncreaseInventoryStock;
+using EnterpriseCommerce.Application.Inventory.Queries.GetInventoryByProductId;
 using EnterpriseCommerce.Domain.Catalog;
+using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Primitives;
+using EnterpriseCommerce.WebApi.Contracts.Inventory;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
@@ -249,4 +254,347 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    #region Inventory Tests
+
+    [Fact]
+    public async Task GetInventory_AnonymousUser_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/admin/products/{productId}/inventory");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetInventory_NonAdminUser_ReturnsForbidden403()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/admin/products/{productId}/inventory");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetInventory_AdminUser_ExistingInventory_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var inventoryResponse = new InventoryResponse(productId, 10, 2);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(inventoryResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/admin/products/{productId}/inventory");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<AdminInventoryResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productId);
+        content.AvailableQuantity.Should().Be(10);
+        content.ReservedQuantity.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetInventory_AdminUser_MissingInventory_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<InventoryResponse>(InventoryErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/admin/products/{productId}/inventory");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_AnonymousUser_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync($"/api/v1/admin/products/{productId}/inventory/increase", new AdjustInventoryStockRequest(5));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_NonAdminUser_ReturnsForbidden403()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/increase");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_AdminUser_ValidQuantity_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<IncreaseInventoryStockCommand>(c => c.ProductId == productId && c.Quantity == 5),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/increase");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_AdminUser_InvalidQuantity_ReturnsBadRequest400()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<IncreaseInventoryStockCommand>(c => c.ProductId == productId && c.Quantity <= 0),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.NegativeQuantity));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/increase");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(0));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_AdminUser_MissingInventory_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<IncreaseInventoryStockCommand>(c => c.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/increase");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task IncreaseInventory_AdminUser_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<IncreaseInventoryStockCommand>(c => c.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/increase");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_AnonymousUser_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync($"/api/v1/admin/products/{productId}/inventory/decrease", new AdjustInventoryStockRequest(5));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_NonAdminUser_ReturnsForbidden403()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/decrease");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_AdminUser_ValidQuantity_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<DecreaseInventoryStockCommand>(c => c.ProductId == productId && c.Quantity == 4),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/decrease");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(4));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_AdminUser_InsufficientStock_ReturnsBadRequest400()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<DecreaseInventoryStockCommand>(c => c.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.InsufficientStock));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/decrease");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(999));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_AdminUser_MissingInventory_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<DecreaseInventoryStockCommand>(c => c.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/decrease");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DecreaseInventory_AdminUser_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<DecreaseInventoryStockCommand>(c => c.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(InventoryErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/products/{productId}/inventory/decrease");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(new AdjustInventoryStockRequest(5));
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    #endregion
 }

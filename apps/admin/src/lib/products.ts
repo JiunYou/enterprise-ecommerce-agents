@@ -156,3 +156,61 @@ export async function getAdminProductById(
     };
   }
 }
+
+export interface AdminInventorySummary {
+  productId: string;
+  availableQuantity: number;
+  reservedQuantity: number;
+}
+
+export type GetAdminInventoryResult =
+  | { status: "unauthenticated" }
+  | { status: "forbidden" }
+  | { status: "notFound" }
+  | { status: "error"; message: string }
+  | { status: "success"; inventory: AdminInventorySummary };
+
+export async function getAdminInventory(
+  productId: string
+): Promise<GetAdminInventoryResult> {
+  if (!productId || typeof productId !== "string") {
+    return { status: "notFound" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/admin/products/${encodeURIComponent(productId)}/inventory`
+    );
+
+    if (response.status === 401) {
+      return { status: "unauthenticated" };
+    }
+
+    if (response.status === 403) {
+      return { status: "forbidden" };
+    }
+
+    if (response.status === 404) {
+      return { status: "notFound" };
+    }
+
+    if (!response.ok) {
+      return {
+        status: "error",
+        message: `庫存服務回應錯誤 (${response.status})。`,
+      };
+    }
+
+    const inventory: AdminInventorySummary = await response.json();
+    return { status: "success", inventory };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return { status: "unauthenticated" };
+    }
+
+    return {
+      status: "error",
+      message: "無法與後端庫存服務建立安全連線，請稍後重試。",
+    };
+  }
+}

@@ -26,6 +26,9 @@ internal sealed class InventoryItemConfiguration : IEntityTypeConfiguration<Inve
                 value => new ProductReference(value))
             .IsRequired();
 
+        builder.HasIndex(i => i.ProductReference)
+            .IsUnique();
+
         builder.Property(i => i.AvailableQuantity)
             .HasConversion(
                 qty => qty.Value,

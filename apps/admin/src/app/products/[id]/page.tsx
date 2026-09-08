@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
-import { getAdminProductById } from "@/lib/products";
+import { getAdminProductById, getAdminInventory } from "@/lib/products";
 import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
+import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
 
 export const dynamic = "force-dynamic";
 
@@ -145,6 +146,7 @@ export default async function AdminProductDetailPage({
   }
 
   const product = result.product;
+  const inventoryResult = await getAdminInventory(id);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -290,10 +292,85 @@ export default async function AdminProductDetailPage({
                 </p>
               </div>
             )}
+
+            {/* 庫存狀態區塊 (Inventory Section) */}
+            {inventoryResult.status === "success" && (
+              <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                      商品庫存狀態 (Inventory)
+                    </h3>
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      即時可用庫存與訂單保留庫存狀況
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                    已建立庫存
+                  </span>
+                </div>
+
+                <dl className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      可用庫存 (Available Quantity)
+                    </dt>
+                    <dd className="mt-1.5 text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                      {inventoryResult.inventory.availableQuantity}
+                    </dd>
+                    <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      目前可直接供顧客購買與扣減的現貨數量
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      預留庫存 (Reserved Quantity)
+                    </dt>
+                    <dd className="mt-1.5 text-2xl font-black text-amber-600 dark:text-amber-400">
+                      {inventoryResult.inventory.reservedQuantity}
+                    </dd>
+                    <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      訂單成立保留中，受預留流程獨立保護
+                    </p>
+                  </div>
+                </dl>
+              </div>
+            )}
+
+            {inventoryResult.status === "notFound" && (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 p-6 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <span className="text-sm font-semibold text-zinc-500">i</span>
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  此商品尚未建立庫存紀錄。
+                </h3>
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  目前系統尚未為此商品初始化或建立庫存紀錄。在當前版本中，不支援手動建立或自動建立庫存。
+                </p>
+              </div>
+            )}
+
+            {inventoryResult.status !== "success" && inventoryResult.status !== "notFound" && (
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-5 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  暫時無法取得庫存狀態資訊。
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 右側：管理操作區 */}
           <div className="space-y-6">
+            {/* 庫存調整作業表單（僅在庫存存在時顯示） */}
+            {inventoryResult.status === "success" && (
+              <AdjustInventoryStockForm
+                productId={product.id}
+                availableQuantity={inventoryResult.inventory.availableQuantity}
+              />
+            )}
+
             {/* 調整價格表單 */}
             <UpdateProductPriceForm
               productId={product.id}

@@ -449,3 +449,54 @@
   - 訂單、付款、退款、金流與身分領域未變更
   - 無新增 npm 相依套件
   - 維持既有 README.md 不變
+
+### 2026-09-08 — PR #23 — feat: add safe product creation v1
+- **垂直切片**：Safe Product Creation v1 — Atomic Product + Inventory Initialization
+- **交付價值**：
+  - 系統管理員建立商品時強制要求：名稱 (Name)、SKU、價格 (Price > 0)、幣別 (Currency 3 碼)、初始庫存 (InitialStock 正整數 > 0)
+  - 建立商品成功時，同步原子性持久化 Exactly-one `Product` 與 Exactly-one 初始化的 `InventoryItem`
+  - 庫存初始狀態：`ProductReference` 等於所建立之 `Product.Id`、`AvailableQuantity = InitialStock`、`ReservedQuantity = 0`
+  - 商品維持既有領域生命週期建立為 Active 狀態（`IsActive = true`）
+  - 消除過去建立商品後無對應庫存之斷裂缺陷
+  - 管理後台新增 `/products/new` 建立商品路由、專用表單元件，並於 `/products` 列表頁提供「建立商品」入口
+  - 表單欄位嚴格限定 5 個必要欄位，瀏覽器端絕不傳遞 `ProductId`、`InventoryId`、`IsActive`、`ReservedQuantity`、`Version`、`CustomerId` 或存取權杖
+- **原子性與資料庫安全保證**：
+  - `Product` 與 `InventoryItem` 使用相同的 `EnterpriseCommerceDbContext` / `IApplicationUnitOfWork`
+  - 建立流程僅執行單一一次 `SaveChangesAsync`
+  - 真實 MySQL 容器驗收測試證實：若庫存寫入失敗，整筆交易完整回滾，資料庫零殘留（Product 與 Inventory 筆數均為 0）
+  - 重複 SKU 安全拒絕（409 Conflict），資料庫保證不產生孤立庫存
+  - 繼承自 PR #22 之 `IX_InventoryItems_ProductReference` 唯一索引作為核心架構防護
+  - 本次垂直切片無新增資料庫遷移（無 Migration）
+- **授權與模型驗證**：
+  - 匿名存取回傳 401 Unauthorized
+  - 非管理員（Customer 角色）存取回傳 403 Forbidden
+  - 初始庫存 `<= 0`（0 或負數）回傳 400 Bad Request
+- **過程與時序核實說明**：
+  - 本切片 RED 行為性失敗證據（包含缺少庫存呼叫、初始庫存校驗缺失、MySQL 回滾等）有效且通過驗證
+  - 然而在開發時序上，部分生產契約/鷹架檔案之編輯早於 mandatory RED 測試之建立與執行，未滿足嚴格之 Test First 先後順序要求
+  - 依治理原則誠實記錄：`TDD_RED_BEHAVIORAL_EVIDENCE=VALID`、`TDD_TEST_FIRST_CHRONOLOGY=FAIL`、`RISK_WEIGHTED_TDD_PROCESS_VERIFIED=NO`
+  - 切片驗收係基於最終凍結原始碼之全量機器驗證與功能性回歸通過
+- **驗證成果**：
+  - 後端方案建置通過 (0 warnings, 0 errors)
+  - 後端單元測試全數通過 (Domain: 146, Application: 244, Infrastructure: 208)
+  - WebApi 測試清單探索數與 TRX 執行數完全相等 (296 / 296 PASS, 0 failed, 0 error, 0 timeout, 0 aborted, 0 notExecuted)
+  - CreateProduct Application 測試 4 項全數通過
+  - InventoryRepository 倉儲測試 3 項全數通過
+  - CreateProduct HTTP 整合測試 4 項全數通過
+  - Safe Product Creation 真實 MySQL 驗收測試 4 項全數通過
+  - ProductReference 唯一索引遷移先決條件驗收測試 1 項通過
+  - Admin 庫存管理 MySQL 生命週期回歸測試 1 項通過
+  - Admin Web ESLint 檢查通過 (0 errors, 0 warnings)
+  - Admin Web 生產環境打包構建通過
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **明確非範疇（Out of Scope）與限制說明**：
+  - 未交付草稿商品 (Draft Product) 或未啟用商品建立 (Inactive Product Creation)
+  - 未交付商品啟用 (Activate)、重新啟用 (Reactivate)、商品編輯或刪除
+  - 未交付獨立建立庫存端點或按鈕
+  - 未交付預留庫存修改或預留管理
+  - 未交付圖片、分類、標籤、規格變體、批次匯入或多倉庫管理
+  - 顧客端前端未變更 (CUSTOMER_WEB_CHANGED=NO)
+  - 訂單、付款、退款、金流與身分領域未變更
+  - 無新增 npm 相依套件
+  - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
+  - 維持既有 README.md 不變

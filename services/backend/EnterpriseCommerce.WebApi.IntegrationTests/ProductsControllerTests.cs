@@ -60,7 +60,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     public async Task CreateProduct_WithValidData_ReturnsCreated()
     {
         // Arrange
-        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-1", 100m, "TWD");
+        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-1", 100m, "TWD", 10);
         var productId = Guid.NewGuid();
         
         _senderMock.Setup(m => m.Send(It.IsAny<CreateProductCommand>(), It.IsAny<CancellationToken>()))
@@ -80,10 +80,24 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task CreateProduct_Anonymous_ReturnsUnauthorized()
+    {
+        // Arrange
+        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-ANON", 100m, "TWD", 10);
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/Products", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task CreateProduct_AsCustomer_ReturnsForbidden()
     {
         // Arrange
-        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-2", 100m, "TWD");
+        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-2", 100m, "TWD", 10);
         
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
@@ -96,6 +110,32 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CreateProduct_WithNonPositiveInitialStock_ReturnsBadRequest()
+    {
+        // Arrange (InitialStock = 0, should fail validation and return 400)
+        var request = new CreateProductRequest("Integration Test Product", "SKU-INT-3", 100m, "TWD", 0);
+
+        // When validation fails in MediatR pipeline, ValidationException is thrown which GlobalExceptionHandler maps to 400
+        _senderMock.Setup(m => m.Send(It.Is<CreateProductCommand>(c => c.InitialStock <= 0), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new EnterpriseCommerce.Application.Exceptions.ValidationException(new[]
+            {
+                new FluentValidation.Results.ValidationFailure(nameof(CreateProductCommand.InitialStock), "'Initial Stock' must be greater than '0'.")
+            }));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/Products");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

@@ -637,3 +637,119 @@ export async function decreaseInventoryStockAction(
     };
   }
 }
+
+export interface CreateProductInput {
+  name: string;
+  sku: string;
+  price: number;
+  currency: string;
+  initialStock: number;
+}
+
+export interface CreateProductResult {
+  success: boolean;
+  productId?: string;
+  error?: string;
+}
+
+export async function createProductAction(
+  input: CreateProductInput
+): Promise<CreateProductResult> {
+  if (!input || typeof input !== "object") {
+    return { success: false, error: "無效的請求資料。" };
+  }
+
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (!name || name.length > 255) {
+    return { success: false, error: "商品名稱為必填且不可超過 255 個字元。" };
+  }
+
+  const sku = typeof input.sku === "string" ? input.sku.trim() : "";
+  if (!sku || sku.length > 100) {
+    return { success: false, error: "商品 SKU 為必填且不可超過 100 個字元。" };
+  }
+
+  if (typeof input.price !== "number" || isNaN(input.price) || input.price <= 0) {
+    return { success: false, error: "商品價格必須大於 0。" };
+  }
+
+  const currency = typeof input.currency === "string" ? input.currency.trim().toUpperCase() : "";
+  if (!currency || currency.length !== 3) {
+    return { success: false, error: "幣別代碼必須為 3 碼英文字母（例如 TWD, USD）。" };
+  }
+
+  if (typeof input.initialStock !== "number" || !Number.isInteger(input.initialStock) || input.initialStock <= 0) {
+    return { success: false, error: "初始庫存必須為大於 0 的整數。" };
+  }
+
+  try {
+    const response = await authenticatedFetch("/api/v1/products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        sku,
+        price: input.price,
+        currency,
+        initialStock: input.initialStock,
+      }),
+    });
+
+    if (response.status === 201) {
+      const productId = await response.json();
+      revalidatePath("/products");
+      if (productId && typeof productId === "string") {
+        revalidatePath(`/products/${encodeURIComponent(productId)}`);
+      }
+      return { success: true, productId };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || errorJson?.title || "商品建立資料無效，請檢查後重試。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可建立商品。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "此 SKU 商品已存在，請使用不同的 SKU。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "建立商品失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成商品建立。",
+    };
+  }
+}

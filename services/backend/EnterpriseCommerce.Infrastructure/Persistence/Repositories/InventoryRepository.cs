@@ -34,4 +34,9 @@ internal sealed class InventoryRepository : IInventoryRepository
         
         return item;
     }
+
+    public void Add(InventoryItem inventoryItem)
+    {
+        _dbContext.InventoryItems.Add(inventoryItem);
+    }
 }

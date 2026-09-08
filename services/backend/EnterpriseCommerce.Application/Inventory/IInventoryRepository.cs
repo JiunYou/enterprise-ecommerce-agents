@@ -7,4 +7,5 @@ public interface IInventoryRepository
 {
     Task<InventoryItem?> GetByProductIdAsync(ProductReference productId, CancellationToken cancellationToken = default);
     Task<InventoryItem?> GetByProductIdForUpdateAsync(ProductReference productId, CancellationToken cancellationToken = default);
+    void Add(InventoryItem inventoryItem);
 }

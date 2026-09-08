@@ -93,7 +93,7 @@ public class ProductsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request, CancellationToken cancellationToken)
     {
-        var command = new CreateProductCommand(request.Name, request.Sku, request.Price, request.Currency);
+        var command = new CreateProductCommand(request.Name, request.Sku, request.Price, request.Currency, request.InitialStock);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

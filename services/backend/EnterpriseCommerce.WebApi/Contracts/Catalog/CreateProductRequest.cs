@@ -4,4 +4,5 @@ public record CreateProductRequest(
     string Name,
     string Sku,
     decimal Price,
-    string Currency);
+    string Currency,
+    int InitialStock);

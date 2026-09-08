@@ -274,6 +274,12 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
             </nav>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/products/new"
+              className="inline-flex items-center rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            >
+              建立商品
+            </Link>
             <div className="hidden text-right sm:block">
               <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
                 {session.user.name || session.user.email || "管理員"}

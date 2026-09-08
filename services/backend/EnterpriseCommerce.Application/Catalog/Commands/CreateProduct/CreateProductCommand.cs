@@ -1,12 +1,15 @@
 using EnterpriseCommerce.Application.Abstractions;
+using EnterpriseCommerce.Application.Inventory;
 using EnterpriseCommerce.Domain.Catalog;
+using EnterpriseCommerce.Domain.Inventory;
+using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.Application.Common.CQRS;
 using FluentValidation;
 
 namespace EnterpriseCommerce.Application.Catalog.Commands.CreateProduct;
 
-public sealed record CreateProductCommand(string Name, string Sku, decimal Price, string Currency) : ICommand<Guid>;
+public sealed record CreateProductCommand(string Name, string Sku, decimal Price, string Currency, int InitialStock) : ICommand<Guid>;
 
 public sealed class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
 {
@@ -16,17 +19,23 @@ public sealed class CreateProductCommandValidator : AbstractValidator<CreateProd
         RuleFor(x => x.Sku).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.Currency).NotEmpty().Length(3);
+        RuleFor(x => x.InitialStock).GreaterThan(0);
     }
 }
 
 internal sealed class CreateProductCommandHandler : ICommandHandler<CreateProductCommand, Guid>
 {
     private readonly IProductRepository _productRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly IApplicationUnitOfWork _unitOfWork;
 
-    public CreateProductCommandHandler(IProductRepository productRepository, IApplicationUnitOfWork unitOfWork)
+    public CreateProductCommandHandler(
+        IProductRepository productRepository,
+        IInventoryRepository inventoryRepository,
+        IApplicationUnitOfWork unitOfWork)
     {
         _productRepository = productRepository;
+        _inventoryRepository = inventoryRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -44,9 +53,15 @@ internal sealed class CreateProductCommandHandler : ICommandHandler<CreateProduc
             return Result.Failure<Guid>(productResult.Error);
         }
 
-        _productRepository.Add(productResult.Value);
+        var product = productResult.Value;
+        var productReference = new ProductReference(product.Id);
+        var inventoryItem = InventoryItem.Create(productReference);
+        inventoryItem.IncreaseStock(new StockQuantity(request.InitialStock));
+
+        _productRepository.Add(product);
+        _inventoryRepository.Add(inventoryItem);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result.Success(productResult.Value.Id);
+        return Result.Success(product.Id);
     }
 }

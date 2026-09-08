@@ -54,4 +54,22 @@ public class InventoryRepositoryTests
         // Assert
         result.Should().BeNull();
     }
+
+    [Fact]
+    public async Task Add_ShouldTrackAndPersistInventoryItem()
+    {
+        // Arrange
+        var productReference = new ProductReference(Guid.NewGuid());
+        var inventoryItem = InventoryItem.Create(productReference);
+        inventoryItem.IncreaseStock(new StockQuantity(50));
+
+        // Act
+        _repository.Add(inventoryItem);
+        await _dbContext.SaveChangesAsync();
+
+        // Assert
+        var persisted = await _dbContext.InventoryItems.FirstOrDefaultAsync(i => i.Id == inventoryItem.Id);
+        persisted.Should().NotBeNull();
+        persisted!.AvailableQuantity.Value.Should().Be(50);
+    }
 }

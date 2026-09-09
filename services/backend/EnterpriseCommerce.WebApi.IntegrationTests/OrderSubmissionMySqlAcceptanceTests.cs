@@ -1,5 +1,6 @@
 using EnterpriseCommerce.Application.Orders.Queries.GetCart;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
+using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
@@ -85,7 +86,8 @@ public class OrderSubmissionMySqlAcceptanceTests : IAsyncLifetime
     {
         // Arrange
         var customerId = Guid.NewGuid();
-        var productId = Guid.NewGuid();
+        var product = Product.Create("Test Product", $"SKU-{Guid.NewGuid():N}", 100m, "USD").Value;
+        var productId = product.Id;
         var productRef = new ProductReference(productId);
         int initialStock = 50;
         int orderQuantity = 2;
@@ -98,6 +100,7 @@ public class OrderSubmissionMySqlAcceptanceTests : IAsyncLifetime
 
         await using (var dbContext = CreateFreshDbContext())
         {
+            dbContext.Products.Add(product);
             dbContext.InventoryItems.Add(inventoryItem);
             dbContext.Orders.Add(order);
             await dbContext.SaveChangesAsync();
@@ -196,9 +199,13 @@ public class OrderSubmissionMySqlAcceptanceTests : IAsyncLifetime
         var customerId = Guid.NewGuid();
 
         // Deterministic sorting to guarantee productA is processed first by the handler
-        var sortedGuids = new[] { Guid.NewGuid(), Guid.NewGuid() }.OrderBy(x => x).ToArray();
-        var productAId = sortedGuids[0];
-        var productBId = sortedGuids[1];
+        var prod1 = Product.Create("Product A", $"SKU-{Guid.NewGuid():N}", 100m, "USD").Value;
+        var prod2 = Product.Create("Product B", $"SKU-{Guid.NewGuid():N}", 200m, "USD").Value;
+        var sortedProducts = new[] { prod1, prod2 }.OrderBy(x => x.Id).ToArray();
+        var productA = sortedProducts[0];
+        var productB = sortedProducts[1];
+        var productAId = productA.Id;
+        var productBId = productB.Id;
 
         var productARef = new ProductReference(productAId);
         var productBRef = new ProductReference(productBId);
@@ -221,6 +228,7 @@ public class OrderSubmissionMySqlAcceptanceTests : IAsyncLifetime
 
         await using (var dbContext = CreateFreshDbContext())
         {
+            dbContext.Products.AddRange(productA, productB);
             dbContext.InventoryItems.AddRange(inventoryA, inventoryB);
             dbContext.Orders.Add(order);
             await dbContext.SaveChangesAsync();

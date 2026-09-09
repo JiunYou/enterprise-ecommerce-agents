@@ -1,6 +1,7 @@
 using EnterpriseCommerce.Application.Abstractions;
 using EnterpriseCommerce.Application.Common.CQRS;
 using EnterpriseCommerce.Application.Inventory;
+using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
@@ -12,15 +13,18 @@ namespace EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
 internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCommand>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IProductRepository _productRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IApplicationUnitOfWork _unitOfWork;
 
     public SubmitOrderCommandHandler(
         IOrderRepository orderRepository,
+        IProductRepository productRepository,
         IInventoryRepository inventoryRepository,
         IApplicationUnitOfWork unitOfWork)
     {
         _orderRepository = orderRepository;
+        _productRepository = productRepository;
         _inventoryRepository = inventoryRepository;
         _unitOfWork = unitOfWork;
     }
@@ -70,6 +74,23 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
         {
             // Sort items deterministically by ProductId to prevent deadlocks
             var sortedItems = order.Items.OrderBy(i => i.ProductId.Value).ToList();
+
+            // Validate Product eligibility for all items before any Inventory locking
+            foreach (var item in sortedItems)
+            {
+                var product = await _productRepository.GetByIdAsync(item.ProductId.Value, cancellationToken);
+                if (product is null)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result.Failure(ProductErrors.NotFound);
+                }
+
+                if (!product.IsActive)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result.Failure(ProductErrors.NotActive);
+                }
+            }
 
             // Try reserving stock for all items
             foreach (var item in sortedItems)

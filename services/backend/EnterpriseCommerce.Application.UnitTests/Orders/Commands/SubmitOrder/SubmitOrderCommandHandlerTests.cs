@@ -2,6 +2,7 @@ using EnterpriseCommerce.Application.Abstractions;
 using EnterpriseCommerce.Application.Inventory;
 using EnterpriseCommerce.Application.Orders;
 using EnterpriseCommerce.Application.Orders.Commands.SubmitOrder;
+using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
@@ -15,6 +16,7 @@ namespace EnterpriseCommerce.Application.UnitTests.Orders.Commands.SubmitOrder;
 public class SubmitOrderCommandHandlerTests
 {
     private readonly Mock<IOrderRepository> _orderRepositoryMock;
+    private readonly Mock<IProductRepository> _productRepositoryMock;
     private readonly Mock<IInventoryRepository> _inventoryRepositoryMock;
     private readonly Mock<IApplicationUnitOfWork> _unitOfWorkMock;
     private readonly SubmitOrderCommandHandler _handler;
@@ -22,10 +24,12 @@ public class SubmitOrderCommandHandlerTests
     public SubmitOrderCommandHandlerTests()
     {
         _orderRepositoryMock = new Mock<IOrderRepository>();
+        _productRepositoryMock = new Mock<IProductRepository>();
         _inventoryRepositoryMock = new Mock<IInventoryRepository>();
         _unitOfWorkMock = new Mock<IApplicationUnitOfWork>();
         _handler = new SubmitOrderCommandHandler(
             _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
             _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
     }
@@ -102,6 +106,10 @@ public class SubmitOrderCommandHandlerTests
 
         var inventoryItem = InventoryItem.Create(new ProductReference(productId));
         inventoryItem.IncreaseStock(new StockQuantity(50));
+
+        var product = Product.Create("Test Product", "SKU-TEST", 100m, "TWD").Value;
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
 
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
@@ -194,6 +202,10 @@ public class SubmitOrderCommandHandlerTests
         var inventoryItem = InventoryItem.Create(new ProductReference(productId));
         inventoryItem.IncreaseStock(new StockQuantity(2)); // Available only 2, requires 5
 
+        var product = Product.Create("Test Product", "SKU-TEST", 100m, "TWD").Value;
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
         _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
@@ -236,6 +248,13 @@ public class SubmitOrderCommandHandlerTests
         order.AddItem(new ProductId(firstProductId), new Money(100, "TWD"), 2);
         order.AddItem(new ProductId(secondProductId), new Money(200, "TWD"), 10);
 
+        var product1 = Product.Create("Product 1", "SKU-1", 100m, "TWD").Value;
+        var product2 = Product.Create("Product 2", "SKU-2", 200m, "TWD").Value;
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(firstProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product1);
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(secondProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product2);
+
         var inventory1 = InventoryItem.Create(new ProductReference(firstProductId));
         inventory1.IncreaseStock(new StockQuantity(20)); // Has enough
 
@@ -267,6 +286,112 @@ public class SubmitOrderCommandHandlerTests
         Assert.Null(order.ShippingAddress); // Order remains untouched!
         _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenProductMissing_ShouldReturnProductNotFound()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        var missingProductId = Guid.NewGuid();
+        order.AddItem(new ProductId(missingProductId), new Money(100, "TWD"), 1);
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(missingProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Product?)null);
+
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(ProductErrors.NotFound.Code, result.Error.Code);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenProductInactive_ShouldReturnProductNotActive()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        var productId = Guid.NewGuid();
+        order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
+
+        var inactiveProduct = Product.Create("Inactive Product", "SKU-INACT", 100m, "TWD").Value;
+        inactiveProduct.Deactivate();
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inactiveProduct);
+
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(ProductErrors.NotActive.Code, result.Error.Code);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubmitOrder_WhenMultipleItemsAndOneProductInactive_ShouldFailBeforeAnyInventoryReservation()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+
+        var product1Id = Guid.NewGuid();
+        var product2Id = Guid.NewGuid();
+        var sortedProductIds = new[] { product1Id, product2Id }.OrderBy(x => x).ToArray();
+        var firstProductId = sortedProductIds[0];
+        var secondProductId = sortedProductIds[1];
+
+        order.AddItem(new ProductId(firstProductId), new Money(100, "TWD"), 1);
+        order.AddItem(new ProductId(secondProductId), new Money(200, "TWD"), 1);
+
+        var product1 = Product.Create("Active Product", "SKU-1", 100m, "TWD").Value;
+        var product2 = Product.Create("Inactive Product", "SKU-2", 200m, "TWD").Value;
+        product2.Deactivate();
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(firstProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product1);
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(secondProductId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product2);
+
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(ProductErrors.NotActive.Code, result.Error.Code);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        _unitOfWorkMock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

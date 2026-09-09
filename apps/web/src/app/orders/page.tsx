@@ -1,39 +1,14 @@
 import Link from "next/link";
 import { getCustomerOrders } from "@/lib/orders";
 import { formatPrice } from "@/lib/format";
-import { AuthControls } from "@/components/AuthControls";
+import { CustomerHeader } from "@/components/CustomerHeader";
 
 export default async function CustomerOrderHistoryPage() {
   const result = await getCustomerOrders();
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      {/* 頂部導航列 */}
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Link href="/" className="inline-block">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                  Enterprise Commerce
-                </h1>
-              </Link>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                歷史訂單紀錄
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/cart"
-                className="inline-flex items-center text-sm font-semibold text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-              >
-                購物車
-              </Link>
-              <AuthControls />
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      <CustomerHeader subtitle="歷史訂單紀錄" />
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">

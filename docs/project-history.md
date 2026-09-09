@@ -589,3 +589,32 @@
   - 顧客端與管理端前端零變更
   - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
   - 維持既有 README.md 不變
+
+### 2026-09-09 — PR #26 — fix: make outbox local-dispatch-only
+- **垂直切片**：Outbox Runtime Safety v1
+- **交付價值 (Delivered)**：
+  - 目前 Outbox 執行期明確變更為純本地分派模式 (`LOCAL_DISPATCH_ONLY`)。
+  - 成功的本地領域事件分派即標記 Outbox 為已處理 (`ProcessedOn != null, Error = null`)。
+  - 外部事件發布者 (`IEventPublisher`) 的註冊狀態或發布失敗不再驅動本地事件重複重試。
+  - 既有本地領域事件處理常式拋出例外時，訊息依然維持未處理狀態以供重試。
+  - 重複本地交付時之領域事件冪等性獲得完整保留與驗證。
+- **交付語義 (Delivery Semantics)**：
+  - 交付語意為至少一次 (`AT_LEAST_ONCE`)，明確不宣稱完全一次 (`NOT exactly-once`)。
+  - 當重試或重複投遞發生時，本地處理常式依然須維持冪等性。
+- **外部元件狀態 (External Components)**：
+  - Integration Event 與 RabbitMQ 外部訊息路徑維持休眠狀態 (DORMANT)。
+  - 本切片不實作 RabbitMQ、不註冊發布者、不新增 NoOp 發布者、不修改 Notification Worker、不修改 Docker Compose。
+- **測試契約遷移 (Test Contract Migration)**：
+  - 舊有外部 Broker 耦合之過時單元測試於 Tier-1 本地契約轉綠後正式除役 (`OutboxBackgroundServiceTests.cs` 刪除)。
+  - 純本地分派單元測試 (`OutboxLocalDispatchModeTests.cs`) 與 MySQL 整合測試 (`OutboxLocalDispatchMySqlAcceptanceTests.cs`) 提供權威契約覆蓋。
+  - 既有 `OutboxRedeliveryIntegrationTests.cs` 調適為純本地重複交付之 At-Least-Once 冪等性防護驗證。
+- **TDD 開發時序與方法核實 (TDD)**：
+  - Tier-1 本地分派單元與 MySQL 契約於生產代碼修改前確認為 RED 行為 (Phase A RED)。
+  - Phase B 於修改生產代碼前重新確認 RED 狀態，並在最小單一檔案修正後全數轉為 GREEN。
+  - 舊契約清理僅在 Tier-1 轉綠後執行，風險加權 TDD 流程經完整核實：`TDD_TEST_FIRST_CHRONOLOGY=PASS`、`RISK_WEIGHTED_TDD_PROCESS_VERIFIED=YES`。
+- **驗證成果 (Validation)**：
+  - Domain 單元測試：146 / 146 PASS
+  - Application 單元測試：257 / 257 PASS
+  - Infrastructure 單元測試：209 / 209 PASS
+  - WebApi 整合測試：310 / 310 PASS (探索發現數 310，無略過測試)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)

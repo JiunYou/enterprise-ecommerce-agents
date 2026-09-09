@@ -500,3 +500,45 @@
   - 無新增 npm 相依套件
   - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
   - 維持既有 README.md 不變
+
+### 2026-09-09 — PR #24 — feat: add stock-aware cart admission v1
+- **垂直切片**：Stock-aware Cart Admission v1 — Add + Quantity Update Guard
+- **交付價值**：
+  - 加入購物車庫存准入守門（Add Item Guard）：目標需求數量為「購物車既有數量 + 請求數量」，當庫存品項不存在、可用庫存為零或累加數量超過可用庫存時拒絕
+  - 購物車累加數量守門（Cumulative Cart Quantity Guard）：保護累加運算，防止超出當前可用庫存
+  - 更新購物車數量庫存准入守門（Update Quantity Guard）：請求數量為絕對值，當庫存不存在或數量超過可用庫存時拒絕
+  - 顧客端一致性失敗語義：庫存不存在或庫存不足一律對顧客安全回傳 `InventoryErrors.InsufficientStock`（HTTP 400 Bad Request），不暴露內部 `Inventory.NotFound`
+  - 溢位安全累加算術（Overflow-safe Cumulative Arithmetic）：在執行數量加法前先將運算元加寬為 Int64 (`long`)，徹底消除 `int.MaxValue + 1` 之整數溢位繞過漏洞
+- **重要語義與架構約束**：
+  - 僅於購物車准入階段進行可用性檢驗，唯讀讀取 `AvailableQuantity`
+  - 購物車階段不預留庫存（No Reservation）、不修改 `ReservedQuantity`
+  - 庫存讀取不進行資料庫行級排他鎖定（No Locking Read）、無自動重試機制
+  - 購物車准入不保證最終結帳成功，`SubmitOrder` 維持為最終權威之庫存預留與交易守門者
+  - 無資料庫結構變更、無資料庫遷移（Migration）
+  - 前端原始碼零變更（CUSTOMER_WEB_CHANGED=NO、ADMIN_WEB_CHANGED=NO）
+- **TDD 開發時序與方法核實**：
+  - 核心庫存准入 Tier-1 真實 MySQL 契約測試於生產代碼修改前先行建立並確認為 RED 行為（Phase A RED，Phase B 重新確認 RED）
+  - 審查發現之累加整數溢位邊界，亦於溢位生產修復前先行建立驗收測試並觀察到 RED 行為（Phase C RED：期望 400，實際 500）
+  - 最小化生產修正後契約測試全數轉為 GREEN
+  - 風險加權 TDD 流程經完整核實：`TDD_TEST_FIRST_CHRONOLOGY=PASS`、`TDD_OVERFLOW_CORRECTION_TEST_FIRST=PASS`、`RISK_WEIGHTED_TDD_PROCESS_VERIFIED=YES`
+- **驗證成果**：
+  - 後端方案建置通過 (0 warnings, 0 errors)
+  - 後端單元測試全數通過 (Domain: 146, Application: 254, Infrastructure: 208)
+  - WebApi 測試清單探索數與 TRX 執行數完全相等 (305 / 305 PASS, 0 failed, 0 error, 0 timeout, 0 aborted, 0 notExecuted)
+  - CartTests 單元測試 18 項全數通過
+  - StockAwareCartAdmissionMySqlAcceptanceTests 真實 MySQL 驗收測試 9 項全數通過
+  - CartControllerTests 整合測試 15 項全數通過
+  - SubmitOrder / ReserveInventory Application 測試 14 項全數通過
+  - OrderSubmissionMySqlAcceptanceTests 5 項全數通過
+  - Customer Web ESLint 檢查通過
+  - Customer Web 生產環境打包構建通過
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **明確非範疇（Out of Scope）與限制說明**：
+  - 未實作購物車預留庫存機制
+  - 未提供結帳庫存可用性保證
+  - 未暴露公開庫存狀態或數量 DTO
+  - 未修改商品啟用/重新啟用或商品生命週期
+  - 未引入任意購物車數量上限
+  - 顧客端與管理端前端零變更
+  - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
+  - 維持既有 README.md 不變

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { getCart, updateCartItemQuantity, removeCartItem } from "@/lib/cart";
-import { AuthControls } from "@/components/AuthControls";
+import { CustomerHeader } from "@/components/CustomerHeader";
 import { CartItemList } from "@/components/CartItemList";
 
 export default async function CartPage() {
@@ -22,33 +22,8 @@ export default async function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      {/* 頂部導航列 */}
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Link href="/" className="inline-block">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                  Enterprise Commerce
-                </h1>
-              </Link>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                商品型錄與線上商務展示
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/cart"
-                className="inline-flex items-center text-sm font-semibold text-zinc-900 dark:text-white underline underline-offset-4"
-              >
-                購物車
-              </Link>
-              <AuthControls />
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      <CustomerHeader />
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">

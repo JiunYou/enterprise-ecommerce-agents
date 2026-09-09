@@ -618,3 +618,29 @@
   - Infrastructure 單元測試：209 / 209 PASS
   - WebApi 整合測試：310 / 310 PASS (探索發現數 310，無略過測試)
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+
+### 2026-09-09 — PR #27 — fix: stabilize local compose runtime
+- **垂直切片**：Local Runtime Compose Baseline v1
+- **交付價值 (Delivered)**：
+  - Compose Database 連線字串配置與實際後端契約對齊 (`ConnectionStrings__Database`)，移除過期之 `ConnectionStrings__DefaultConnection`。
+  - MySQL 容器移除預設 Host 3306 埠發布，改透過 Compose 內部網路 `mysql:3306` 進行後端連線，避免與宿主機其他 MySQL 實例衝突。
+  - 後端 Host HTTP 埠改為可配置變數 (`BACKEND_HTTP_PORT:-5110`)，移除未驗證之 HTTPS 映射。
+  - 後端容器監聽綁定明確化 (`ASPNETCORE_URLS=http://0.0.0.0:8080`，搭配 `--no-launch-profile`)。
+  - 休眠基礎設施 (`redis`, `rabbitmq`, `elasticsearch`) 移至獨立 optional profiles (`cache`, `rabbitmq`, `search`)，預設不啟動。
+  - 骨架通知工作者 (`node-notification-service`) 自目前 Compose 完全移除。
+  - 前端 `node_modules` 透過專屬命名卷 (`frontend-web-node-modules`, `frontend-admin-node-modules`) 實體隔離。
+  - 前端 `.next` 快取透過專屬命名卷 (`frontend-web-next-cache`, `frontend-admin-next-cache`) 實體隔離，防止 macOS 與 Alpine Linux 跨平台建置快取互相污染。
+  - 前端啟動命令簡化為確定性的 `sh -c "npm ci && npm run dev"`。
+- **實機運行證據 (Runtime Evidence)**：
+  - MySQL 容器獨立健康 (healthy)。
+  - 後端 `/health/live` 端點回應 HTTP 200。
+  - 顧客端前端 (`http://127.0.0.1:3000/`) 回應 HTTP 200。
+  - 管理端前端 (`http://127.0.0.1:3001/`) 回應 HTTP 200。
+  - 容器內 native module `lightningcss` 解析成功。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - `/health/live` 回傳 HTTP 200 僅代表後端進程可達，不代表資料庫就緒（依賴感知健康檢查歸屬於未來的 Operational Readiness v1）。
+  - Compose 目前未加入自動 EF migration / schema bootstrap，未修改 `Program.cs`。
+  - 零應用程式生產原始碼變更（零後端代碼變更、零前端代碼變更、零 package.json / package-lock 變更、零 worker 代碼變更）。
+  - 外部佇列訊息路徑維持休眠 (DORMANT)。
+- **程序核算分類 (Process Classification)**：
+  - Platform 模式：可執行失敗重現 + 最小化契約修正（非 Tier-1 領域 TDD）。

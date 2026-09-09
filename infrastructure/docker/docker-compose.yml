@@ -7,7 +7,9 @@ services:
     working_dir: /app
     volumes:
       - ../../apps/web:/app
-    command: npm run dev
+      - frontend-web-node-modules:/app/node_modules
+      - frontend-web-next-cache:/app/.next
+    command: sh -c "npm ci && npm run dev"
     ports:
       - "3000:3000"
     networks:
@@ -19,7 +21,9 @@ services:
     working_dir: /app
     volumes:
       - ../../apps/admin:/app
-    command: npm run dev
+      - frontend-admin-node-modules:/app/node_modules
+      - frontend-admin-next-cache:/app/.next
+    command: sh -c "npm ci && npm run dev"
     ports:
       - "3001:3000"
     networks:
@@ -31,28 +35,15 @@ services:
     working_dir: /src
     volumes:
       - ../../services/backend:/src
-    command: dotnet watch run --project EnterpriseCommerce.WebApi/EnterpriseCommerce.WebApi.csproj
+    command: dotnet watch --no-launch-profile run --project EnterpriseCommerce.WebApi/EnterpriseCommerce.WebApi.csproj
     ports:
-      - "5000:8080"
-      - "5001:8081"
+      - "${BACKEND_HTTP_PORT:-5110}:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection}
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      - ConnectionStrings__Database=Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};
     depends_on:
       mysql:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  node-notification-service:
-    image: node:20-alpine
-    container_name: prawn-node-notification
-    working_dir: /app
-    volumes:
-      - ../../services/workers/notification:/app
-    command: npm run dev
-    depends_on:
-      rabbitmq:
         condition: service_healthy
     networks:
       - app-network
@@ -65,8 +56,6 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     networks:
       - app-network
     healthcheck:
@@ -78,6 +67,8 @@ services:
   redis:
     image: redis:alpine
     container_name: prawn-redis
+    profiles:
+      - cache
     ports:
       - "6379:6379"
     networks:
@@ -91,6 +82,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: prawn-rabbitmq
+    profiles:
+      - rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -105,6 +98,8 @@ services:
   elasticsearch:
     image: elasticsearch:8.10.2
     container_name: prawn-elasticsearch
+    profiles:
+      - search
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -122,3 +117,9 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  frontend-web-node-modules:
+  frontend-web-next-cache:
+  frontend-admin-node-modules:
+  frontend-admin-next-cache:

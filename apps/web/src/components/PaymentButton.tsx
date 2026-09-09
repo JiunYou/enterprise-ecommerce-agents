@@ -50,20 +50,21 @@ export function PaymentButton({ orderId }: PaymentButtonProps) {
   const isLoading = isPending || redirecting;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto">
       <button
         type="button"
         onClick={handlePay}
         disabled={isLoading}
-        className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-stone-900 sm:w-auto"
       >
         {isLoading ? (
           <>
             <svg
-              className="-ml-1 mr-3 h-5 w-5 animate-spin text-white"
+              className="-ml-1 mr-2.5 h-4 w-4 animate-spin text-white"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <circle
                 className="opacity-25"
@@ -86,7 +87,7 @@ export function PaymentButton({ orderId }: PaymentButtonProps) {
         )}
       </button>
       {errorMessage && (
-        <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
+        <p className="break-words text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
       )}
     </div>
   );

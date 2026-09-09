@@ -672,3 +672,35 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+
+### 2026-09-10 — PR #29 — feat: polish customer catalog visual experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Catalog Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 恢復顧客端商品目錄單一語意 H1 (`商品目錄`)。
+  - 新增內斂且具自信的目錄導言說明區塊。
+  - 升級商品搜尋與排序探索工具列視覺外觀與控制項對齊。
+  - 加入純展示性無圖片商品視覺磚 (Product Visual Tile，具備 `aria-hidden="true"`)。
+  - 改善商品卡片資訊階層（視覺磚 -> 商品名稱 -> 弱化 SKU -> 醒目價格）。
+  - 對齊商品網格 (1/2/3/4 欄) 與整卡導覽點擊體驗。
+  - 升級查無結果空狀態與錯誤載入狀態之視覺風格。
+  - 精緻化基礎上一頁／目前頁／下一頁分頁導覽控制項。
+  - 對齊載入中骨架畫面 (`loading.tsx`) 之商品目錄視覺層次。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無後端商品圖片欄位或合約支援（零 DTO/Domain/API 變更）。
+  - 純展示性視覺磚，不偽造商品圖片 URL。
+  - 無業務行為或資料擷取邏輯變更（`getProducts`、參數解析、排序、分頁語意完全一致）。
+  - 零新增前端套件與依賴（無 UI / 圖示框架、無過早抽象）。
+- **實機運行證據 (Runtime Evidence)**：
+  - 目錄執行期狀態觀察：`EMPTY`。
+  - 空狀態桌面端與行動端視覺驗收：`PASS`。
+  - 填充商品卡片執行期視覺驗收：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造或種子化資料庫）。
+  - 商品卡片實作係透過原始碼審查、lint、build、功能性 diff 稽核與無障礙語意健全性完成驗證。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

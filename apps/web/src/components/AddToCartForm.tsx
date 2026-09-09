@@ -26,14 +26,14 @@ export function AddToCartForm({
 
   if (!isLoggedIn) {
     return (
-      <div className="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900/50">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-stone-200/90 bg-stone-100/60 p-5 dark:border-stone-800 dark:bg-stone-900/50 sm:p-6">
+        <p className="text-sm text-stone-600 dark:text-stone-400">
           如需將此商品加入購物車，請先登入顧客帳號。
         </p>
         <div className="mt-4">
           <a
             href={`/auth/login?returnTo=/products/${encodeURIComponent(productId)}`}
-            className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-stone-900 px-5 py-3 text-sm font-medium text-white shadow-xs transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 sm:w-auto"
           >
             登入以加入購物車
           </a>
@@ -64,16 +64,16 @@ export function AddToCartForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="w-full sm:w-auto">
           <label
             htmlFor="quantity"
-            className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+            className="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400"
           >
             數量
           </label>
-          <div className="mt-1 flex items-center">
+          <div className="mt-1.5 flex items-center">
             <input
               type="number"
               id="quantity"
@@ -85,7 +85,7 @@ export function AddToCartForm({
                 const val = parseInt(e.target.value, 10);
                 setQuantity(isNaN(val) || val < 1 ? 1 : val);
               }}
-              className="w-24 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-center text-sm font-semibold text-zinc-900 shadow-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-100 dark:focus:ring-zinc-100"
+              className="h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-center text-sm font-semibold text-stone-900 shadow-2xs transition focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-400/30 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400 dark:focus:ring-stone-600/30 sm:w-28"
               disabled={isPending}
             />
           </div>
@@ -94,7 +94,7 @@ export function AddToCartForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="h-11 inline-flex w-full items-center justify-center rounded-lg bg-stone-900 px-6 text-sm font-medium text-white shadow-xs transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 sm:flex-1"
         >
           {isPending ? "加入中..." : "加入購物車"}
         </button>
@@ -102,17 +102,17 @@ export function AddToCartForm({
 
       {statusMessage && (
         <div
-          className={`mt-4 rounded-lg p-3 text-sm flex items-center justify-between ${
+          className={`rounded-lg p-3.5 text-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${
             statusMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-              : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800/40"
+              ? "bg-emerald-50/80 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+              : "bg-red-50/80 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800/40"
           }`}
         >
-          <span>{statusMessage.text}</span>
+          <span className="leading-relaxed">{statusMessage.text}</span>
           {statusMessage.type === "success" && (
             <Link
               href="/cart"
-              className="ml-4 font-semibold underline hover:no-underline"
+              className="inline-flex shrink-0 font-semibold underline underline-offset-4 hover:no-underline"
             >
               前往購物車 &rarr;
             </Link>

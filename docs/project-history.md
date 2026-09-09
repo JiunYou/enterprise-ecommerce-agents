@@ -704,3 +704,37 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+### 2026-09-10 — PR #30 — feat: polish customer product detail experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Product Detail Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 修正商品詳情成功狀態頁面層級語意 H1（商品名稱作為唯一 `h1`）。
+  - 修正查無商品狀態（Not Found）與系統錯誤狀態（Error）之語意 H1。
+  - 實作商品詳情頁面響應式排版（Mobile 單欄直向流、Tablet 充分利用寬度、Desktop 對稱雙欄結構）。
+  - 加入純展示性無圖片商品視覺區塊 (Product Visual Area，具備 `aria-hidden="true"`)。
+  - 改善商品識別、SKU 弱化與價格醒目度之資訊層級。
+  - 升級加入購物車購買操作面板 (AddToCartForm) 視覺外觀、觸控友好度與狀態回饋。
+  - 改善未登入顧客之引導加入購買卡片外觀與全寬排版。
+  - 升級查無商品與系統錯誤狀態之視覺精緻度。
+- **響應式硬性契約 (Responsive Hard Contract)**：
+  - 遵循「重排 (Reflow) + 優先級排序 (Prioritization) + 觸控可用性 (Touch Usability)」原則，非單純縮小 Desktop 版面。
+  - 行動端 (Mobile: 375x812)、平板端 (Tablet: 768x1024)、桌面端 (Desktop: 1280x800) 均列為硬性驗收標準。
+- **實機運行證據 (Runtime Evidence)**：
+  - 執行期檢視狀態：`NOT_FOUND`。
+  - 響應式運行檢驗：375x812 NOT_FOUND `PASS`、768x1024 NOT_FOUND `PASS`、1280x800 NOT_FOUND `PASS`（無非預期水平滾動、標題與導覽元件完整可用）。
+  - 成功狀態商品頁面執行期視覺驗收：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造商品或種子化資料庫）。
+  - 加入購物車成功狀態執行期視覺驗收：`NOT_OBSERVED`。
+  - 成功狀態佈局與購物車響應式結構已由靜態響應式稽核 (Static Responsive Audit)、原始碼審查、lint、build 與 diff 稽核驗證：`PASS`。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無後端商品圖片欄位或合約支援（零 DTO/Domain/API 變更）。
+  - 純展示性視覺區塊，不偽造商品圖片 URL。
+  - 無業務行為或資料擷取邏輯變更（`getProductById`、認證會話、`addItemToCart`、購物車快取重新驗證、數量規則等完全一致）。
+  - 零新增前端套件與依賴（無 UI / 圖示框架、無過早抽象）。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

@@ -45,8 +45,6 @@ public class OutboxBackgroundService : BackgroundService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
             var domainEventDispatcher = scope.ServiceProvider.GetRequiredService<IDomainEventDispatcher>();
-            var integrationEventMapper = scope.ServiceProvider.GetService<IIntegrationEventMapper>();
-            var eventPublisher = scope.ServiceProvider.GetService<IEventPublisher>();
 
             var messages = await dbContext.OutboxMessages
                 .Where(m => m.ProcessedOn == null)
@@ -68,23 +66,8 @@ public class OutboxBackgroundService : BackgroundService
                         var domainEvent = JsonSerializer.Deserialize(message.Content, eventType) as DomainEvent;
                         if (domainEvent != null)
                         {
-                            // 1. Dispatch synchronously to in-process domain event handlers
+                            // Dispatch synchronously to in-process domain event handlers
                             await domainEventDispatcher.DispatchAsync(domainEvent, cancellationToken);
-
-                            // 2. Publish to external event broker if integration event is mapped
-                            if (integrationEventMapper != null)
-                            {
-                                var envelope = integrationEventMapper.MapFrom(domainEvent);
-                                if (envelope != null)
-                                {
-                                    if (eventPublisher == null)
-                                    {
-                                        throw new InvalidOperationException($"IEventPublisher is mandatory for publishing external event '{message.EventType}' but no implementation is registered in the service provider.");
-                                    }
-
-                                    await eventPublisher.PublishAsync(envelope, cancellationToken);
-                                }
-                            }
                         }
                     }
 

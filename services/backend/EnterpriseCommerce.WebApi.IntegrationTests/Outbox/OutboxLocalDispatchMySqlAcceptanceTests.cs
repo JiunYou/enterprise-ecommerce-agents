@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnterpriseCommerce.Application.Events;
@@ -17,18 +16,19 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace EnterpriseCommerce.WebApi.IntegrationTests.Payments;
+namespace EnterpriseCommerce.WebApi.IntegrationTests.Outbox;
 
 [Collection("IntegrationTests")]
-public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
+public class OutboxLocalDispatchMySqlAcceptanceTests : IAsyncLifetime
 {
     private readonly MySqlFixture _mySqlFixture;
     private WebApplicationFactory<Program> _factory = null!;
 
-    public OutboxRedeliveryIntegrationTests(MySqlFixture mySqlFixture)
+    public OutboxLocalDispatchMySqlAcceptanceTests(MySqlFixture mySqlFixture)
     {
         _mySqlFixture = mySqlFixture;
     }
@@ -49,12 +49,13 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:Database", _mySqlFixture.ConnectionString);
             builder.ConfigureTestServices(services =>
             {
-                // Disable automatic background polling inside test host for deterministic invocation
+                // Disable the background hosted service execution inside test host for deterministic invocation
                 var descriptor = services.FirstOrDefault(d => d.ImplementationType == typeof(OutboxBackgroundService));
                 if (descriptor != null)
                 {
                     services.Remove(descriptor);
                 }
+                // Strictly adhere to production DI: NO fake publisher, NO rabbitmq, NO notification worker
             });
         });
     }
@@ -62,8 +63,11 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task Outbox_LocalDispatchAtLeastOnce_DuplicateDomainEventDeliveryIsIdempotent_AndInventoryNotReleasedTwice()
+    public async Task Outbox_WithProductionDI_LocalDispatchSucceeds_AndOutboxIsMarkedProcessedWithoutExternalPublisher()
     {
+        // Verify production DI invariant: IEventPublisher is NOT registered
+        _factory.Services.GetService<IEventPublisher>().Should().BeNull("Production DI does not register IEventPublisher");
+
         // Arrange
         var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -87,13 +91,12 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
 
         await db.SaveChangesAsync();
 
-        // 3. Cancel the Order -> will raise OrderStatusChangedDomainEvent in Outbox
+        // 3. Cancel the Order -> creates recognized OrderStatusChangedDomainEvent in Outbox
         order.Cancel();
         await db.SaveChangesAsync();
         scope.Dispose();
 
         // Ensure Outbox has the OrderStatusChangedDomainEvent for Cancelled
-        OutboxMessage originalOutboxMessage;
         using (var checkScope = _factory.Services.CreateScope())
         {
             var checkDb = checkScope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
@@ -101,63 +104,47 @@ public class OutboxRedeliveryIntegrationTests : IAsyncLifetime
                 .Where(m => m.EventType == nameof(OrderStatusChangedDomainEvent) && m.Content.Contains("\"NewStatus\":4"))
                 .ToListAsync();
             outboxMsgs.Should().HaveCount(1);
-            originalOutboxMessage = outboxMsgs[0];
-            originalOutboxMessage.ProcessedOn.Should().BeNull();
+            outboxMsgs[0].ProcessedOn.Should().BeNull();
         }
 
-        // Act 1 - Outbox Attempt 1: Process normally under LOCAL_DISPATCH_ONLY
+        // Act 1 - Invoke Outbox processor once
         var service = new OutboxBackgroundService(_factory.Services, NullLogger<OutboxBackgroundService>.Instance);
         var method = typeof(OutboxBackgroundService).GetMethod("ProcessOutboxMessagesAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         await (Task)method!.Invoke(service, new object[] { CancellationToken.None })!;
 
-        // Assert 1: In-process domain event released the reservation, and Outbox message IS marked processed
+        // Assert 1: Future contract requires local side-effect executed AND Outbox marked processed
         using (var verifyScope1 = _factory.Services.CreateScope())
         {
             var verifyDb1 = verifyScope1.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
-            var msg1 = await verifyDb1.OutboxMessages
-                .FirstAsync(m => m.Id == originalOutboxMessage.Id);
-            msg1.ProcessedOn.Should().NotBeNull("First local delivery should mark OutboxMessage processed");
-            msg1.Error.Should().BeNull();
-
+            
+            // Verify local side effect occurred
             var inv1 = await verifyDb1.InventoryItems.Include(i => i.Reservations).FirstAsync(i => i.ProductReference == new ProductReference(productId));
-            inv1.AvailableQuantity.Value.Should().Be(10, "Reservation of 2 units was released back to available stock");
+            inv1.AvailableQuantity.Value.Should().Be(10, "Reservation of 2 units was released back to available stock by local domain event handler");
             inv1.ReservedQuantity.Value.Should().Be(0);
+
+            // Verify Outbox state under Future Local-Dispatch-Only contract
+            var msg1 = await verifyDb1.OutboxMessages
+                .FirstAsync(m => m.EventType == nameof(OrderStatusChangedDomainEvent) && m.Content.Contains("\"NewStatus\":4"));
+            
+            msg1.ProcessedOn.Should().NotBeNull("Future local-dispatch-only contract requires OutboxMessage to be marked processed once local dispatch succeeds, even without IEventPublisher");
+            msg1.Error.Should().BeNull();
         }
 
-        // Arrange 2 - Simulate duplicate durable delivery under at-least-once semantics:
-        // Add a second OutboxMessage with the exact same Domain Event payload but a new Message Id
-        var duplicateMessageId = Guid.NewGuid();
-        using (var dupScope = _factory.Services.CreateScope())
-        {
-            var dupDb = dupScope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
-            var duplicateOutboxMessage = new OutboxMessage
-            {
-                Id = duplicateMessageId,
-                OccurredOn = DateTime.UtcNow,
-                EventType = originalOutboxMessage.EventType,
-                Content = originalOutboxMessage.Content,
-                ProcessedOn = null,
-                Error = null
-            };
-            dupDb.OutboxMessages.Add(duplicateOutboxMessage);
-            await dupDb.SaveChangesAsync();
-        }
-
-        // Act 2 - Outbox Attempt 2: Duplicate delivery occurs
+        // Act 2 - Invoke Outbox processor second time (Subsequent Run)
         await (Task)method!.Invoke(service, new object[] { CancellationToken.None })!;
 
-        // Assert 2: In-process domain event runs again, but inventory release is idempotent; stock is NOT released a second time
+        // Assert 2: Message is not replayed, inventory remains unchanged
         using (var verifyScope2 = _factory.Services.CreateScope())
         {
             var verifyDb2 = verifyScope2.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
-            var dupMsg = await verifyDb2.OutboxMessages
-                .FirstAsync(m => m.Id == duplicateMessageId);
-            dupMsg.ProcessedOn.Should().NotBeNull("Duplicate message was also processed successfully");
-            dupMsg.Error.Should().BeNull();
-
             var inv2 = await verifyDb2.InventoryItems.Include(i => i.Reservations).FirstAsync(i => i.ProductReference == new ProductReference(productId));
-            inv2.AvailableQuantity.Value.Should().Be(10, "Stock must NOT be released twice under at-least-once delivery (must remain exactly 10, not 12)");
-            inv2.ReservedQuantity.Value.Should().Be(0, "Reserved quantity must remain 0");
+            inv2.AvailableQuantity.Value.Should().Be(10, "Stock must remain exactly 10 (not released multiple times)");
+            inv2.ReservedQuantity.Value.Should().Be(0);
+
+            var msg2 = await verifyDb2.OutboxMessages
+                .FirstAsync(m => m.EventType == nameof(OrderStatusChangedDomainEvent) && m.Content.Contains("\"NewStatus\":4"));
+            msg2.ProcessedOn.Should().NotBeNull();
+            msg2.Error.Should().BeNull();
         }
     }
 

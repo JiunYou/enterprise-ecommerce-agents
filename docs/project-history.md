@@ -778,3 +778,45 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+
+### 2026-09-10 — PR #32 — feat: polish customer checkout experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Checkout Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 建立結帳確認頁面單一語意 H1 (`結帳確認`)，維持 CustomerHeader 無 H1。
+  - 實作響應式結帳佈局（Desktop 左右二欄式結構：左欄收件與配送資訊、右欄 Sticky 訂單摘要；Tablet 自然群組排版；Mobile 垂直單欄流動先摘要後表單）。
+  - 改善訂單明細審核 (Order Review) 資訊層級、品項名稱折行安全與金額對齊。
+  - 加入純展示性無圖片商品視覺磚 (Product Visual Tile，具備 `aria-hidden="true"`)。
+  - 重新設計收件資訊表單 (Shipping Address Form)，提供群組化欄位排版（收件人+電話、國碼+郵遞區號+城市/縣市、地址行）。
+  - 強化表單觸控可用性（輸入框與控制項高達約 44px 觸控目標高度）。
+  - 確立訂單應付總額層次與突出顯示。
+  - 保留並精緻化「付款前確認」注意事項卡片，明確宣示送出後建立訂單與保留庫存，後續才進行付款。
+  - 結帳送出行動呼籲按鈕 (Submit CTA) 醒目設計（Mobile 全寬，桌面端突出主按鈕）。
+  - 精緻化處理中 (Pending) 狀態與送出失敗 (Submission Error) 狀態之無障礙警告（`role="alert"`、`aria-live="polite"`）。
+  - 精緻化未登入 (Unauthenticated)、空購物車 (Empty) 與系統錯誤 (System Error) 狀態之視覺呈現。
+  - 強化全站暖色中性基調 (Stone 色系)、暗色模式 (Dark Mode) 與長內容溢出保護。
+- **響應式硬性契約 (Responsive Hard Contract)**：
+  - 遵循「重排 (Reflow) + 資訊優先級排序 (Information Prioritization) + 觸控可用性 (Touch Usability)」原則。
+  - 行動端 (Mobile: 375x812)、平板端 (Tablet: 768x1024)、桌面端 (Desktop: 1280x800) 均列為硬性驗收標準。
+- **實機運行證據 (Runtime Evidence)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 響應式運行檢驗：375x812 UNAUTHENTICATED `PASS`、768x1024 UNAUTHENTICATED `PASS`、1280x800 UNAUTHENTICATED `PASS`（無非預期水平滾動、H1 標題與導覽元件完整可用、登入按鈕尺寸達標）。
+  - 填充結帳執行期視覺驗收：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造帳號登入、製造購物車品項或種子化資料庫）。
+  - 收件表單執行期視覺驗收：`NOT_OBSERVED`。
+  - 訂單明細審核執行期視覺驗收：`NOT_OBSERVED`。
+  - 填充結帳靜態響應式稽核 (Populated Checkout Static Responsive Audit)：`PASS`（透過原始碼審查、靜態結構分析、lint、build、功能性 diff 稽核與無障礙健全性完成驗證）。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無 `submitOrder` 商業行為變更，無庫存或訂單語意變更。
+  - 無 `ShippingAddress` 合約變更（驗證、欄位長度、必填規則完全維持原樣）。
+  - 無認證與會話邏輯變更，登入返回路徑保持 `/auth/login?returnTo=/checkout`。
+  - 無後端商品圖片欄位或合約支援（零 DTO/Domain/API 變更）。
+  - 純展示性視覺磚，不偽造商品圖片 URL，不發起新商品資料擷取。
+  - 零新增前端套件與依賴。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

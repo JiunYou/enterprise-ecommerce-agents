@@ -34,12 +34,14 @@ export default async function ProductDetailPage({
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
+        {/* 返回目錄導覽 */}
+        <div className="mb-6 sm:mb-8">
           <Link
             href="/"
-            className="inline-flex items-center text-sm font-medium text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 transition-colors hover:text-stone-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 rounded-sm dark:text-stone-400 dark:hover:text-stone-100"
           >
-            &larr; 返回商品型錄
+            <span aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">&larr;</span>
+            <span>返回商品目錄</span>
           </Link>
         </div>
 
@@ -48,42 +50,52 @@ export default async function ProductDetailPage({
           result.notFound ? (
             <section
               aria-label="商品不存在"
-              className="rounded-xl border border-zinc-200 bg-white p-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-2xl border border-stone-200/90 bg-white p-8 text-center shadow-xs dark:border-stone-800 dark:bg-stone-900 sm:p-12"
             >
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <div
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500"
+                aria-hidden="true"
+              >
+                <span className="text-xl leading-none">⊘</span>
+              </div>
+              <h1 className="mt-4 text-lg font-semibold text-stone-900 dark:text-stone-100 sm:text-xl">
                 商品不存在或目前未上架
-              </h2>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              </h1>
+              <p className="mx-auto mt-2 max-w-md text-sm text-stone-500 dark:text-stone-400">
                 找不到所要求的商品，該商品可能已被移除或尚未公開上架。
               </p>
               <div className="mt-6">
                 <Link
                   href="/"
-                  className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="inline-flex items-center justify-center rounded-lg bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-xs transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
                 >
-                  返回商品型錄
+                  返回商品目錄
                 </Link>
               </div>
             </section>
           ) : (
             <section
               aria-label="系統訊息"
-              className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+              className="rounded-2xl border border-red-200 bg-red-50/70 p-6 text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200 sm:p-8"
             >
-              <h2 className="text-base font-semibold">無法載入商品資訊</h2>
-              <p className="mt-1 text-sm">{result.error}</p>
-              <div className="mt-4 flex gap-3">
+              <h1 className="text-lg font-semibold sm:text-xl">
+                無法載入商品資訊
+              </h1>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+                {result.error}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href={`/products/${encodeURIComponent(id)}`}
-                  className="inline-flex items-center rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-900 transition hover:bg-red-200 dark:bg-red-900/60 dark:text-red-200 dark:hover:bg-red-900"
+                  className="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-800 shadow-xs transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 dark:border-red-800 dark:bg-stone-900 dark:text-red-200 dark:hover:bg-stone-800"
                 >
                   重新整理
                 </Link>
                 <Link
                   href="/"
-                  className="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 transition hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-xs transition hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
                 >
-                  返回商品型錄
+                  返回商品目錄
                 </Link>
               </div>
             </section>
@@ -91,38 +103,50 @@ export default async function ProductDetailPage({
         ) : (
           <article
             aria-label="商品詳細資訊"
-            className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8 dark:border-zinc-800 dark:bg-zinc-900"
+            className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10 lg:gap-12"
           >
-            <div className="border-b border-zinc-200 pb-6 dark:border-zinc-800">
-              <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-100">
-                {result.data.name}
-              </h2>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  SKU:
-                </span>
-                <span className="font-mono text-sm text-zinc-700 dark:text-zinc-300">
-                  {result.data.sku}
+            {/* 展示性商品視覺區塊 (Product Visual Area) */}
+            <div className="flex flex-col">
+              <div
+                aria-hidden="true"
+                className="relative flex aspect-square w-full items-center justify-center rounded-2xl border border-stone-200/90 bg-radial from-stone-50 to-stone-100/90 shadow-2xs dark:border-stone-800 dark:from-stone-900 dark:to-stone-850"
+              >
+                <span className="text-6xl font-bold tracking-widest text-stone-300 select-none dark:text-stone-700 sm:text-7xl lg:text-8xl">
+                  {result.data.name.trim().charAt(0).toUpperCase() || "P"}
                 </span>
               </div>
             </div>
 
-            <div className="pt-6">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  售價
-                </span>
-                <span className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">
-                  {formatPrice(result.data.price, result.data.currency)}
-                </span>
-              </div>
+            {/* 商品資訊與購買操作面板 */}
+            <div className="flex flex-col justify-between">
+              <div className="space-y-6">
+                {/* 標題與 SKU */}
+                <div className="border-b border-stone-200/80 pb-6 dark:border-stone-800">
+                  <h1 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-50 sm:text-3xl lg:text-4xl">
+                    {result.data.name}
+                  </h1>
+                  <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+                    SKU: <span className="font-mono text-stone-700 dark:text-stone-300">{result.data.sku}</span>
+                  </p>
+                </div>
 
-              {/* 加入購物車區塊 */}
-              <AddToCartForm
-                productId={result.data.id}
-                isLoggedIn={isLoggedIn}
-                onAddToCart={handleAddToCart}
-              />
+                {/* 價格資訊 */}
+                <div>
+                  <span className="sr-only">售價</span>
+                  <div className="text-3xl font-extrabold tracking-tight text-stone-950 dark:text-stone-50 sm:text-4xl">
+                    {formatPrice(result.data.price, result.data.currency)}
+                  </div>
+                </div>
+
+                {/* 購買操作區塊 */}
+                <div className="pt-2">
+                  <AddToCartForm
+                    productId={result.data.id}
+                    isLoggedIn={isLoggedIn}
+                    onAddToCart={handleAddToCart}
+                  />
+                </div>
+              </div>
             </div>
           </article>
         )}

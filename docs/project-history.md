@@ -542,3 +542,50 @@
   - 顧客端與管理端前端零變更
   - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
   - 維持既有 README.md 不變
+
+### 2026-09-09 — PR #25 — feat: validate checkout product eligibility
+- **垂直切片**：Checkout Product Eligibility v1 — Reject Inactive / Missing Product at SubmitOrder
+- **交付價值**：
+  - 送出訂單商品存在性重複驗證（SubmitOrder Product existence revalidation）：確保訂單項目的商品於 Catalog 中確實存在
+  - 送出訂單商品活躍狀態重複驗證（SubmitOrder Product Active-state revalidation）：確保訂單項目的商品狀態為啟用中（`IsActive == true`）
+  - 商品不存在：安全回傳 `ProductErrors.NotFound`（HTTP 404 Not Found）
+  - 商品已停用：安全回傳 `ProductErrors.NotActive`（HTTP 400 Bad Request）
+  - 資格驗證在先：所有品項之商品資格檢驗均於交易開啟後、任何庫存行級排他鎖定（`FOR UPDATE`）或預留（`ReserveStock`）前完成（Fail-Fast）
+  - 多品項原子性：若購物車內任一商品缺失或非活躍，整筆送出作業立即拒絕回滾，訂單維持 `Pending`，`SubmittedAt` 維持 `null`，絕不產生任何庫存預留或部分預留（No partial reservation）
+- **一致性模型與架構約束**：
+  - 商品資格採用 SNAPSHOT 一致性語義（SNAPSHOT Product eligibility）
+  - 檢驗當下為 Active 即允許後續處理，不提供與並行 `DeactivateProduct` 之間的序列化保證（No serialized Deactivate-vs-Submit guarantee）
+  - 不對 Product 資料表施加行級排他鎖（No Product row lock / No FOR UPDATE）
+  - 不引入商品版本號樂觀並行檢查、無分散式鎖、無自動重試機制
+  - 維持 `OrderItem` 歷史價格快照，不進行定價重算或價格重驗
+- **範疇控制（Scope）**：
+  - 生產代碼修改嚴格僅限 1 個檔案：`SubmitOrderCommandHandler.cs`
+  - 僅包含 3 個經先還原再證明因果必要性之相容性測試 fixture 維護（僅補建對應 Active Product seed，未新增業務功能，未削弱斷言，無移除或略過測試）
+  - `CustomerOrderHistoryAcceptanceTests.cs` 完全維持未修改（未納入本 PR）
+  - 無資料庫遷移（Migration Changed: NO）
+  - 顧客端與管理端前端原始碼零變更（CUSTOMER_WEB_CHANGED=NO、ADMIN_WEB_CHANGED=NO）
+  - 無新增 Product Repository API、無新增領域錯誤
+- **TDD 開發時序與方法核實**：
+  - Tier-1 真實 WebApi + MySQL 整合驗收測試契約於生產代碼修改前先行建立並確認為 RED 行為（Phase A RED，Phase B 重新確認 RED：3 失敗，1 通過）
+  - 最小化生產修正後驗收測試全數轉為 GREEN（4/4 PASS）
+  - 補充 Application 單元測試保護（11/11 PASS）與相容性 fixture 維護歸類為 POST-GREEN 回歸維護，不作為原始 Test-First 證據
+  - 風險加權 TDD 流程經完整核實：`TDD_TEST_FIRST_CHRONOLOGY=PASS`、`RISK_WEIGHTED_TDD_PROCESS_VERIFIED=YES`
+- **驗證成果**：
+  - 後端方案建置通過 (0 warnings, 0 errors)
+  - 後端單元測試全數通過 (Domain: 146, Application: 257, Infrastructure: 208)
+  - WebApi 整合測試探索數與 TRX 執行數完全相等 (309 / 309 PASS, 0 failed, 0 error, 0 timeout, 0 aborted, 0 notExecuted)
+  - CheckoutProductEligibilityMySqlAcceptanceTests 4 項全數通過
+  - SubmitOrderCommandHandlerTests 11 項全數通過
+  - 相容性回歸測試 18 項全數通過
+  - Customer Web ESLint 檢查通過
+  - Customer Web 生產環境打包構建通過
+  - 專案治理稽核 (audit-governance.py) 與 git diff --check 通過
+- **明確非範疇（Out of Scope）與限制說明**：
+  - 未包含商品重新啟用 (Product Reactivation) 或重命名 (Product Rename)
+  - 未包含 SKU 修改或商品定價重算 (Repricing)
+  - 未修改 OrderItem 價格快照
+  - 未新增任何領域錯誤或 Repository API
+  - 未變更資料庫結構或加入外鍵約束
+  - 顧客端與管理端前端零變更
+  - 無新增資料庫遷移 (MIGRATION_CHANGED=NO)
+  - 維持既有 README.md 不變

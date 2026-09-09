@@ -644,3 +644,31 @@
   - 外部佇列訊息路徑維持休眠 (DORMANT)。
 - **程序核算分類 (Process Classification)**：
   - Platform 模式：可執行失敗重現 + 最小化契約修正（非 Tier-1 領域 TDD）。
+
+### 2026-09-09 — PR #28 — feat: establish customer storefront visual foundation
+- **垂直切片 (Vertical Slice)**：
+  - Customer Storefront Foundation + Shell v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 修正 Customer Web 字體設定，正式套用既有之 Geist 字型整合。
+  - 建立輕量溫潤中性色系 (`stone-50` / `stone-950`) 電商視覺基底與選取區樣式。
+  - 抽取共用顧客端標頭組件 (`CustomerHeader`)，消除 6 個顧客端頁面的重複標頭標記。
+  - 移除品牌名稱當作頁面 `h1` 之工程原型語意，改用語意化品牌 Wordmark 結構。
+  - 統一顧客端各頁面外殼與背景層次處理。
+  - 對齊載入中骨架畫面 (`loading.tsx`) 之視覺外觀與尺寸。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無業務行為變更 (零資料擷取、零伺服器動作、零驗證邏輯變更)。
+  - 無後端 API 或資料契約變更。
+  - 明確延後購物車數量 Badge (無 cart count 功能)。
+  - 明確延後商品卡片與商品圖片佔位區域重新設計。
+  - 明確延後訂單狀態徽章映射變更。
+  - 零新增前端套件與依賴 (無 UI / 圖示框架)。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 跨裝置響應式視覺檢查：桌面端 (Desktop) 與行動端 (Mobile) 首頁皆 PASS (無水平溢出，互動元件完好)
+  - 次要路由外殼檢查：`/cart` PASS
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

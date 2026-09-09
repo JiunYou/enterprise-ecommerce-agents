@@ -858,3 +858,54 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+
+### 2026-09-10 — PR #34 — feat: polish customer order detail experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Order Detail Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 建立訂單詳情頁面單一穩定語意 H1 (`訂單詳情`)，維持 CustomerHeader 無 H1。
+  - 改善訂單識別碼 (Order ID) 與訂單狀態 (Status) 之資訊階層架構。
+  - 精緻化付款提示與訂單狀態橫幅 (Payment/Status Banners) 呈現與語意子階層。
+  - 升級響應式訂單明細品項審核排版 (Responsive Order Item Review)。
+  - 強化長訂單識別碼 (Order ID) 與長商品識別碼 (Product ID) 之折行與溢出保護 (`break-all`、`min-w-0`)。
+  - 改善收件資訊快照 (Shipping Snapshot) 之排版可讀性與視覺層次。
+  - 確立訂單應付總額階層與突出顯示 (Order Total Hierarchy)。
+  - 響應式主要付款行動呼籲按鈕視覺優化 (Payment Primary CTA Visual Polish)。
+  - 響應式取消訂單按鈕視覺優化 (Cancel Order Treatment Visual Polish)。
+  - 響應式取消確認卡片 (Responsive Cancellation-confirmation UI) 設計與重排支援。
+  - 精緻化未登入 (Unauthenticated) 與系統錯誤 (Error) 狀態之視覺呈現。
+  - 全面切換至 Stone 暖色中性基調，完備暗色模式 (Dark Mode) 相容性。
+  - 實作行動端 (Mobile)、平板端 (Tablet) 與桌面端 (Desktop) 完整響應式結構。
+- **響應式硬性契約 (Responsive Hard Contract)**：
+  - 遵循「重排 (Reflow) + 資訊優先級排序 (Information Prioritization) + 觸控可用性 (Touch Usability)」原則。
+  - 行動端 (Mobile: 375x812)、平板端 (Tablet: 768x1024)、桌面端 (Desktop: 1280x800) 均列為硬性驗收標準。
+- **實機運行證據 (Runtime Evidence Precision)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 響應式運行檢驗：375x812 UNAUTHENTICATED `PASS`、768x1024 UNAUTHENTICATED `PASS`、1280x800 UNAUTHENTICATED `PASS`。
+  - 填充訂單詳情執行期視覺驗收 (Populated Order Detail Runtime Visual Acceptance)：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造帳號登入、製造訂單或種子化資料庫）。
+  - PaymentButton 執行期視覺驗收 (PaymentButton Runtime Visual Acceptance)：`NOT_OBSERVED`。
+  - 取消確認介面執行期視覺驗收 (Cancel Confirmation Runtime Visual Acceptance)：`NOT_OBSERVED`。
+  - 成功狀態靜態響應式稽核 (Successful-state Static Responsive Audit)：`PASS`。
+  - 長內容溢出靜態稽核 (Long-content Overflow Static Audit)：`PASS`。
+  - 高風險功能差異稽核 (High-risk Functional Diff Audit)：`PASS`。
+- **嚴格高風險邊界與非範疇說明 (Strict High-Risk Functional Boundary & Scope)**：
+  - 無付款發起行為變更 (No Payment Initiation Behavior Change)。
+  - 無跳轉支付 POST 表單提交行為變更 (No Hosted Payment POST Behavior Change)。
+  - 無訂單取消行為變更 (No Cancellation Behavior Change)。
+  - 無庫存釋放領域語意變更 (No Inventory Release Semantic Change)。
+  - 無訂單狀態判定邏輯變更 (No Order Status Derivation Change)。
+  - 無 query-param 分支解析變更 (No Query-param Branch Change)。
+  - 無身分驗證與授權行為變更 (No Auth Change)。
+  - 無 Server Actions 變更 (`apps/web/src/app/orders/[id]/actions.ts` 零變更)。
+  - 無訂單與金流核心程式庫變更 (`apps/web/src/lib/orders.ts`、`apps/web/src/lib/payments.ts` 零變更)。
+  - 零新增套件與相依性 (No Dependency Addition)。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+  - 追蹤之 GitHub CI 存在性：`NO` (TRACKED_GITHUB_CI_EXISTS=NO)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因付款/訂單/取消等可執行商業邏輯皆受嚴格凍結)。

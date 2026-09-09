@@ -77,11 +77,13 @@ public class ExpirationConcurrencyTests : IAsyncLifetime
 
     private async Task<(Guid orderId, Guid productId, Guid customerId)> SetupOrderAndInventory(int initialStock)
     {
-        var productId = Guid.NewGuid();
+        var product = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var productId = product.Id;
+        _dbContext!.Products.Add(product);
         
         var inventoryItem = InventoryItem.Create(new ProductReference(productId));
         inventoryItem.IncreaseStock(initialStock);
-        _dbContext!.InventoryItems.Add(inventoryItem);
+        _dbContext.InventoryItems.Add(inventoryItem);
         await _dbContext.SaveChangesAsync();
 
         var customerId = Guid.NewGuid();

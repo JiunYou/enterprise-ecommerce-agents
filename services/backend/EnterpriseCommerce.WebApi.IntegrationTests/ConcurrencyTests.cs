@@ -76,7 +76,8 @@ public class ConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task SubmitOrder_With100ConcurrentSubmissionsForStock10_Exactly10Succeed()
     {
-        var productId = Guid.NewGuid();
+        var product = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var productId = product.Id;
         var productRef = new ProductReference(productId);
         int initialStock = 10;
         int concurrentCount = 100;
@@ -87,6 +88,7 @@ public class ConcurrencyTests : IAsyncLifetime
             var dbContext = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
             var inventoryItem = InventoryItem.Create(productRef);
             inventoryItem.IncreaseStock(initialStock);
+            dbContext.Products.Add(product);
             dbContext.InventoryItems.Add(inventoryItem);
             await dbContext.SaveChangesAsync();
         }
@@ -118,6 +120,7 @@ public class ConcurrencyTests : IAsyncLifetime
         
 
         // We use Task.Run to attempt to hit the controller simultaneously
+        // across threadpool threads
         foreach (var orderId in orderIds)
         {
             tasks.Add(Task.Run(async () =>
@@ -130,23 +133,25 @@ public class ConcurrencyTests : IAsyncLifetime
         }
 
         var results = await Task.WhenAll(tasks);
-
-        // 3. Assert
         var successfulSubmissions = results.Count(r => r.IsSuccessStatusCode);
         
+        // 3. Assert
+        // In real MySQL InnoDB with FOR UPDATE locking on InventoryItem,
+        // exactly 10 requests should succeed, and 90 should get InsufficientStock (400 Bad Request).
         using (var scope = _factory!.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
-            var finalInventory = await dbContext.InventoryItems.FirstOrDefaultAsync(i => i.ProductReference == productRef);
+            var pRef = new ProductReference(productId);
+            var invItem = await dbContext.InventoryItems
+                .Include(i => i.Reservations)
+                .FirstOrDefaultAsync(i => i.ProductReference == pRef);
             
-            // Output exactly what happened
-            Console.WriteLine($"Successful submissions: {successfulSubmissions}");
-            Console.WriteLine($"Final available stock: {finalInventory!.AvailableQuantity.Value}");
-            
-            // Stock must not drop below 0 (no overselling)
-            finalInventory.AvailableQuantity.Value.Should().BeGreaterThanOrEqualTo(0);
-            
-            // In a perfectly resilient concurrency setup, exactly 10 should succeed.
+            invItem.Should().NotBeNull();
+            invItem!.AvailableQuantity.Value.Should().Be(0);
+            invItem.ReservedQuantity.Value.Should().Be(10);
+            invItem.Reservations.Count.Should().Be(10);
+
+            // Exactly 10 must succeed because of the FOR UPDATE lock ensuring serial execution
             // But with optimistic locking, it's likely that < 10 succeed.
             successfulSubmissions.Should().Be(10, $"Expected exactly 10 successful submissions, but got {successfulSubmissions}");
 
@@ -168,7 +173,8 @@ public class ConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task SubmitOrder_With20ConcurrentSubmissionsForStock1_Exactly1Succeeds()
     {
-        var productId = Guid.NewGuid();
+        var product = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var productId = product.Id;
         var productRef = new ProductReference(productId);
         int initialStock = 1;
         int concurrentCount = 20;
@@ -178,6 +184,7 @@ public class ConcurrencyTests : IAsyncLifetime
             var dbContext = scope.ServiceProvider.GetRequiredService<EnterpriseCommerceDbContext>();
             var inventoryItem = InventoryItem.Create(productRef);
             inventoryItem.IncreaseStock(initialStock);
+            dbContext.Products.Add(product);
             dbContext.InventoryItems.Add(inventoryItem);
             await dbContext.SaveChangesAsync();
         }
@@ -238,8 +245,10 @@ public class ConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task SubmitOrder_WithMultiItemOrder_AndInsufficientStockForOne_RollsBackEverything()
     {
-        var product1Id = Guid.NewGuid();
-        var product2Id = Guid.NewGuid();
+        var prod1 = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product 1", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var prod2 = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product 2", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var product1Id = prod1.Id;
+        var product2Id = prod2.Id;
         var orderId = Guid.NewGuid();
         var customerId = Guid.NewGuid();
 
@@ -252,6 +261,7 @@ public class ConcurrencyTests : IAsyncLifetime
             var inv2 = InventoryItem.Create(new ProductReference(product2Id));
             inv2.IncreaseStock(0); // Insufficient stock
             
+            dbContext.Products.AddRange(prod1, prod2);
             dbContext.InventoryItems.AddRange(inv1, inv2);
 
             var order = Order.Create(customerId, "TWD");
@@ -294,8 +304,10 @@ public class ConcurrencyTests : IAsyncLifetime
     [Fact]
     public async Task SubmitOrder_WithConcurrentMultiItemOrders_OverlappingSkus_DoesNotDeadlock()
     {
-        var product1Id = Guid.NewGuid();
-        var product2Id = Guid.NewGuid();
+        var prod1 = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product 1", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var prod2 = EnterpriseCommerce.Domain.Catalog.Product.Create("Test Product 2", $"SKU-{Guid.NewGuid():N}", 100m, "TWD").Value;
+        var product1Id = prod1.Id;
+        var product2Id = prod2.Id;
 
         using (var scope = _factory!.Services.CreateScope())
         {
@@ -306,6 +318,7 @@ public class ConcurrencyTests : IAsyncLifetime
             var inv2 = InventoryItem.Create(new ProductReference(product2Id));
             inv2.IncreaseStock(10);
             
+            dbContext.Products.AddRange(prod1, prod2);
             dbContext.InventoryItems.AddRange(inv1, inv2);
             await dbContext.SaveChangesAsync();
         }

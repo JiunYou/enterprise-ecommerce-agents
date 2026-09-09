@@ -738,3 +738,43 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+
+### 2026-09-10 — PR #31 — feat: polish customer cart experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Cart Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 建立購物車頁面單一語意 H1 (`我的購物車`)，維持 CustomerHeader 無 H1。
+  - 改善購物車品項卡片響應式排版（Mobile 垂直重排、Tablet 舒適展開、Desktop 左側品項右側摘要兩欄結構）。
+  - 加入純展示性無圖片商品視覺磚 (Product Visual Tile，具備 `aria-hidden="true"`)。
+  - 放大數量調整控制項以達觸控可用性標準（約 44px 觸控目標）。
+  - 改善商品識別、單價與小計之資訊層級。
+  - 精緻化品項移除操作外觀與狀態回饋。
+  - 升級響應式購物車總計與訂單摘要卡片結構。
+  - 結帳行動呼籲按鈕 (Checkout CTA) 具備醒目性與響應式觸控設計（Mobile 全寬）。
+  - 精緻化未登入 (Unauthenticated)、空購物車 (Empty) 與系統錯誤 (Error) 狀態之視覺呈現。
+  - 強化長商品名稱與錯誤訊息之折行溢出防護 (Long-content overflow protection)。
+  - 對齊全站暖色中性基調 (Stone 色系) 與暗色模式 (Dark Mode)。
+- **響應式硬性契約 (Responsive Hard Contract)**：
+  - 遵循「重排 (Reflow) + 資訊優先級排序 (Information Prioritization) + 觸控可用性 (Touch Usability)」原則。
+  - 行動端 (Mobile: 375x812)、平板端 (Tablet: 768x1024)、桌面端 (Desktop: 1280x800) 均列為硬性驗收標準。
+- **實機運行證據 (Runtime Evidence)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 響應式運行檢驗：375x812 UNAUTHENTICATED `PASS`、768x1024 UNAUTHENTICATED `PASS`、1280x800 UNAUTHENTICATED `PASS`（無非預期水平滾動、H1 標題與導覽元件完整可用、登入按鈕尺寸達標）。
+  - 填充購物車執行期視覺驗收：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造帳號登入、製造商品或種子化資料庫）。
+  - 填充購物車靜態響應式稽核 (Populated Cart Static Responsive Audit)：`PASS`（透過原始碼審查、靜態結構分析、lint、build、功能性 diff 稽核與無障礙健全性完成驗證）。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無購物車 mutation 商業邏輯變更（`getCart`、`updateCartItemQuantity`、`removeCartItem`、快取重新驗證、數量規則、pending 狀態、`router.refresh` 完全維持原樣）。
+  - 數量變更維持 `newQuantity < 1` 防護，不變更增減語意。
+  - 移除操作未加入確認彈窗，維持原操作合約。
+  - 無後端商品圖片欄位或合約支援（零 DTO/Domain/API 變更）。
+  - 純展示性視覺磚，不偽造商品圖片 URL，不發起新商品資料擷取。
+  - 無認證與會話邏輯變更，登入返回路徑保持 `/auth/login?returnTo=/cart`。
+  - 零新增前端套件與依賴。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

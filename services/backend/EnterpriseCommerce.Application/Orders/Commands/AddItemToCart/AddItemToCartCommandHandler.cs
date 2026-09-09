@@ -1,7 +1,10 @@
 using EnterpriseCommerce.Application.Abstractions;
 using EnterpriseCommerce.Application.Common.CQRS;
+using EnterpriseCommerce.Application.Inventory;
 using EnterpriseCommerce.Application.Orders.Queries.GetCart;
 using EnterpriseCommerce.Domain.Catalog;
+using EnterpriseCommerce.Domain.Inventory;
+using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Orders.ValueObjects;
 using EnterpriseCommerce.Domain.Primitives;
@@ -12,15 +15,18 @@ internal sealed class AddItemToCartCommandHandler : ICommandHandler<AddItemToCar
 {
     private readonly IOrderRepository _orderRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly IApplicationUnitOfWork _unitOfWork;
 
     public AddItemToCartCommandHandler(
         IOrderRepository orderRepository,
         IProductRepository productRepository,
+        IInventoryRepository inventoryRepository,
         IApplicationUnitOfWork unitOfWork)
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
+        _inventoryRepository = inventoryRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -40,6 +46,17 @@ internal sealed class AddItemToCartCommandHandler : ICommandHandler<AddItemToCar
         }
 
         var order = await _orderRepository.GetPendingOrderByCustomerIdAsync(request.CustomerId, cancellationToken);
+
+        int existingQuantity = order?.Items.FirstOrDefault(i => i.ProductId == productId)?.Quantity ?? 0;
+        long desiredCartQuantity = (long)existingQuantity + request.Quantity;
+
+        var productRef = new ProductReference(request.ProductId);
+        var inventory = await _inventoryRepository.GetByProductIdAsync(productRef, cancellationToken);
+
+        if (inventory is null || inventory.AvailableQuantity.Value < desiredCartQuantity)
+        {
+            return Result.Failure<CartResponse>(InventoryErrors.InsufficientStock);
+        }
 
         if (order is null)
         {

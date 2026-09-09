@@ -1,10 +1,13 @@
 using EnterpriseCommerce.Application.Abstractions;
+using EnterpriseCommerce.Application.Inventory;
 using EnterpriseCommerce.Application.Orders;
 using EnterpriseCommerce.Application.Orders.Commands.AddItemToCart;
 using EnterpriseCommerce.Application.Orders.Commands.RemoveCartItem;
 using EnterpriseCommerce.Application.Orders.Commands.UpdateCartItemQuantity;
 using EnterpriseCommerce.Application.Orders.Queries.GetCart;
 using EnterpriseCommerce.Domain.Catalog;
+using EnterpriseCommerce.Domain.Inventory;
+using EnterpriseCommerce.Domain.Inventory.ValueObjects;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Orders.ValueObjects;
 using Moq;
@@ -16,7 +19,18 @@ public class CartTests
 {
     private readonly Mock<IOrderRepository> _orderRepositoryMock = new();
     private readonly Mock<IProductRepository> _productRepositoryMock = new();
+    private readonly Mock<IInventoryRepository> _inventoryRepositoryMock = new();
     private readonly Mock<IApplicationUnitOfWork> _unitOfWorkMock = new();
+
+    private static InventoryItem CreateInventory(Guid productId, int availableQuantity)
+    {
+        var inventory = InventoryItem.Create(new ProductReference(productId));
+        if (availableQuantity > 0)
+        {
+            inventory.IncreaseStock(new StockQuantity(availableQuantity));
+        }
+        return inventory;
+    }
 
     [Fact]
     public async Task GetCart_WhenNoPendingOrder_ShouldReturnEmptyCart()
@@ -73,6 +87,9 @@ public class CartTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.Is<ProductReference>(p => p.Value == product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 10));
+
         _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Order?)null);
 
@@ -83,6 +100,7 @@ public class CartTests
         var handler = new AddItemToCartCommandHandler(
             _orderRepositoryMock.Object,
             _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
 
         // Act
@@ -112,12 +130,16 @@ public class CartTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.Is<ProductReference>(p => p.Value == product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 10));
+
         _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingOrder);
 
         var handler = new AddItemToCartCommandHandler(
             _orderRepositoryMock.Object,
             _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
 
         // Act
@@ -147,6 +169,7 @@ public class CartTests
         var handler = new AddItemToCartCommandHandler(
             _orderRepositoryMock.Object,
             _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
 
         // Act
@@ -157,6 +180,7 @@ public class CartTests
         // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(ProductErrors.NotActive, result.Error);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -172,8 +196,12 @@ public class CartTests
         _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
 
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.Is<ProductReference>(p => p.Value == productId.Value), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(productId.Value, 10));
+
         var handler = new UpdateCartItemQuantityCommandHandler(
             _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
 
         // Act
@@ -237,9 +265,13 @@ public class CartTests
         _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
             .ReturnsAsync(product);
 
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.Is<ProductReference>(p => p.Value == product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 10));
+
         var handler = new AddItemToCartCommandHandler(
             _orderRepositoryMock.Object,
             _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
             _unitOfWorkMock.Object);
 
         // Act 1: 首次加購
@@ -257,5 +289,317 @@ public class CartTests
         Assert.Single(storedOrder.Items);
         Assert.Equal(3, storedOrder.Items.First().Quantity);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    // =========================================================================
+    // SECTION 14: APPLICATION BEHAVIORAL PROTECTION TESTS
+    // =========================================================================
+
+    [Fact]
+    public async Task AddItemToCart_WhenInventoryNotFound_ShouldReturnInsufficientStock_AndNotSave()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var product = Product.Create("Product", "SKU-1", 100m, "USD").Value;
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InventoryItem?)null);
+
+        var handler = new AddItemToCartCommandHandler(
+            _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new AddItemToCartCommand(customerId, product.Id, 1), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        _orderRepositoryMock.Verify(r => r.Add(It.IsAny<Order>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddItemToCart_WhenRequestedQuantityExceedsAvailable_ShouldReturnInsufficientStock_AndNotSave()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var product = Product.Create("Product", "SKU-1", 100m, "USD").Value;
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 2));
+
+        var handler = new AddItemToCartCommandHandler(
+            _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new AddItemToCartCommand(customerId, product.Id, 3), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        _orderRepositoryMock.Verify(r => r.Add(It.IsAny<Order>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddItemToCart_WhenCumulativeQuantityExceedsAvailable_ShouldReturnInsufficientStock_AndNotSave()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var product = Product.Create("Product", "SKU-1", 100m, "USD").Value;
+
+        var existingOrder = Order.Create(customerId, "USD");
+        existingOrder.AddItem(new ProductId(product.Id), new Money(100m, "USD"), 2);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingOrder);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 3)); // Available: 3, Existing: 2, Requested: 2 -> Desired: 4 > 3
+
+        var handler = new AddItemToCartCommandHandler(
+            _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new AddItemToCartCommand(customerId, product.Id, 2), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        Assert.Equal(2, existingOrder.Items.First().Quantity); // Unchanged
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddItemToCart_WhenCumulativeQuantityExceedsInt32Range_ShouldReturnInsufficientStock()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var product = Product.Create("Product", "SKU-1", 100m, "USD").Value;
+
+        var existingOrder = Order.Create(customerId, "USD");
+        existingOrder.AddItem(new ProductId(product.Id), new Money(100m, "USD"), int.MaxValue);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingOrder);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, int.MaxValue));
+
+        var handler = new AddItemToCartCommandHandler(
+            _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new AddItemToCartCommand(customerId, product.Id, 1), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        Assert.Equal(int.MaxValue, existingOrder.Items.First().Quantity);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddItemToCart_WhenSufficientStock_ShouldSucceed_AndSaveOnce()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var product = Product.Create("Product", "SKU-1", 100m, "USD").Value;
+
+        var existingOrder = Order.Create(customerId, "USD");
+        existingOrder.AddItem(new ProductId(product.Id), new Money(100m, "USD"), 1);
+
+        _productRepositoryMock.Setup(r => r.GetByIdAsync(new ProductId(product.Id), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingOrder);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(product.Id, 5)); // Available: 5, Existing: 1, Requested: 2 -> Desired: 3 <= 5
+
+        var handler = new AddItemToCartCommandHandler(
+            _orderRepositoryMock.Object,
+            _productRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new AddItemToCartCommand(customerId, product.Id, 2), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, existingOrder.Items.First().Quantity);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateCartItemQuantity_WhenNoPendingOrder_ShouldReturnItemNotFound_AndNotQueryInventory()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Order?)null);
+
+        var handler = new UpdateCartItemQuantityCommandHandler(
+            _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new UpdateCartItemQuantityCommand(customerId, productId, 5), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ItemNotFound, result.Error);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCartItemQuantity_WhenItemNotInOrder_ShouldReturnItemNotFound_AndNotQueryInventory()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD"); // Empty order
+        var productId = Guid.NewGuid();
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var handler = new UpdateCartItemQuantityCommandHandler(
+            _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new UpdateCartItemQuantityCommand(customerId, productId, 5), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ItemNotFound, result.Error);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCartItemQuantity_WhenInventoryNotFound_ShouldReturnInsufficientStock_AndNotSave()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        var productId = new ProductId(Guid.NewGuid());
+        order.AddItem(productId, new Money(50m, "USD"), 2);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InventoryItem?)null);
+
+        var handler = new UpdateCartItemQuantityCommandHandler(
+            _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new UpdateCartItemQuantityCommand(customerId, productId.Value, 5), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        Assert.Equal(2, order.Items.First().Quantity); // Unchanged
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCartItemQuantity_WhenQuantityExceedsAvailable_ShouldReturnInsufficientStock_AndNotSave()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        var productId = new ProductId(Guid.NewGuid());
+        order.AddItem(productId, new Money(50m, "USD"), 2);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(productId.Value, 3)); // Available: 3, Requested: 4 > 3
+
+        var handler = new UpdateCartItemQuantityCommandHandler(
+            _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new UpdateCartItemQuantityCommand(customerId, productId.Value, 4), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(InventoryErrors.InsufficientStock, result.Error);
+        Assert.Equal(2, order.Items.First().Quantity); // Unchanged
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCartItemQuantity_WhenSufficientStock_ShouldSucceed_AndSaveOnce()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "USD");
+        var productId = new ProductId(Guid.NewGuid());
+        order.AddItem(productId, new Money(50m, "USD"), 2);
+
+        _orderRepositoryMock.Setup(r => r.GetPendingOrderByCustomerIdAsync(customerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        _inventoryRepositoryMock.Setup(r => r.GetByProductIdAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateInventory(productId.Value, 5)); // Available: 5, Requested: 4 <= 5
+
+        var handler = new UpdateCartItemQuantityCommandHandler(
+            _orderRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new UpdateCartItemQuantityCommand(customerId, productId.Value, 4), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(4, order.Items.First().Quantity);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

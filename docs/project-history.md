@@ -820,3 +820,41 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。
+
+### 2026-09-10 — PR #33 — feat: polish customer order history experience
+- **垂直切片 (Vertical Slice)**：
+  - Customer Orders History Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 沉靜高質感中性電商風格 (Quiet Premium Neutral Storefront)
+- **交付成果 (Delivered)**：
+  - 建立訂單歷史頁面單一穩定語意 H1 (`我的訂單`)，維持 CustomerHeader 無 H1。
+  - 改善顧客歷史訂單卡片之階層架構與響應式排版（Mobile 垂直重排、Tablet 充分利用寬度自然開展、Desktop 舒適縱向掃視結構）。
+  - 保留完整訂單識別碼 (Order ID) 並具備溢出保護 (`break-all`、`min-w-0`)，避免 raw ID 壓倒性破壞版面。
+  - 精緻化語意狀態徽章 (Status Badge) 呈現（已付款、待付款、已出貨、已取消），具備充足對比度與暗色模式對齊。
+  - 強化下單時間與總計金額之視覺層次與數字字型 (`tabular-nums`)。
+  - 提升「查看詳情」行動呼籲 (CTA) 觸控可用性（Mobile 舒適觸控區域 $\ge 44\text{px}$）。
+  - 精緻化未登入 (Unauthenticated)、空訂單紀錄 (Empty) 與系統錯誤 (System Error) 狀態之視覺呈現。
+  - 全面切換至 Stone 暖色中性基調，移除混雜之 Zinc 色彩，完備暗色模式 (Dark Mode) 相容性。
+- **響應式硬性契約 (Responsive Hard Contract)**：
+  - 遵循「重排 (Reflow) + 資訊優先級排序 (Information Prioritization) + 觸控可用性 (Touch Usability)」原則。
+  - 行動端 (Mobile: 375x812)、平板端 (Tablet: 768x1024)、桌面端 (Desktop: 1280x800) 均列為硬性驗收標準。
+- **實機運行證據 (Runtime Evidence)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 響應式運行檢驗：375x812 UNAUTHENTICATED `PASS`、768x1024 UNAUTHENTICATED `PASS`、1280x800 UNAUTHENTICATED `PASS`（無非預期水平滾動、H1 標題與導覽元件完整可用、登入按鈕尺寸達標）。
+  - 填充訂單歷史執行期視覺驗收：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造帳號登入、製造訂單或種子化資料庫）。
+  - 填充訂單歷史靜態響應式稽核 (Populated Orders History Static Responsive Audit)：`PASS`（透過原始碼審查、靜態結構分析、lint、build、功能性 diff 稽核與無障礙健全性完成驗證）。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無 `getCustomerOrders` 查詢行為或資料抓取邏輯變更。
+  - 無訂單狀態映射 (Status Mapping) 或文字變更。
+  - 無下單日期格式化 (`submittedAt`) 或金額格式化 (`formatPrice`) 變更。
+  - 無登入返回路徑變更，保持 `/auth/login?returnTo=/orders`。
+  - 無導航路徑變更，目錄保持 `/`，訂單詳情保持 `/orders/${encodeURIComponent(order.id)}`。
+  - 未修改 [PaymentButton.tsx](file:///Users/laijiunyou/Dev/prawn/apps/web/src/components/PaymentButton.tsx) 與 [CancelOrderButton.tsx](file:///Users/laijiunyou/Dev/prawn/apps/web/src/components/CancelOrderButton.tsx)。
+  - 未啟動訂單詳情視覺切片 (Customer Order Detail Visual v1，即 Slice B)。
+  - 零新增前端套件與依賴。
+- **驗證成果 (Validation)**：
+  - Customer Web lint: PASS (`eslint`)
+  - Customer Web build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD)。

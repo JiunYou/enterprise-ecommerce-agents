@@ -949,3 +949,46 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因所有業務/認證/查詢/變異行為皆受嚴格凍結)。
+
+### 2026-09-10 — PR #36 — feat: polish admin fulfillment experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Fulfillment Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **交付成果 (Delivered)**：
+  - 重構管理端訂單履約中心（`/`）之作業階層與響應式履約佇列 (Responsive Fulfillment Queue)。
+  - 交付結構化且支援行動端縱向重排與桌面端雙欄平衡佈局之訂單卡片 (Responsive Order Cards)。
+  - 全面保護長識別碼防溢出處理 (Order ID / Customer ID / Product ID break-all & break-words)。
+  - 改善訂單項目 (Order items) 之單價、數量與品項總計呈現與響應式重排。
+  - 建立結構化配送收件資訊呈現 (Structured Shipping Address Presentation)；長地址安全折行。
+  - 歷史無地址訂單嚴格保留 Fail-Closed 安全警告與禁用操作 (Missing-address fail-closed behavior)。
+  - 訂單金額與幣別階層強化，維持原生數字格式化。
+  - 出貨操作按鈕視覺精緻化 (ShipOrderButton Visual Polish)：滿足行動端觸控尺寸 (min-h-[44px])、增加 spinner 無障礙語意 (aria-hidden)、錯誤訊息語意 (role="alert")。
+  - 支援暗色模式 (Dark Mode) 與簡潔作業卡片風格。
+  - 實作 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 完整響應式結構。
+- **實機運行證據 (Runtime Evidence Precision)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 響應式運行檢驗：375x812 UNAUTHENTICATED `PASS`、768x1024 UNAUTHENTICATED `PASS`、1280x800 UNAUTHENTICATED `PASS`。
+  - 已認證成功狀態執行期視覺驗收 (Authenticated Success Runtime Visual Acceptance)：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造帳號登入、繞過認證或變更 Auth0 設定）。
+  - 填充佇列執行期視覺驗收 (Populated Runtime Visual Acceptance)：`NOT_OBSERVED`。
+  - 出貨按鈕執行期視覺驗收 (Ship Button Runtime Visual Acceptance)：`NOT_OBSERVED`。
+  - 視覺測試執行出貨變異：`NO` (Shipping mutation executed for visual testing = NO)。
+  - 填充佇列靜態響應式稽核 (Populated Static Responsive Audit)：`PASS`。
+  - 出貨按鈕靜態響應式稽核 (Ship Button Static Responsive Audit)：`PASS`。
+  - 高風險功能差異稽核 (High-risk Functional Diff Audit)：`PASS`。
+- **嚴格高風險邊界與非範疇說明 (Strict High-Risk Functional Boundary & Scope)**：
+  - 出貨可執行行為完全凍結：`apps/admin/src/app/actions.ts` 零變更 (actions.ts unchanged)。
+  - 履約查詢程式庫完全凍結：`apps/admin/src/lib/fulfillment.ts` 零變更 (fulfillment.ts unchanged)。
+  - 共用標頭與外殼完全凍結：`AdminHeader.tsx`、`layout.tsx`、`globals.css` 零變更 (AdminHeader/Foundation unchanged)。
+  - 出貨呼叫鏈條完全不變：`ShipOrderButton` -> `shipOrderAction(orderId)` -> `PUT` -> `/api/v1/orders/{id}/ship` -> `revalidatePath("/")`。
+  - 出貨防護完全不變：`if (!hasShippingAddress || isPending) return;` 保留。
+  - 無新增確認彈窗 (No confirmation modal added)。
+  - 無新增出貨覆寫機制 (No shipping override added)。
+  - PII 安全邊界完全保留 (PII boundary preserved)：無擴充 PII 欄位、無新增 PII 抓取、無 PII 日誌輸出、403 依然嚴格 Fail-Closed。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Admin lint: PASS (`eslint`)
+  - Admin build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因出貨與查詢等可執行行為皆受嚴格凍結)。

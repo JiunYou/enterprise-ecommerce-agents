@@ -159,7 +159,8 @@ export default async function AdminFulfillmentPage() {
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between">
+        {/* 佇列引言與筆數 */}
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               待出貨訂單佇列
@@ -168,20 +169,21 @@ export default async function AdminFulfillmentPage() {
               僅顯示狀態為已付款 (Paid) 之有效訂單，依提交時間由早至晚排序。
             </p>
           </div>
-          <span className="inline-flex items-center rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+          <span className="inline-flex self-start sm:self-auto items-center rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-xs font-mono font-medium text-zinc-800 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
             待處理筆數：{orders.length}
           </span>
         </div>
 
         {/* 空佇列狀態 */}
         {orders.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-400">
               <svg
                 className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -206,26 +208,29 @@ export default async function AdminFulfillmentPage() {
               return (
                 <div
                   key={order.id}
-                  className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                  className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
                 >
-                  {/* 訂單頂部資訊 */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 pb-4 dark:border-zinc-800">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-50">
+                  {/* 訂單頂部摘要與出貨操作（支援行動端縱向折行與桌面端橫向緊湊排列） */}
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-5 border-b border-zinc-100 dark:border-zinc-800/80">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-50 break-all">
                           {order.id}
                         </span>
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/70 dark:text-emerald-300">
                           {order.status}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 break-all">
                         顧客識別號：
-                        <span className="font-mono">{order.customerId}</span>
+                        <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                          {order.customerId}
+                        </span>
                       </p>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 shrink-0">
+                      <div className="text-left sm:text-right">
                         <span className="text-xs text-zinc-500 dark:text-zinc-400">
                           訂單金額
                         </span>
@@ -240,29 +245,29 @@ export default async function AdminFulfillmentPage() {
                     </div>
                   </div>
 
-                  {/* 訂單內容物與地址欄位網格 */}
-                  <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-                    {/* 左側：購買項目清單 */}
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  {/* 訂單內容物與配送地址欄位網格（桌面與平板分欄，行動端縱向流暢折行） */}
+                  <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* 左側：訂購項目清單 */}
+                    <div className="min-w-0">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         訂購項目 ({order.items.length})
-                      </h4>
-                      <div className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
+                      </h3>
+                      <div className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-200/80 bg-zinc-50/30 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/40">
                         {order.items.map((item, index) => (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-3 text-xs"
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 p-3 text-xs"
                           >
-                            <div>
-                              <span className="font-mono font-medium text-zinc-800 dark:text-zinc-200">
+                            <div className="min-w-0 flex-1">
+                              <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100 break-all">
                                 {item.productId}
                               </span>
-                              <p className="text-zinc-400">
+                              <p className="text-zinc-500 dark:text-zinc-400 mt-0.5">
                                 數量：{item.quantity} × {item.currency}{" "}
                                 {item.unitPrice.toLocaleString()}
                               </p>
                             </div>
-                            <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            <span className="font-semibold text-zinc-900 dark:text-zinc-100 shrink-0 self-end sm:self-auto">
                               {item.currency} {item.totalPrice.toLocaleString()}
                             </span>
                           </div>
@@ -270,44 +275,47 @@ export default async function AdminFulfillmentPage() {
                       </div>
                     </div>
 
-                    {/* 右側：收件資訊 */}
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    {/* 右側：配送收件資訊 */}
+                    <div className="min-w-0">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         配送收件資訊 (Shipping Address)
-                      </h4>
+                      </h3>
                       {hasAddress ? (
-                        <div className="mt-2 rounded-lg border border-zinc-100 bg-zinc-50/50 p-4 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <div className="mt-2 rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-4 text-xs dark:border-zinc-800 dark:bg-zinc-800/40">
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 break-words">
                             {order.shippingAddress!.recipientName}
                           </p>
-                          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                          <p className="mt-1 text-zinc-600 dark:text-zinc-400 break-all">
                             聯絡電話：{order.shippingAddress!.phone}
                           </p>
-                          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                          <p className="mt-2 text-zinc-600 dark:text-zinc-400 break-words">
                             [{order.shippingAddress!.postalCode}]{" "}
                             {order.shippingAddress!.city} (
                             {order.shippingAddress!.countryCode})
                           </p>
-                          <p className="text-zinc-800 dark:text-zinc-200">
+                          <p className="mt-1 text-zinc-800 dark:text-zinc-200 break-words">
                             {order.shippingAddress!.addressLine1}
                           </p>
                           {order.shippingAddress!.addressLine2 && (
-                            <p className="text-zinc-800 dark:text-zinc-200">
+                            <p className="mt-0.5 text-zinc-800 dark:text-zinc-200 break-words">
                               {order.shippingAddress!.addressLine2}
                             </p>
                           )}
                         </div>
                       ) : (
-                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
-                          <div className="flex items-start gap-2">
-                            <span className="text-amber-600 dark:text-amber-400">
+                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
+                          <div className="flex items-start gap-2.5">
+                            <span
+                              aria-hidden="true"
+                              className="text-base text-amber-600 dark:text-amber-400 shrink-0"
+                            >
                               ⚠️
                             </span>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <p className="font-semibold text-amber-800 dark:text-amber-300">
                                 歷史訂單收件資訊不存在
                               </p>
-                              <p className="mt-1 text-amber-700 dark:text-amber-400">
+                              <p className="mt-1 text-amber-700 dark:text-amber-400/90 leading-relaxed break-words">
                                 此訂單於配送地址快照機制啟用前建立，無可對應的配送地址。為確保發貨安全，系統已自動禁用直接發貨操作，請後續透過客服或人工流程進行核實。
                               </p>
                             </div>

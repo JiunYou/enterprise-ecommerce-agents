@@ -909,3 +909,43 @@
   - 追蹤之 GitHub CI 存在性：`NO` (TRACKED_GITHUB_CI_EXISTS=NO)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因付款/訂單/取消等可執行商業邏輯皆受嚴格凍結)。
+
+### 2026-09-10 — PR #35 — feat: establish responsive admin console foundation
+- **垂直切片 (Vertical Slice)**：
+  - Admin Console Visual Foundation v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **交付成果 (Delivered)**：
+  - 建立統一之管理端共用標頭元件 [AdminHeader.tsx](file:///Users/laijiunyou/Dev/prawn/apps/admin/src/components/AdminHeader.tsx)。
+  - 遷移 6 條已認證管理員成功渲染路由至共用 shell，並完全移除舊有的重複標頭/導航結構。
+  - 改善核心導航在行動端（Mobile 375x812）之能見度，三個目的地直接可見且具備 >=44px 觸控友善尺寸。
+  - 實作顯式 `activeSection`（`fulfillment`、`orders`、`products`）導航狀態標記。
+  - 完整保留既有管理員身分（`session.user.name || session.user.email || "管理員"`）、Admin Role 徽章與原生登出連結。
+  - 完整保留商品目錄頁之「建立商品」路由操作插槽。
+  - 啟用既有載入之 Geist 字體變數基礎，移除 globals.css 中的 Arial 覆蓋。
+  - 修正 HTML 文件語意語言設定為繁體中文 `zh-Hant`。
+  - 實作支援暗色模式（Dark Mode）與精準階層邊框/陰影的精實作業表面。
+  - 實作 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 完整響應式外殼。
+- **實機運行證據 (Runtime Evidence Precision)**：
+  - 執行期檢視狀態：`UNAUTHENTICATED`。
+  - 375x812 UNAUTHENTICATED `PASS`（無水平溢出、卡片佈局可用）。
+  - 768x1024 UNAUTHENTICATED `PASS`。
+  - 1280x800 UNAUTHENTICATED `PASS`。
+  - 已認證共用標頭執行期視覺驗收 (Authenticated Shared Shell Runtime Visual Acceptance)：`NOT_OBSERVED`（遵循治理規範，絕不為截圖偽造身分、繞過認證或變更 Auth0 設定）。
+  - 已認證共用標頭靜態響應式稽核 (Authenticated Shared Shell Static Responsive Audit)：`PASS`。
+- **邊界與非範疇說明 (Boundaries & Scope)**：
+  - 無身分驗證行為變更 (No Auth Behavior Change)。
+  - 無授權判定變更 (No Authorization Change)。
+  - 無資料抓取或 API 查詢變更 (No Query/Data-Fetch Change)。
+  - 無資料變更行為變更 (No Mutation Change)。
+  - 無業務操作邏輯變更 (No Business Action Change)。
+  - 無引入 `usePathname` / `useRouter` / 客戶端選單狀態。
+  - 零新增套件與相依性 (No Dependency Addition)。
+  - 無推測性設計系統框架 (No Speculative Design System)。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Admin lint: PASS (`eslint`)
+  - Admin build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因所有業務/認證/查詢/變異行為皆受嚴格凍結)。

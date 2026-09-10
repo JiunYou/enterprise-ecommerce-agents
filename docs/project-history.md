@@ -992,3 +992,28 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因出貨與查詢等可執行行為皆受嚴格凍結)。
+
+### 2026-09-10 — PR #37 — feat: polish admin orders list experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Orders List Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **交付成果 (Delivered)**：
+  - 交付結構化且支援行動端與平板端卡片式非表格摘要版面 (Mobile/Tablet non-table summaries)。
+  - 保留桌面端操作表格 (Desktop operational table)。
+  - 確保長訂單編號與顧客編號防溢位處理 (long Order / Customer ID safety)。
+  - 保留並精緻化訂單狀態、金額與提交時間呈現。
+  - 優化觸控友善之導航 (touch-friendly detail navigation) 與響應式分頁控制項 (responsive pagination)。
+  - 支援暗色模式 (Dark Mode) 與簡潔作業卡片風格。
+- **嚴格高風險邊界與非範疇說明 (Strict High-Risk Functional Boundary & Scope)**：
+  - 唯讀邊界完全凍結：不變更任何後端狀態或業務邏輯。
+  - 未提取或建立新的 Generic/Premature 組件 (No AdminOrderCard / GenericBadge)。
+  - 修改範疇嚴格限制於 `apps/admin/src/app/orders/page.tsx` 單一檔案。
+  - PII 安全邊界完全保留 (PII boundary preserved)，且未外洩內部資料。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Admin lint: PASS (`eslint`)
+  - Admin build: PASS (`next build`)
+  - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因所有業務與查詢行為皆受嚴格凍結)。

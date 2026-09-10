@@ -32,15 +32,16 @@ export function ShipOrderButton({
 
   if (!hasShippingAddress) {
     return (
-      <div className="flex flex-col items-start gap-1">
+      <div className="flex w-full sm:w-auto flex-col items-start gap-1">
         <button
           type="button"
           disabled
-          className="cursor-not-allowed rounded-md bg-zinc-200 px-3.5 py-1.5 text-xs font-semibold text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600"
+          aria-disabled="true"
+          className="flex min-h-[44px] w-full sm:w-auto cursor-not-allowed items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-400 shadow-xs dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-500"
         >
           無法發貨（無地址）
         </button>
-        <span className="text-[11px] text-amber-600 dark:text-amber-400">
+        <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
           歷史訂單無收件資訊
         </span>
       </div>
@@ -48,24 +49,25 @@ export function ShipOrderButton({
   }
 
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex w-full sm:w-auto flex-col items-start gap-1">
       <button
         type="button"
         onClick={handleShip}
         disabled={isPending}
-        className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors ${
+        className={`inline-flex min-h-[44px] w-full sm:w-auto items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
           isPending
-            ? "cursor-wait bg-indigo-400 dark:bg-indigo-600"
+            ? "cursor-wait bg-indigo-500 opacity-90 dark:bg-indigo-600"
             : "bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
         }`}
       >
         {isPending ? (
           <>
             <svg
-              className="-ml-1 mr-2 h-3.5 w-3.5 animate-spin text-white"
+              className="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <circle
                 className="opacity-25"
@@ -88,7 +90,10 @@ export function ShipOrderButton({
         )}
       </button>
       {errorMessage && (
-        <span className="max-w-xs text-xs text-rose-600 dark:text-rose-400">
+        <span
+          role="alert"
+          className="max-w-xs break-words text-xs font-medium text-rose-600 dark:text-rose-400"
+        >
           {errorMessage}
         </span>
       )}

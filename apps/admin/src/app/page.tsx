@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
 import { getFulfillmentQueue, FulfillmentOrder } from "@/lib/fulfillment";
 import { ShipOrderButton } from "@/components/ShipOrderButton";
+import { AdminHeader } from "@/components/AdminHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -149,59 +150,12 @@ export default async function AdminFulfillmentPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* 導航標頭 */}
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-base">
-              EC
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-                訂單履約中心 (Admin Fulfillment)
-              </h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                管理已付款待出貨訂單
-              </p>
-            </div>
-            <nav className="ml-6 hidden items-center gap-2 sm:flex">
-              <Link
-                href="/"
-                className="rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                訂單履約
-              </Link>
-              <Link
-                href="/orders"
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              >
-                訂單管理
-              </Link>
-              <Link
-                href="/products"
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              >
-                商品管理
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden text-right sm:block">
-              <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                {session.user.name || session.user.email || "管理員"}
-              </p>
-              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-                Admin Role
-              </span>
-            </div>
-            <a
-              href="/auth/logout"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            >
-              登出
-            </a>
-          </div>
-        </div>
-      </header>
+      <AdminHeader
+        activeSection="fulfillment"
+        title="訂單履約中心 (Admin Fulfillment)"
+        subtitle="管理已付款待出貨訂單"
+        userLabel={session.user.name || session.user.email || "管理員"}
+      />
 
       {/* 主要內容區 */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

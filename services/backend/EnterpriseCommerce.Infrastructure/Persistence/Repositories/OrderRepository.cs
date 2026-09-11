@@ -89,16 +89,26 @@ internal sealed class OrderRepository : IOrderRepository
         return (items, totalCount);
     }
 
-    public async Task<IReadOnlyList<Order>> GetCustomerOrderHistoryAsync(
+    public async Task<(IReadOnlyList<Order> Items, int TotalCount)> GetCustomerOrderHistoryAsync(
         Guid customerId,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Orders
+        var query = _dbContext.Orders
             .AsNoTracking()
+            .Where(o => o.CustomerId == customerId && o.SubmittedAt != null);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .Include(o => o.Items)
-            .Where(o => o.CustomerId == customerId && o.SubmittedAt != null)
             .OrderByDescending(o => o.SubmittedAt)
-            .ThenByDescending(o => o.Id)
+            .ThenByDescending(o => (Guid)o.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 }

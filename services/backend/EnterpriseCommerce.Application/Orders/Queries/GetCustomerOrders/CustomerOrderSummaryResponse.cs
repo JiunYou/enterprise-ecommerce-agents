@@ -6,3 +6,9 @@ public sealed record CustomerOrderSummaryResponse(
     DateTimeOffset SubmittedAt,
     decimal TotalAmount,
     string Currency);
+
+public sealed record CustomerOrderPageResponse(
+    IReadOnlyList<CustomerOrderSummaryResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);

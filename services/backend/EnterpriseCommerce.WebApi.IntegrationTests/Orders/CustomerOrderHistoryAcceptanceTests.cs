@@ -153,7 +153,7 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
         var clientA = CreateCustomerClient(customerA);
         var clientB = CreateCustomerClient(customerB);
 
-        // Act
+        // Act - 預設查詢 (Page 1, PageSize 25)
         var responseA = await clientA.GetAsync("/api/v1/orders");
         var responseB = await clientB.GetAsync("/api/v1/orders");
 
@@ -162,9 +162,14 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
         responseB.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Assert - Customer A 結果
-        var itemsA = await responseA.Content.ReadFromJsonAsync<List<CustomerOrderSummaryResponse>>();
-        itemsA.Should().NotBeNull();
-        itemsA!.Count.Should().Be(3); // 只有 orderA3, orderA2, orderA1
+        var pageA = await responseA.Content.ReadFromJsonAsync<CustomerOrderPageResponse>();
+        pageA.Should().NotBeNull();
+        pageA!.Page.Should().Be(1);
+        pageA.PageSize.Should().Be(25);
+        pageA.TotalCount.Should().Be(3); // 只有 orderA3, orderA2, orderA1
+
+        var itemsA = pageA.Items;
+        itemsA.Count.Should().Be(3);
 
         // 驗證排序 (SubmittedAt descending)
         itemsA[0].Id.Should().Be(orderA3.Id.Value);
@@ -190,27 +195,128 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
         itemsA.Select(x => x.Id).Should().NotContain(orderB.Id.Value);
 
         // Assert - Customer B 結果 (只有 orderB)
-        var itemsB = await responseB.Content.ReadFromJsonAsync<List<CustomerOrderSummaryResponse>>();
-        itemsB.Should().NotBeNull();
-        itemsB!.Count.Should().Be(1);
-        itemsB[0].Id.Should().Be(orderB.Id.Value);
-        itemsB[0].TotalAmount.Should().Be(999m);
+        var pageB = await responseB.Content.ReadFromJsonAsync<CustomerOrderPageResponse>();
+        pageB.Should().NotBeNull();
+        pageB!.Page.Should().Be(1);
+        pageB.PageSize.Should().Be(25);
+        pageB.TotalCount.Should().Be(1);
+        pageB.Items.Count.Should().Be(1);
+        pageB.Items[0].Id.Should().Be(orderB.Id.Value);
+        pageB.Items[0].TotalAmount.Should().Be(999m);
 
         // Assert - Frozen Payload 欄位驗證 (不洩漏 CustomerId 或其他內部資訊)
         var rawJson = await responseA.Content.ReadAsStringAsync();
         using var jsonDoc = JsonDocument.Parse(rawJson);
-        var firstElement = jsonDoc.RootElement[0];
+        var root = jsonDoc.RootElement;
+        var rootProperties = root.EnumerateObject().Select(p => p.Name).ToList();
+        rootProperties.Should().BeEquivalentTo(new[] { "items", "page", "pageSize", "totalCount" });
+
+        var firstElement = root.GetProperty("items")[0];
 
         // 確保精確只包含 5 個允許欄位：id, status, submittedAt, totalAmount, currency
-        var propertyNames = firstElement.EnumerateObject().Select(p => p.Name).ToList();
-        propertyNames.Should().BeEquivalentTo(new[] { "id", "status", "submittedAt", "totalAmount", "currency" });
+        var itemProperties = firstElement.EnumerateObject().Select(p => p.Name).ToList();
+        itemProperties.Should().BeEquivalentTo(new[] { "id", "status", "submittedAt", "totalAmount", "currency" });
 
         // 明確確保禁止欄位不存在
-        propertyNames.Should().NotContain("customerId");
-        propertyNames.Should().NotContain("version");
-        propertyNames.Should().NotContain("items");
-        propertyNames.Should().NotContain("shippingAddress");
-        propertyNames.Should().NotContain("paymentAttemptId");
-        propertyNames.Should().NotContain("provider");
+        itemProperties.Should().NotContain("customerId");
+        itemProperties.Should().NotContain("version");
+        itemProperties.Should().NotContain("items");
+        itemProperties.Should().NotContain("shippingAddress");
+        itemProperties.Should().NotContain("paymentAttemptId");
+        itemProperties.Should().NotContain("provider");
+    }
+
+    [Fact]
+    public async Task GetOrders_WhenAuthenticated_MultiplePages_ShouldSlicePagesDeterministically_WithNoDuplicates()
+    {
+        // Arrange
+        var customerA = Guid.NewGuid();
+        var address = ShippingAddress.Create("Alice", "0912345678", "TW", "100", "Taipei", "Main St 1").Value;
+        var baseTime = DateTimeOffset.UtcNow;
+
+        var order1 = Order.Create(customerA, "TWD");
+        order1.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
+        order1.Submit(address, baseTime.AddHours(-3));
+
+        var order2 = Order.Create(customerA, "TWD");
+        order2.AddItem(new ProductId(Guid.NewGuid()), new Money(200m, "TWD"), 1);
+        order2.Submit(address, baseTime.AddHours(-2));
+
+        var order3 = Order.Create(customerA, "TWD");
+        order3.AddItem(new ProductId(Guid.NewGuid()), new Money(300m, "TWD"), 1);
+        order3.Submit(address, baseTime.AddHours(-1));
+
+        await using (var dbContext = new EnterpriseCommerceDbContext(_dbContextOptions))
+        {
+            dbContext.Orders.AddRange(order1, order2, order3);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var clientA = CreateCustomerClient(customerA);
+
+        // Act - Page 1 (pageSize = 2)
+        var responsePage1 = await clientA.GetAsync("/api/v1/orders?page=1&pageSize=2");
+        var responsePage2 = await clientA.GetAsync("/api/v1/orders?page=2&pageSize=2");
+
+        // Assert
+        responsePage1.StatusCode.Should().Be(HttpStatusCode.OK);
+        responsePage2.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var page1 = await responsePage1.Content.ReadFromJsonAsync<CustomerOrderPageResponse>();
+        var page2 = await responsePage2.Content.ReadFromJsonAsync<CustomerOrderPageResponse>();
+
+        page1.Should().NotBeNull();
+        page2.Should().NotBeNull();
+
+        page1!.Page.Should().Be(1);
+        page1.PageSize.Should().Be(2);
+        page1.TotalCount.Should().Be(3);
+        page1.Items.Should().HaveCount(2);
+        page1.Items[0].Id.Should().Be(order3.Id.Value);
+        page1.Items[1].Id.Should().Be(order2.Id.Value);
+
+        page2!.Page.Should().Be(2);
+        page2.PageSize.Should().Be(2);
+        page2.TotalCount.Should().Be(3);
+        page2.Items.Should().HaveCount(1);
+        page2.Items[0].Id.Should().Be(order1.Id.Value);
+
+        // 驗證跨頁絕無重複 (No duplicates across pages)
+        var page1Ids = page1.Items.Select(x => x.Id).ToList();
+        var page2Ids = page2.Items.Select(x => x.Id).ToList();
+        page1Ids.Intersect(page2Ids).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetOrders_WhenAuthenticated_OutOfRangePage_ShouldReturnEmptyItems_PreserveTotalCount_AndEchoRequestedPage()
+    {
+        // Arrange
+        var customerA = Guid.NewGuid();
+        var address = ShippingAddress.Create("Alice", "0912345678", "TW", "100", "Taipei", "Main St 1").Value;
+
+        var order1 = Order.Create(customerA, "TWD");
+        order1.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
+        order1.Submit(address, DateTimeOffset.UtcNow);
+
+        await using (var dbContext = new EnterpriseCommerceDbContext(_dbContextOptions))
+        {
+            dbContext.Orders.Add(order1);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var clientA = CreateCustomerClient(customerA);
+
+        // Act - 大頁碼 (超出資料總頁數)
+        var response = await clientA.GetAsync("/api/v1/orders?page=99&pageSize=25");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var page = await response.Content.ReadFromJsonAsync<CustomerOrderPageResponse>();
+        page.Should().NotBeNull();
+        page!.Page.Should().Be(99); // Echo requested page
+        page.PageSize.Should().Be(25);
+        page.TotalCount.Should().Be(1);
+        page.Items.Should().BeEmpty();
     }
 }

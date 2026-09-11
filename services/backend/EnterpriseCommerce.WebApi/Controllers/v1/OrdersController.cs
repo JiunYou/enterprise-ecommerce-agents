@@ -22,17 +22,20 @@ public class OrdersController : ApiControllerBase
     }
 
     [HttpGet(Name = nameof(GetCustomerOrders))]
-    [ProducesResponseType(typeof(IReadOnlyList<CustomerOrderSummaryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(CustomerOrderPageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetCustomerOrders(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCustomerOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default)
     {
         if (!TryGetCustomerId(out var customerId))
         {
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        var query = new GetCustomerOrdersQuery(customerId);
+        var query = new GetCustomerOrdersQuery(customerId, page, pageSize);
         var result = await Sender.Send(query, cancellationToken);
 
         if (result.IsFailure)

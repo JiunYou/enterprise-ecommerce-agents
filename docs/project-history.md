@@ -1220,3 +1220,35 @@
   - Admin Lint & Build: 通過 (0 errors, 0 warnings, Next.js build pass)
   - 來源指紋 (Source Fingerprint): `f9c73e1b6508b0e6c4b84c7f584e5070ebf932cfba6bb147cdab4151d664a74a`
   - 運行時狀態: `AUTHENTICATED_PAID_CANCEL_RUNTIME=NOT_OBSERVED`（遵循治理規範，不執行真實金流操作）
+
+### 2026-09-11 — PR #44 — feat: add local shipment tracking
+- **垂直切片 (Vertical Slice)**：
+  - Local Shipment Tracking v1
+- **程序分類 (Process Classification)**：
+  - Tier-1 訂單生命週期與資料庫綱要變更 (Tier-1 Order Lifecycle and DB Schema Migration)
+  - 嚴格紅燈優先測試驅動開發 (RED-First TDD Required: `RED_FIRST_EVIDENCE=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 交付管理員本地出貨履約流程擴充與訂單物流追蹤中繼資料持久化 (`Paid → Shipped`)。
+  - **領域層 (Domain)**：擴充 `Order.Ship(carrier, trackingNumber, shippedAt)` 領域方法，嚴格驗證訂單必須處於已付款狀態 (`Status == Paid`) 且具備有效收件地址快照 (`ShippingAddress != null`)，否則回傳 `OrderErrors.ShippingAddressRequired`。校驗物流業者 (`Carrier`) 與追蹤單號 (`TrackingNumber`) 必填、去除前後空白、長度上限 100 且不包含控制字元，保留原始大小寫。出貨成功觸發既有狀態轉移並觸發既有之 `OrderStatusChangedDomainEvent`，不增加額外之領域事件。
+  - **應用層 (Application CQRS)**：實作 `ShipOrderCommand(OrderId, Carrier, TrackingNumber)`、`ShipOrderCommandValidator` 與 `ShipOrderCommandHandler`。透過注入之 `TimeProvider.GetUtcNow()` 提供伺服器權威性出貨時間戳記 (`ShippedAt`)，防止用戶端或瀏覽器偽造。單一 `SaveChangesAsync` 原子性提交，攔截 `DbUpdateConcurrencyException` 並映射為 `OrderErrors.ConcurrencyConflict` (HTTP 409)，無自動重試。
+  - **資料庫綱要遷移 (DB Migration)**：新增 EF Core 遷移 `20260911140512_AddOrderShipmentTracking`（前一版本為 `20260908013634_EnforceUniqueInventoryProductReference`），於 `Orders` 資料表新增三項可為空欄位：`ShippingCarrier` (varchar(100), nullable)、`ShippingTrackingNumber` (varchar(100), nullable) 及 `ShippedAt` (datetime(6), nullable)，無額外資料表、無外部索引、無外鍵、無資料回填，完全保持歷史相容性。
+  - **讀取模型與相容性 (Read Model Compatibility)**：擴充顧客端 `OrderResponse` 與管理端 `AdminOrderDetailResponse` 包含可選之 `ShipmentTrackingResponse`。唯有當三項物流欄位皆存在時才映射，歷史未填寫出貨記錄映射為 `null`，前端顯示無失真相容提示。
+  - **管理端介面 (Admin UX)**：於履約隊列面板中擴充 `ShipOrderButton.tsx`，支援展開式物流業者與追蹤單號輸入表單，具備完整的必填與長度校驗、44px 觸控目標、焦點樣式與防重複提交；管理員訂單詳情頁面 (`/orders/[id]`) 僅作為物流資訊檢視，無第二出貨動作按鈕。
+  - **顧客端介面 (Customer UX)**：於顧客訂單詳情頁面 (`/orders/[id]`) 在已出貨狀態下展示已出貨橫幅與狀態標籤，並展示物流業者、追蹤單號（純文字展示與複製，不自動拼裝第三方外部網址）及出貨時間。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 堅決不引入 `ShipmentDetails` Value Object、Shipment 聚合或任何外部物流業者/供應商抽象服務 (`SHIPMENT_VALUE_OBJECT_CREATED=NO`, `SHIPPING_PROVIDER_ABSTRACTION_CREATED=NO`)。
+  - 嚴格局限於本地物流追蹤，絕不呼叫黑貓、新竹物流、順豐、FedEx、UPS、DHL 等外部物流業者 API (`EXTERNAL_SHIPPING_PROVIDER_CALLED=NO`)。
+  - 絕不變更 RabbitMQ、Email、簡訊等通知行為 (`NOTIFICATION_BEHAVIOR_CHANGED=NO`)。
+  - 付款、退款、顧客取消、管理員取消、庫存、Outbox、商品目錄行為零改動。
+  - 沿用訂單既有之樂觀並行存取權杖 (`Version`) (`ORDER_CONCURRENCY_MODEL_CHANGED=NO`)。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Domain UnitTests: 通過 168 項
+  - Application UnitTests: 通過 280 項
+  - Infrastructure UnitTests: 通過 209 項
+  - WebApi IntegrationTests 全套: 通過 333 項 (含新增之出貨端點測試、並發衝突測試、真實 MySQL 履約整合驗收與遷移驗收測試)
+  - MySQL 遷移驗收測試 (升級、全新庫、歷史相容性、向下遷移): 4 項全數通過
+  - Admin & Customer Frontend: Lint 通過、Next.js 最佳化生產組建通過
+  - Git Diff Check: 通過 (零多餘空白或行尾問題)
+  - 來源指紋 (Source Fingerprint): `0c5cfc7f6e8fb156f47f5f0e794aec020f0b2b3749f0a5e72765e5e7a083338a`
+  - 運行時狀態: `AUTHENTICATED_SHIPMENT_API_ACCEPTANCE=PASS`，`AUTHENTICATED_SHIPMENT_RUNTIME=NOT_OBSERVED`（依治理規範不偽造真實 Auth0 session）

@@ -438,6 +438,100 @@ export async function updateProductPriceAction(
   }
 }
 
+export interface UpdateProductNameResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function updateProductNameAction(
+  productId: string,
+  newName: string
+): Promise<UpdateProductNameResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  const trimmedName = typeof newName === "string" ? newName.trim() : "";
+  if (!trimmedName || trimmedName.length > 255) {
+    return { success: false, error: "商品名稱不可為空白且長度不可超過 255 個字元。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/name`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          newName: trimmedName,
+        }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "商品名稱無效或更新格式錯誤。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可調整商品名稱。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "更新商品名稱失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成名稱更新。",
+    };
+  }
+}
+
 export interface DeactivateProductResult {
   success: boolean;
   error?: string;

@@ -28,4 +28,8 @@ public static class ProductErrors
     public static readonly Error ConcurrencyConflict = new(
         "Product.ConcurrencyConflict",
         "The product was modified by another operation.");
+
+    public static readonly Error InvalidName = new(
+        "Product.InvalidName",
+        "The product name is invalid.");
 }

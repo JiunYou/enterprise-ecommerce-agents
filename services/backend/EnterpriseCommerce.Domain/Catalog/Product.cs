@@ -73,4 +73,22 @@ public sealed class Product : AggregateRoot<Guid>
 
         return Result.Success();
     }
+
+    public Result Rename(string newName)
+    {
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            return Result.Failure(ProductErrors.InvalidName);
+        }
+
+        var trimmedName = newName.Trim();
+        if (trimmedName.Length > 255)
+        {
+            return Result.Failure(ProductErrors.InvalidName);
+        }
+
+        Name = trimmedName;
+
+        return Result.Success();
+    }
 }

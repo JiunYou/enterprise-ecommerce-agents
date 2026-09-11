@@ -5,6 +5,7 @@ using EnterpriseCommerce.Application.Catalog.Commands.CreateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductName;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
@@ -677,5 +678,150 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         content.Should().NotBeNull();
         content!.Id.Should().Be(productId);
         content.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateProductName_AnonymousUser_ReturnsUnauthorized()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var request = new UpdateProductNameRequest("New Product Name");
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Products/{productId}/name", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_NonAdminUser_ReturnsForbidden()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var request = new UpdateProductNameRequest("New Product Name");
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_AdminUser_Success_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var newName = "Renamed Product Name";
+        _senderMock.Setup(m => m.Send(It.Is<UpdateProductNameCommand>(c => c.ProductId == productId && c.NewName == newName), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductNameRequest(newName);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_InvalidBlankName_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductNameCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidName));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductNameRequest("   ");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_NameTooLong_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductNameCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidName));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductNameRequest(new string('X', 256));
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductNameCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductNameRequest("New Name");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductName_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductNameCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductNameRequest("New Name");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/name");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

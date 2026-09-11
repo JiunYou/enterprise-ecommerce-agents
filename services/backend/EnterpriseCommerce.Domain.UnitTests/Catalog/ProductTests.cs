@@ -135,4 +135,104 @@ public class ProductTests
         product.Price.Should().Be(100m);
         product.Currency.Should().Be("TWD");
     }
+
+    [Fact]
+    public void Rename_WithValidName_UpdatesName()
+    {
+        // Arrange
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.Rename("New Name");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Name.Should().Be("New Name");
+    }
+
+    [Fact]
+    public void Rename_WithWhitespacePadding_NormalizesWithTrim()
+    {
+        // Arrange
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.Rename("  New Name  ");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Name.Should().Be("New Name");
+    }
+
+    [Fact]
+    public void Rename_WithEmptyOrWhitespace_ReturnsInvalidNameAndPreservesOldName()
+    {
+        // Arrange
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var resultEmpty = product.Rename("");
+        var resultWhitespace = product.Rename("   ");
+
+        // Assert
+        resultEmpty.IsFailure.Should().BeTrue();
+        resultEmpty.Error.Should().Be(ProductErrors.InvalidName);
+        product.Name.Should().Be("Old Name");
+
+        resultWhitespace.IsFailure.Should().BeTrue();
+        resultWhitespace.Error.Should().Be(ProductErrors.InvalidName);
+        product.Name.Should().Be("Old Name");
+    }
+
+    [Fact]
+    public void Rename_WithLengthExceeding255_ReturnsInvalidNameAndPreservesOldName()
+    {
+        // Arrange
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+        var longName = new string('A', 256);
+
+        // Act
+        var result = product.Rename(longName);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidName);
+        product.Name.Should().Be("Old Name");
+    }
+
+    [Fact]
+    public void Rename_SuccessfulRename_PreservesAllInvariants()
+    {
+        // Arrange
+        var originalId = Guid.NewGuid();
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+        var idBefore = product.Id;
+
+        // Act
+        var result = product.Rename("New Name");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Id.Should().Be(idBefore);
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+        product.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Rename_InactiveProduct_SuccessfullyRenamesWithoutChangingLifecycleStatus()
+    {
+        // Arrange
+        var product = Product.Create("Old Name", "SKU-123", 100m, "TWD").Value;
+        product.Deactivate();
+
+        // Act
+        var result = product.Rename("New Inactive Name");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Name.Should().Be("New Inactive Name");
+        product.IsActive.Should().BeFalse();
+    }
 }

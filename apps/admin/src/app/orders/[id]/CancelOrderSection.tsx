@@ -20,9 +20,11 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
 
   if (isPaid) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
+      <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-4 shadow-xs text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
         <div className="flex items-center gap-2">
-          <span className="text-amber-600 dark:text-amber-400 font-bold">ℹ️</span>
+          <span aria-hidden="true" className="font-bold text-amber-600 dark:text-amber-400">
+            ℹ️
+          </span>
           <p className="font-medium text-amber-800 dark:text-amber-300">
             已付款訂單暫不支援取消，需待退款功能完備後開放。
           </p>
@@ -78,10 +80,10 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
               訂單操作 (Order Actions)
             </h3>
@@ -93,7 +95,7 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
             <button
               type="button"
               onClick={handleOpen}
-              className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-rose-500 active:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+              className="inline-flex min-h-[44px] sm:min-h-[36px] touch-manipulation shrink-0 items-center justify-center rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-500 active:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:bg-rose-600 dark:hover:bg-rose-500"
             >
               取消訂單
             </button>
@@ -101,7 +103,7 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
         </div>
 
         {isOpen && (
-          <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50/40 p-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+          <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50/40 p-4 sm:p-5 dark:border-rose-900/40 dark:bg-rose-950/20">
             <h4 className="text-xs font-bold text-rose-900 dark:text-rose-300">
               確認取消此訂單？
             </h4>
@@ -126,7 +128,7 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
                   if (serverError) setServerError(null);
                 }}
                 placeholder="請輸入詳細取消原因說明（必填）..."
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white p-2.5 text-xs text-zinc-900 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white p-2.5 text-xs text-zinc-900 shadow-xs focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 maxLength={500}
                 disabled={isPending}
               />
@@ -136,8 +138,10 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
               </div>
             </div>
 
-            <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
-              <span className="font-semibold">⚠️ 資訊安全警告：</span>
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+              <span className="font-semibold">
+                <span aria-hidden="true">⚠️ </span>資訊安全警告：
+              </span>
               請勿輸入密碼、金鑰/機密、信用卡/支付卡資訊或非必要之個人隱私資料。
             </div>
 
@@ -153,12 +157,12 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
               </p>
             )}
 
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={isPending}
-                className="rounded-md border border-zinc-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                className="inline-flex min-h-[44px] sm:min-h-[36px] touch-manipulation items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 shadow-xs hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               >
                 放棄
               </button>
@@ -166,11 +170,12 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
                 type="button"
                 onClick={handleConfirmCancel}
                 disabled={isPending}
-                className="inline-flex items-center justify-center rounded-md bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-rose-500 active:bg-rose-700 disabled:cursor-wait disabled:bg-rose-400 dark:bg-rose-600 dark:hover:bg-rose-500"
+                className="inline-flex min-h-[44px] sm:min-h-[36px] touch-manipulation items-center justify-center rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-500 active:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-wait disabled:bg-rose-400 dark:bg-rose-600 dark:hover:bg-rose-500"
               >
                 {isPending ? (
                   <>
                     <svg
+                      aria-hidden="true"
                       className="-ml-1 mr-2 h-3.5 w-3.5 animate-spin text-white"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"

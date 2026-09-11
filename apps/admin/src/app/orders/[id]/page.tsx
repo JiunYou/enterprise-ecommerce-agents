@@ -11,6 +11,21 @@ interface OrderDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
+const getStatusBadgeClass = (status: string) => {
+  switch (status) {
+    case "Paid":
+      return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60";
+    case "Shipped":
+      return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60";
+    case "Cancelled":
+      return "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60";
+    case "Submitted":
+      return "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60";
+    default:
+      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60";
+  }
+};
+
 export default async function AdminOrderDetailPage({ params }: OrderDetailPageProps) {
   const session = await auth0.getSession();
 
@@ -18,7 +33,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
   if (!session || !session.user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-col items-center text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
               <svg
@@ -26,6 +41,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -43,7 +59,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
             </p>
             <a
               href="/auth/login"
-              className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 active:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+              className="mt-6 inline-flex min-h-[44px] w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
               管理員登入
             </a>
@@ -63,23 +79,23 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
   if (result.status === "unauthenticated") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 sm:p-8 text-center shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
             登入階段已過期
           </h2>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             您的身分驗證權杖已逾期或無效，請重新進行登入。
           </p>
-          <div className="mt-6 flex justify-center gap-4">
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
             <a
               href="/auth/login"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               重新登入
             </a>
             <a
               href="/auth/logout"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 shadow-xs transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               登出
             </a>
@@ -93,13 +109,14 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
   if (result.status === "forbidden") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-        <div className="w-full max-w-lg rounded-xl border border-rose-200 bg-rose-50/50 p-8 text-center shadow-sm dark:border-rose-900/50 dark:bg-rose-950/20">
+        <div className="w-full max-w-lg rounded-xl border border-rose-200 bg-rose-50/50 p-6 sm:p-8 text-center shadow-xs dark:border-rose-900/50 dark:bg-rose-950/20">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
             <svg
               className="h-6 w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -118,7 +135,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
           <div className="mt-6 flex justify-center">
             <a
               href="/auth/logout"
-              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 shadow-xs transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
             >
               切換帳號 / 登出
             </a>
@@ -132,13 +149,14 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
   if (result.status === "notFound") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 sm:p-8 text-center shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
             <svg
               className="h-6 w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -152,12 +170,12 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
             查無此訂單 (404 Not Found)
           </h2>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            系統中找不到編號為 <span className="font-mono text-zinc-800 dark:text-zinc-200">{id}</span> 的訂單，請確認識別碼是否正確。
+            系統中找不到編號為 <span className="break-all font-mono text-zinc-800 dark:text-zinc-200">{id}</span> 的訂單，請確認識別碼是否正確。
           </p>
           <div className="mt-6">
             <Link
               href="/orders"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               返回訂單列表
             </Link>
@@ -171,23 +189,23 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
   if (result.status === "error") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 sm:p-8 text-center shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
             系統連線異常
           </h2>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 break-words">
             {result.message}
           </p>
-          <div className="mt-6 flex justify-center gap-4">
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
               href={`/orders/${id}`}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               重新整理
             </Link>
             <Link
               href="/orders"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200"
+              className="inline-flex min-h-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 shadow-xs transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               返回列表
             </Link>
@@ -211,14 +229,20 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
       />
 
       {/* 主內容區 */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* 返回列表連結 */}
-        <div className="mb-6">
+        <div className="mb-5">
           <Link
             href="/orders"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+            className="inline-flex min-h-[36px] touch-manipulation items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-300"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg
+              className="h-4 w-4 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             返回訂單管理列表
@@ -227,47 +251,46 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
 
         <div className="space-y-6">
           {/* 基本摘要資訊卡片 */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 pb-4 dark:border-zinc-800">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                    {order.id}
+          <div className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col gap-4 border-b border-zinc-100 pb-5 sm:flex-row sm:items-start sm:justify-between dark:border-zinc-800">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Order ID
                   </span>
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      order.status === "Paid"
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                        : order.status === "Shipped"
-                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                        : order.status === "Cancelled"
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                        : order.status === "Submitted"
-                        ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                        : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                    }`}
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(
+                      order.status
+                    )}`}
                   >
                     {order.status}
                   </span>
                 </div>
-                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  顧客識別號 (Customer ID)：
-                  <span className="font-mono text-zinc-700 dark:text-zinc-300">{order.customerId}</span>
+                <p className="break-all font-mono text-sm font-bold text-zinc-900 sm:text-base dark:text-zinc-50">
+                  {order.id}
                 </p>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                    顧客識別號 (Customer ID)：
+                  </span>
+                  <span className="break-all font-mono text-zinc-800 dark:text-zinc-200">
+                    {order.customerId}
+                  </span>
+                </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="shrink-0 rounded-lg bg-zinc-50/80 p-3 sm:bg-transparent sm:p-0 sm:text-right dark:bg-zinc-800/40 sm:dark:bg-transparent">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                   訂單總額
                 </span>
-                <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                <p className="mt-0.5 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                   {order.currency} {order.totalAmount.toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* 時戳與唯讀提示 */}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-4 flex flex-col gap-1.5 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between dark:text-zinc-400">
               <div>
                 提交時間：
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">
@@ -286,9 +309,12 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
 
           {/* 管理員取消紀錄（僅在有管理員取消紀錄時顯示，不顯示假資料） */}
           {order.adminCancellation && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-6 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/20">
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-5 sm:p-6 shadow-xs dark:border-rose-900/50 dark:bg-rose-950/20">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900 dark:text-rose-400 text-xs font-bold">
+                <span
+                  aria-hidden="true"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600 dark:bg-rose-900 dark:text-rose-400"
+                >
                   ✕
                 </span>
                 <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">
@@ -310,7 +336,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
                   <span className="font-semibold text-rose-800 dark:text-rose-300">
                     操作者識別 (Actor ID)：
                   </span>
-                  <p className="mt-0.5 font-mono text-zinc-800 dark:text-zinc-200 break-all">
+                  <p className="mt-0.5 break-all font-mono text-zinc-800 dark:text-zinc-200">
                     {order.adminCancellation.actorIssuer} | {order.adminCancellation.actorSubject}
                   </p>
                 </div>
@@ -319,7 +345,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
                 <span className="font-semibold text-rose-800 dark:text-rose-300">
                   取消原因 (Reason)：
                 </span>
-                <p className="mt-0.5 rounded-md border border-rose-200 bg-white/80 p-3 text-zinc-800 dark:border-rose-900/40 dark:bg-zinc-900/60 dark:text-zinc-200 whitespace-pre-wrap">
+                <p className="mt-1 rounded-md border border-rose-200 bg-white/80 p-3 text-zinc-800 break-words whitespace-pre-wrap dark:border-rose-900/40 dark:bg-zinc-900/60 dark:text-zinc-200">
                   {order.adminCancellation.reason}
                 </p>
               </div>
@@ -338,7 +364,7 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
           {/* 雙欄格線：左側訂單商品，右側配送收件地址 */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* 左側：訂購項目清單 */}
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 訂購項目清單 ({order.items.length})
               </h3>
@@ -347,18 +373,24 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
               ) : (
                 <div className="mt-3 divide-y divide-zinc-100 rounded-lg border border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
                   {order.items.map((item: OrderItem, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between p-3.5 text-xs">
-                      <div>
-                        <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-2 p-3.5 text-xs sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <span className="block break-all font-mono font-medium text-zinc-900 dark:text-zinc-100">
                           {item.productId}
                         </span>
                         <p className="mt-0.5 text-zinc-500 dark:text-zinc-400">
                           單價：{item.currency} {item.unitPrice.toLocaleString()} × {item.quantity} 件
                         </p>
                       </div>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        {item.currency} {item.totalPrice.toLocaleString()}
-                      </span>
+                      <div className="sm:text-right shrink-0">
+                        <span className="text-[10px] font-medium text-zinc-400 sm:hidden dark:text-zinc-500">小計：</span>
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                          {item.currency} {item.totalPrice.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -366,34 +398,46 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
             </div>
 
             {/* 右側：收件配送資訊 */}
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 配送收件資訊 (Shipping Address)
               </h3>
               {hasAddress ? (
-                <div className="mt-3 rounded-lg border border-zinc-100 bg-zinc-50/50 p-4 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300 space-y-1.5">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {order.shippingAddress!.recipientName}
-                  </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    聯絡電話：{order.shippingAddress!.phone}
-                  </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    郵遞區號與城市：[{order.shippingAddress!.postalCode}] {order.shippingAddress!.city} ({order.shippingAddress!.countryCode})
-                  </p>
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    地址第一行：{order.shippingAddress!.addressLine1}
-                  </p>
-                  {order.shippingAddress!.addressLine2 && (
-                    <p className="text-zinc-800 dark:text-zinc-200">
-                      地址第二行：{order.shippingAddress!.addressLine2}
+                <div className="mt-3 rounded-lg border border-zinc-100 bg-zinc-50/50 p-4 text-xs text-zinc-700 space-y-2 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+                  <div>
+                    <span className="block text-[10px] font-medium text-zinc-400 dark:text-zinc-500">收件人</span>
+                    <p className="text-sm font-semibold text-zinc-900 break-words dark:text-zinc-100">
+                      {order.shippingAddress!.recipientName}
                     </p>
-                  )}
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-medium text-zinc-400 dark:text-zinc-500">聯絡電話</span>
+                    <p className="font-mono text-zinc-700 break-words dark:text-zinc-300">
+                      {order.shippingAddress!.phone}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-medium text-zinc-400 dark:text-zinc-500">郵遞區號與城市</span>
+                    <p className="text-zinc-800 break-words dark:text-zinc-200">
+                      [{order.shippingAddress!.postalCode}] {order.shippingAddress!.city} ({order.shippingAddress!.countryCode})
+                    </p>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-medium text-zinc-400 dark:text-zinc-500">詳細地址</span>
+                    <p className="text-zinc-800 break-words dark:text-zinc-200">
+                      {order.shippingAddress!.addressLine1}
+                    </p>
+                    {order.shippingAddress!.addressLine2 && (
+                      <p className="mt-0.5 text-zinc-800 break-words dark:text-zinc-200">
+                        {order.shippingAddress!.addressLine2}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
-                  <div className="flex items-start gap-2">
-                    <span className="text-amber-600 dark:text-amber-400">
+                  <div className="flex items-start gap-2.5">
+                    <span aria-hidden="true" className="text-amber-600 dark:text-amber-400">
                       ⚠️
                     </span>
                     <div>

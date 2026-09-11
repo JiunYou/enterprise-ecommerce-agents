@@ -1017,3 +1017,35 @@
   - 專案治理稽核通過 (`audit-governance.py` PASS, `git diff --check` PASS)
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Frontend Visual Implementation，不適用 Tier-1 TDD，因所有業務與查詢行為皆受嚴格凍結)。
+
+### 2026-09-11 — PR #38 — feat: polish admin order detail experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Order Detail Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **實作範疇 (Implementation Scope)**：
+  - 僅限 3 個現存檔案：`apps/admin/src/app/orders/[id]/page.tsx`、`apps/admin/src/app/orders/[id]/CancelOrderSection.tsx`、`apps/admin/src/app/orders/[id]/RefundRequiredPaymentsSection.tsx`
+- **交付成果 (Delivered)**：
+  - 交付符合 Lean Operations Console 設計語言之管理端訂單詳情體驗。
+  - 完整支援 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 之響應式重排、優先級排序與觸控可用性。
+  - 全面保護長識別碼與長文字防溢出 (Order ID / Customer ID / Actor ID / Payment Attempt ID / Product ID break-all，取消原因與配送地址 break-words)。
+  - 強化行動端觸控友善性 (min-h-[44px] touch-manipulation) 與鍵盤焦點環視覺提示 (focus-visible:ring-2)。
+  - 裝飾性圖示補齊 `aria-hidden="true"`。
+  - 訂購商品清單與配送收件資訊結構化呈現，商品清單在窄螢幕自動縱向排版並標示「小計：」。
+  - 支援暗色模式 (Dark Mode) 與簡潔作業卡片風格。
+- **嚴格高風險邊界與非範疇說明 (Strict High-Risk Functional Boundary & Scope)**：
+  - 嚴格取消與退款功能凍結 (Strict Cancel & Refund Functional Freeze)：取消資格判定、取消驗證、`cancelAdminOrderAction` 呼叫引數維持不變；退款資格、驗證、`refundAdminPaymentAction` 呼叫引數與退款對帳邏輯完全凍結。
+  - 認證、授權與會話邊界完全未變動 (`auth0.getSession()`, `getAdminOrderById`)。
+  - PII 安全防護邊界維持 Fail-Closed，未通過授權前絕不渲染任何訂單、顧客、配送或款項資料。
+  - 零後端變更 (Backend Changed: NO)，`actions.ts` 與 `orders.ts` 零變更。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Admin lint: PASS (`eslint`)
+  - Admin build: PASS (`next build`)
+  - Git 格式檢查: PASS (`git diff --check`)
+  - 功能性差異審計: PASS (Functional Diff Audit PASS)
+  - 來源指紋: `eb73b7dc94c0018bc3d5b149e320bfc4bd63c30b6ced6402dbf65cde93a2458e`
+  - 運行時狀態: `AUTHENTICATED_SUCCESS_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
+  - 基準執行紀錄: `PRE_CHANGE_BASELINE_EXECUTION=NOT_OBSERVED`
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。

@@ -114,21 +114,21 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
 
         var baseTime = DateTimeOffset.UtcNow;
 
-        // 1. Customer A: 已送出訂單 1 (Submitted, T - 3h, 100 TWD)
+        // 1. Customer A: 已送出訂單 1 (Submitted, T - 30s, 100 TWD，未過期)
         var orderA1 = Order.Create(customerA, "TWD");
         orderA1.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
-        orderA1.Submit(address, baseTime.AddHours(-3));
+        orderA1.Submit(address, baseTime.AddSeconds(-30));
 
-        // 2. Customer A: 已送出且已付款訂單 2 (Paid, T - 2h, 250 TWD)
+        // 2. Customer A: 已送出且已付款訂單 2 (Paid, T - 20s, 250 TWD)
         var orderA2 = Order.Create(customerA, "TWD");
         orderA2.AddItem(new ProductId(Guid.NewGuid()), new Money(250m, "TWD"), 1);
-        orderA2.Submit(address, baseTime.AddHours(-2));
+        orderA2.Submit(address, baseTime.AddSeconds(-20));
         orderA2.MarkAsPaid();
 
-        // 3. Customer A: 已送出且後續取消之訂單 3 (Submitted + Cancelled, T - 1h, 300 TWD) -> 必須在歷史列表中
+        // 3. Customer A: 已送出且後續取消之訂單 3 (Submitted + Cancelled, T - 10s, 300 TWD) -> 必須在歷史列表中
         var orderA3 = Order.Create(customerA, "TWD");
         orderA3.AddItem(new ProductId(Guid.NewGuid()), new Money(300m, "TWD"), 1);
-        orderA3.Submit(address, baseTime.AddHours(-1));
+        orderA3.Submit(address, baseTime.AddSeconds(-10));
         orderA3.Cancel();
 
         // 4. Customer A: 未送出之購物車草稿 (Pending, SubmittedAt == null) -> 必須排除！
@@ -139,10 +139,10 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
         var orderA5CancelledUnsubmitted = Order.Create(customerA, "TWD");
         orderA5CancelledUnsubmitted.Cancel();
 
-        // 6. Customer B: 已送出訂單 (Submitted, T - 30m, 999 TWD) -> 屬於 Customer B，Customer A 絕不可看到！
+        // 6. Customer B: 已送出訂單 (Submitted, T - 15s, 999 TWD，未過期) -> 屬於 Customer B，Customer A 絕不可看到！
         var orderB = Order.Create(customerB, "TWD");
         orderB.AddItem(new ProductId(Guid.NewGuid()), new Money(999m, "TWD"), 1);
-        orderB.Submit(address, baseTime.AddMinutes(-30));
+        orderB.Submit(address, baseTime.AddSeconds(-15));
 
         await using (var dbContext = new EnterpriseCommerceDbContext(_dbContextOptions))
         {
@@ -236,15 +236,15 @@ public class CustomerOrderHistoryAcceptanceTests : IAsyncLifetime
 
         var order1 = Order.Create(customerA, "TWD");
         order1.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
-        order1.Submit(address, baseTime.AddHours(-3));
+        order1.Submit(address, baseTime.AddSeconds(-30));
 
         var order2 = Order.Create(customerA, "TWD");
         order2.AddItem(new ProductId(Guid.NewGuid()), new Money(200m, "TWD"), 1);
-        order2.Submit(address, baseTime.AddHours(-2));
+        order2.Submit(address, baseTime.AddSeconds(-20));
 
         var order3 = Order.Create(customerA, "TWD");
         order3.AddItem(new ProductId(Guid.NewGuid()), new Money(300m, "TWD"), 1);
-        order3.Submit(address, baseTime.AddHours(-1));
+        order3.Submit(address, baseTime.AddSeconds(-10));
 
         await using (var dbContext = new EnterpriseCommerceDbContext(_dbContextOptions))
         {

@@ -1124,3 +1124,41 @@
   - 運行時狀態: `AUTHENTICATED_PRODUCT_DETAIL_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。
+
+### 2026-09-11 — PR #41 — feat: polish admin product creation experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Product Creation Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **實作範疇 (Implementation Scope)**：
+  - 僅限 2 個已凍結原始碼檔案：
+    - `apps/admin/src/app/products/new/page.tsx`
+    - `apps/admin/src/components/CreateProductForm.tsx`
+- **交付成果 (Delivered)**：
+  - 交付符合 Lean Operations Console 設計語言之新增商品管理後台體驗。
+  - 完整支援 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 響應式排版，行動端單欄自然流動且零水平溢出，桌面端限制在 `max-w-3xl` 保持高效操作密度。
+  - 清晰表單資訊架構分組：商品識別資訊 (Product Identity)、商業定價 (Commercial Data)、初始庫存設定 (Initial Inventory)，層次分明。
+  - 觸控友善與焦點無障礙：所有輸入框、返回商品列表導航、取消與建立按鈕均符合約 44px 觸控友善標準（`min-h-[44px]`），提供清楚的 `focus-visible:ring-2 focus-visible:ring-indigo-500` 輪廓。
+  - 驗證錯誤橫條具備 `role="alert"`、`aria-live="polite"` 與 `break-words` 安全換行。
+  - 初始庫存說明文字以 `aria-describedby` 與輸入框無障礙關聯。
+  - 行動端建立與取消按鈕採垂直堆疊（`flex flex-col-reverse`），平板與桌面採水平右側排列。
+  - 未登入卡片質感對齊管理後台統一視覺標準。
+- **嚴格高風險功能凍結與邊界 (Strict High-Risk Functional Freeze & Scope Boundaries)**：
+  - 頁面認證與會話守衛完全凍結：`auth0.getSession()` fail-closed 邏輯、未登入導向 `/auth/login` 完全保留。
+  - 所有客戶端欄位驗證完全凍結：商品名稱 trim/非空/255 字元上限、SKU trim/非空/100 字元上限、價格 parseFloat/非 NaN/大於 0、幣別 trim/大寫/3 碼長度、初始庫存 parseInt/非 NaN/正整數校驗。
+  - Action 呼叫合約凍結：`createProductAction({ name, sku, price, currency, initialStock })` 參數結構與呼叫時序完全未變。
+  - 結果處理與導航凍結：成功帶 Product ID 導向 `/products/:id`，無 ID 導向 `/products`，失敗保留錯誤提示，取消導向 `/products`。
+  - 伺服器 Action (`apps/admin/src/app/actions.ts`) 嚴格唯讀零變更，後端零變更 (`BACKEND_CHANGED=NO`)。
+  - 商品與初始庫存原子化初始化契約完全保留。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - 基準 Admin lint: PASS (`eslint`)
+  - 基準 Admin build: PASS (`next build`)
+  - 變更後 Admin lint: PASS (`eslint`)
+  - 變更後 Admin build: PASS (`next build`)
+  - Git 格式檢查: PASS (`git diff --check`)
+  - 功能性差異審計: PASS (`FUNCTIONAL_DIFF_AUDIT=PASS`)
+  - 來源指紋: `f9e706f0259fe3c33849a0dbc7c2e1d5a494958c9f3d8aa3c10b4ea3b3c78f4c`
+  - 運行時狀態: `AUTHENTICATED_PRODUCT_CREATION_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。

@@ -121,4 +121,15 @@ public sealed class PaymentAttempt : AggregateRoot<PaymentAttemptId>
 
         return Result.Success();
     }
+
+    public Result RequireRefundAfterCancellation()
+    {
+        if (Status != PaymentAttemptStatus.Succeeded)
+        {
+            return Result.Failure(PaymentErrors.InvalidStatusTransition);
+        }
+
+        Status = PaymentAttemptStatus.RefundRequired;
+        return Result.Success();
+    }
 }

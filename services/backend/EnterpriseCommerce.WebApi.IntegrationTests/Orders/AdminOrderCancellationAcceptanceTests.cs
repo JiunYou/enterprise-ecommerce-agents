@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -7,6 +8,7 @@ using EnterpriseCommerce.Application.Events;
 using EnterpriseCommerce.Application.Orders;
 using EnterpriseCommerce.Application.Orders.Commands.AdminCancelOrder;
 using EnterpriseCommerce.Application.Orders.Commands.CancelOrder;
+using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderById;
 using EnterpriseCommerce.Application.Payments.Commands.ProcessPaymentWebhook;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Inventory.ValueObjects;
@@ -669,5 +671,307 @@ public class AdminOrderCancellationAcceptanceTests : IAsyncLifetime
         public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task ADMIN_CANCEL_PAID_ORDER_LOCAL_ATOMICITY_AND_READ_MODEL()
+    {
+        // Arrange
+        await ClearPendingOutboxMessagesAsync();
+
+        var productId = Guid.NewGuid();
+        var inventory = InventoryItem.Create(new ProductReference(productId));
+        inventory.IncreaseStock(new StockQuantity(10));
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(productId), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(45m, "USD"), 2);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+        order.MarkAsPaid();
+
+        inventory.ReserveStock(new OrderReference(order.Id.Value), new StockQuantity(2));
+
+        var attempt = PaymentAttempt.Create(
+            order.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(90m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            "AUTH-ACCEPT-PAID");
+        attempt.MarkAsSucceeded("tx-paid-acc-1", DateTimeOffset.UtcNow.AddMinutes(-3), "AUTH-ACCEPT-PAID");
+
+        await using (var db = CreateFreshDbContext())
+        {
+            db.InventoryItems.Add(inventory);
+            db.Orders.Add(order);
+            db.PaymentAttempts.Add(attempt);
+            await db.SaveChangesAsync();
+        }
+
+        // Act: Admin cancels the Paid order
+        var client = CreateAdminClient("auth0|admin-paid-test");
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{order.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Customer requested cancellation on paid order"));
+
+        response.EnsureSuccessStatusCode();
+
+        // Assert 1: Immediate local state in fresh DbContext
+        await using (var verifyDb = CreateFreshDbContext())
+        {
+            var finalOrder = await verifyDb.Orders.FirstAsync(o => o.Id == order.Id);
+            finalOrder.Status.Should().Be(OrderStatus.Cancelled);
+
+            var finalAttempt = await verifyDb.PaymentAttempts.FirstAsync(p => p.Id == attempt.Id);
+            finalAttempt.Status.Should().Be(PaymentAttemptStatus.RefundRequired);
+            finalAttempt.ProviderTransactionId.Should().Be("tx-paid-acc-1");
+            finalAttempt.ProviderAuthorizationReference.Should().Be("AUTH-ACCEPT-PAID");
+            finalAttempt.Amount.Amount.Should().Be(90m);
+            finalAttempt.Amount.Currency.Should().Be("USD");
+            finalAttempt.Provider.Should().Be("ECPay");
+
+            var audit = await verifyDb.AdminOrderCancellations.FirstOrDefaultAsync(a => a.OrderId == order.Id);
+            audit.Should().NotBeNull();
+            audit!.ActorSubject.Should().Be("auth0|admin-paid-test");
+            audit.Reason.Should().Be("Customer requested cancellation on paid order");
+
+            var outboxMsg = await verifyDb.OutboxMessages
+                .FirstOrDefaultAsync(m => m.EventType == nameof(OrderStatusChangedDomainEvent) &&
+                                          m.Content.Contains(order.Id.Value.ToString()) &&
+                                          m.Content.Contains("\"NewStatus\":4"));
+            outboxMsg.Should().NotBeNull("Cancellation Outbox event must be atomically committed");
+            outboxMsg!.ProcessedOn.Should().BeNull("Inventory release is eventual; Outbox not yet processed");
+
+            var refundExists = await verifyDb.PaymentRefunds.AnyAsync(r => r.Id == attempt.Id);
+            refundExists.Should().BeFalse("No PaymentRefund should exist yet during cancellation transaction");
+        }
+
+        // Assert 2: Read model exposes the payment as RefundRequired with capability Eligible
+        var detailResponse = await client.GetAsync($"/api/v1/admin/orders/{order.Id.Value}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<AdminOrderDetailResponse>();
+        detail.Should().NotBeNull();
+        detail!.Status.Should().Be("Cancelled");
+        detail.RefundRequiredPayments.Should().NotBeNull();
+        detail.RefundRequiredPayments.Should().HaveCount(1);
+        var refundTarget = detail.RefundRequiredPayments!.First();
+        refundTarget.PaymentAttemptId.Should().Be(attempt.Id.Value);
+        refundTarget.Amount.Should().Be(90m);
+        refundTarget.Currency.Should().Be("USD");
+        refundTarget.RefundCapability.Should().Be("Eligible");
+        refundTarget.RefundStatus.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ADMIN_CANCEL_PAID_ORDER_EVENTUAL_INVENTORY_RELEASE()
+    {
+        // Arrange
+        await ClearPendingOutboxMessagesAsync();
+
+        var productId = Guid.NewGuid();
+        var inventory = InventoryItem.Create(new ProductReference(productId));
+        inventory.IncreaseStock(new StockQuantity(10));
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(productId), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(50m, "USD"), 3);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+        order.MarkAsPaid();
+
+        inventory.ReserveStock(new OrderReference(order.Id.Value), new StockQuantity(3));
+
+        var attempt = PaymentAttempt.Create(
+            order.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(150m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            "AUTH-RELEASE-PAID");
+        attempt.MarkAsSucceeded("tx-release-paid", DateTimeOffset.UtcNow.AddMinutes(-3), "AUTH-RELEASE-PAID");
+
+        await using (var db = CreateFreshDbContext())
+        {
+            db.InventoryItems.Add(inventory);
+            db.Orders.Add(order);
+            db.PaymentAttempts.Add(attempt);
+            await db.SaveChangesAsync();
+        }
+
+        // Verify pre-cancel reservation: Available 7, Reserved 3
+        await using (var checkDb = CreateFreshDbContext())
+        {
+            var inv = await checkDb.InventoryItems.FirstAsync(i => i.ProductReference == new ProductReference(productId));
+            inv.AvailableQuantity.Value.Should().Be(7);
+            inv.ReservedQuantity.Value.Should().Be(3);
+        }
+
+        // Act: Admin cancel
+        var client = CreateAdminClient("auth0|admin-release");
+        var cancelResponse = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{order.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Release paid reservation test"));
+        cancelResponse.EnsureSuccessStatusCode();
+
+        // Process Outbox (eventual release)
+        await ProcessOutboxAsync();
+
+        // Assert: Available 10, Reserved 0
+        await using (var verifyDb = CreateFreshDbContext())
+        {
+            var inv = await verifyDb.InventoryItems.FirstAsync(i => i.ProductReference == new ProductReference(productId));
+            inv.AvailableQuantity.Value.Should().Be(10, "Stock was eventually released back to available");
+            inv.ReservedQuantity.Value.Should().Be(0);
+        }
+    }
+
+    [Fact]
+    public async Task ADMIN_CANCEL_PAID_ORDER_INVALID_CARDINALITY_FAIL_CLOSED()
+    {
+        // Arrange Case 1: Paid order with 0 Succeeded attempts (only 1 Failed)
+        var orderZero = Order.Create(Guid.NewGuid(), "USD");
+        orderZero.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(20m, "USD"), 1);
+        orderZero.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+        orderZero.MarkAsPaid();
+
+        var failedAttempt = PaymentAttempt.Create(
+            orderZero.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(20m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-5));
+        failedAttempt.MarkAsFailed("tx-fail", DateTimeOffset.UtcNow.AddMinutes(-4));
+
+        // Arrange Case 2: Paid order with 2 Succeeded attempts
+        var orderTwo = Order.Create(Guid.NewGuid(), "USD");
+        orderTwo.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(30m, "USD"), 1);
+        orderTwo.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+        orderTwo.MarkAsPaid();
+
+        var succeeded1 = PaymentAttempt.Create(
+            orderTwo.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(30m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            "AUTH-1");
+        succeeded1.MarkAsSucceeded("tx-s1", DateTimeOffset.UtcNow.AddMinutes(-4), "AUTH-1");
+
+        var succeeded2 = PaymentAttempt.Create(
+            orderTwo.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(30m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-3),
+            "AUTH-2");
+        succeeded2.MarkAsSucceeded("tx-s2", DateTimeOffset.UtcNow.AddMinutes(-2), "AUTH-2");
+
+        await using (var db = CreateFreshDbContext())
+        {
+            db.Orders.AddRange(orderZero, orderTwo);
+            db.PaymentAttempts.AddRange(failedAttempt, succeeded1, succeeded2);
+            await db.SaveChangesAsync();
+        }
+
+        var client = CreateAdminClient();
+
+        // Act & Assert Case 1 (0 Succeeded):
+        var responseZero = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{orderZero.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Cancel zero succeeded"));
+        responseZero.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        await using (var verifyZeroDb = CreateFreshDbContext())
+        {
+            var o = await verifyZeroDb.Orders.FirstAsync(x => x.Id == orderZero.Id);
+            o.Status.Should().Be(OrderStatus.Paid, "Order with 0 Succeeded must remain Paid");
+
+            var p = await verifyZeroDb.PaymentAttempts.FirstAsync(x => x.Id == failedAttempt.Id);
+            p.Status.Should().Be(PaymentAttemptStatus.Failed);
+
+            var audit = await verifyZeroDb.AdminOrderCancellations.AnyAsync(a => a.OrderId == orderZero.Id);
+            audit.Should().BeFalse("No audit should be persisted when cardinality invariant is violated");
+        }
+
+        // Act & Assert Case 2 (2 Succeeded):
+        var responseTwo = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{orderTwo.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Cancel two succeeded"));
+        responseTwo.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        await using (var verifyTwoDb = CreateFreshDbContext())
+        {
+            var o = await verifyTwoDb.Orders.FirstAsync(x => x.Id == orderTwo.Id);
+            o.Status.Should().Be(OrderStatus.Paid, "Order with 2 Succeeded must remain Paid");
+
+            var p1 = await verifyTwoDb.PaymentAttempts.FirstAsync(x => x.Id == succeeded1.Id);
+            p1.Status.Should().Be(PaymentAttemptStatus.Succeeded);
+
+            var p2 = await verifyTwoDb.PaymentAttempts.FirstAsync(x => x.Id == succeeded2.Id);
+            p2.Status.Should().Be(PaymentAttemptStatus.Succeeded);
+
+            var audit = await verifyTwoDb.AdminOrderCancellations.AnyAsync(a => a.OrderId == orderTwo.Id);
+            audit.Should().BeFalse("No audit should be persisted when multiple Succeeded exist");
+        }
+    }
+
+    [Fact]
+    public async Task ADMIN_CANCEL_PAID_ORDER_COEXIST_WITH_EXISTING_REFUND_REQUIRED()
+    {
+        // Arrange
+        await ClearPendingOutboxMessagesAsync();
+
+        var order = Order.Create(Guid.NewGuid(), "USD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow);
+        order.MarkAsPaid();
+
+        var formerAttempt = PaymentAttempt.Create(
+            order.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-15),
+            "AUTH-PRE-EXISTING");
+        formerAttempt.MarkAsRefundRequired("tx-pre-refund", DateTimeOffset.UtcNow.AddMinutes(-12), "AUTH-PRE-EXISTING");
+
+        var currentAttempt = PaymentAttempt.Create(
+            order.Id,
+            new EnterpriseCommerce.Domain.Orders.ValueObjects.Money(100m, "USD"),
+            "ECPay",
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddMinutes(-8),
+            "AUTH-CURRENT-SUCCEEDED");
+        currentAttempt.MarkAsSucceeded("tx-current-succeeded", DateTimeOffset.UtcNow.AddMinutes(-6), "AUTH-CURRENT-SUCCEEDED");
+
+        await using (var db = CreateFreshDbContext())
+        {
+            db.Orders.Add(order);
+            db.PaymentAttempts.AddRange(formerAttempt, currentAttempt);
+            await db.SaveChangesAsync();
+        }
+
+        // Act: Admin cancel
+        var client = CreateAdminClient("auth0|admin-coexist");
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/admin/orders/{order.Id.Value}/cancel",
+            new AdminCancelOrderRequest("Coexist cancellation test"));
+        response.EnsureSuccessStatusCode();
+
+        // Assert
+        await using (var verifyDb = CreateFreshDbContext())
+        {
+            var finalOrder = await verifyDb.Orders.FirstAsync(o => o.Id == order.Id);
+            finalOrder.Status.Should().Be(OrderStatus.Cancelled);
+
+            var p1 = await verifyDb.PaymentAttempts.FirstAsync(p => p.Id == formerAttempt.Id);
+            p1.Status.Should().Be(PaymentAttemptStatus.RefundRequired, "Pre-existing RefundRequired must remain untouched");
+
+            var p2 = await verifyDb.PaymentAttempts.FirstAsync(p => p.Id == currentAttempt.Id);
+            p2.Status.Should().Be(PaymentAttemptStatus.RefundRequired, "Current Succeeded must now become RefundRequired");
+        }
+
+        var detailResponse = await client.GetAsync($"/api/v1/admin/orders/{order.Id.Value}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<AdminOrderDetailResponse>();
+        detail.Should().NotBeNull();
+        detail!.RefundRequiredPayments.Should().HaveCount(2, "Both refund obligations must be visible to Admin");
     }
 }

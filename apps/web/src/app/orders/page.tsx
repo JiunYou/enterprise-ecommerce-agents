@@ -3,8 +3,26 @@ import { getCustomerOrders } from "@/lib/orders";
 import { formatPrice } from "@/lib/format";
 import { CustomerHeader } from "@/components/CustomerHeader";
 
-export default async function CustomerOrderHistoryPage() {
-  const result = await getCustomerOrders();
+interface OrdersPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function CustomerOrderHistoryPage({ searchParams }: OrdersPageProps) {
+  const resolvedParams = await searchParams;
+  const rawPage = Array.isArray(resolvedParams?.page)
+    ? resolvedParams.page[0]
+    : resolvedParams?.page;
+  const parsedPage = rawPage ? parseInt(rawPage, 10) : 1;
+  const requestedPage = !isNaN(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
+
+  const result = await getCustomerOrders(requestedPage, 25);
+
+  const totalCount = result.success ? result.data.totalCount : 0;
+  const currentPage = result.success ? result.data.page : requestedPage;
+  const pageSize = result.success ? result.data.pageSize : 25;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const hasPrevious = currentPage > 1;
+  const hasNext = currentPage < totalPages;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
@@ -24,9 +42,9 @@ export default async function CustomerOrderHistoryPage() {
             <h1 className="text-2xl font-bold tracking-tight text-stone-950 dark:text-stone-50 sm:text-3xl">
               我的訂單
             </h1>
-            {result.success && result.data.length > 0 && (
+            {result.success && totalCount > 0 && (
               <p className="text-sm text-stone-500 dark:text-stone-400">
-                共 {result.data.length} 筆訂單
+                共 {totalCount} 筆訂單
               </p>
             )}
           </div>
@@ -35,7 +53,7 @@ export default async function CustomerOrderHistoryPage() {
           </p>
         </div>
 
-        {/* 狀態渲染：未登入 / 系統錯誤 / 空狀態 / 訂單清單 */}
+        {/* 狀態渲染：未登入 / 系統錯誤 / 空狀態 / 越界狀態 / 訂單清單 */}
         {!result.success ? (
           result.unauthorized ? (
             /* 狀態 A: 未登入 */
@@ -126,8 +144,8 @@ export default async function CustomerOrderHistoryPage() {
               </div>
             </section>
           )
-        ) : result.data.length === 0 ? (
-          /* 狀態 C: 空狀態 */
+        ) : totalCount === 0 ? (
+          /* 狀態 C: 真空狀態 (True Empty History) */
           <section
             aria-labelledby="empty-heading"
             className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm dark:border-stone-800 dark:bg-stone-900 sm:p-12"
@@ -168,11 +186,59 @@ export default async function CustomerOrderHistoryPage() {
               </Link>
             </div>
           </section>
+        ) : result.data.items.length === 0 ? (
+          /* 狀態 E: 越界頁碼狀態 (Out-of-range Page Recovery) */
+          <section
+            aria-labelledby="out-of-range-heading"
+            className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm dark:border-stone-800 dark:bg-stone-900 sm:p-12"
+          >
+            <div
+              aria-hidden="true"
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                />
+              </svg>
+            </div>
+            <h2
+              id="out-of-range-heading"
+              className="mt-4 text-lg font-semibold text-stone-950 dark:text-stone-50"
+            >
+              該頁面無訂單紀錄
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-stone-500 dark:text-stone-400">
+              您請求的第 {currentPage} 頁超出有效範圍（歷史訂單共 {totalCount} 筆，上限為第 {totalPages} 頁）。
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/orders?page=1"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+              >
+                返回第 1 頁
+              </Link>
+              <Link
+                href="/"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+              >
+                返回商品型錄
+              </Link>
+            </div>
+          </section>
         ) : (
-          /* 狀態 B: 訂單列表 */
+          /* 狀態 B: 訂單列表與分頁導航 */
           <div className="space-y-6">
             <ul role="list" className="space-y-4">
-              {result.data.map((order) => {
+              {result.data.items.map((order) => {
                 const formattedDate = new Date(order.submittedAt).toLocaleString("zh-TW", {
                   year: "numeric",
                   month: "2-digit",
@@ -248,6 +314,52 @@ export default async function CustomerOrderHistoryPage() {
                 );
               })}
             </ul>
+
+            {/* 分頁導覽區塊 */}
+            {totalPages > 1 && (
+              <nav
+                aria-label="訂單分頁導覽"
+                className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-900 sm:flex-row sm:px-6"
+              >
+                <div className="text-sm text-stone-500 dark:text-stone-400">
+                  第 <span className="font-semibold text-stone-900 dark:text-stone-100">{currentPage}</span> 頁，共{" "}
+                  <span className="font-semibold text-stone-900 dark:text-stone-100">{totalPages}</span> 頁
+                </div>
+                <div className="flex items-center gap-3">
+                  {hasPrevious ? (
+                    <Link
+                      href={currentPage === 2 ? "/orders" : `/orders?page=${currentPage - 1}`}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                    >
+                      &larr; 上一頁
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-lg border border-stone-200 bg-stone-100 px-4 py-2 text-sm font-medium text-stone-400 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-600"
+                    >
+                      &larr; 上一頁
+                    </span>
+                  )}
+
+                  {hasNext ? (
+                    <Link
+                      href={`/orders?page=${currentPage + 1}`}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                    >
+                      下一頁 &rarr;
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-lg border border-stone-200 bg-stone-100 px-4 py-2 text-sm font-medium text-stone-400 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-600"
+                    >
+                      下一頁 &rarr;
+                    </span>
+                  )}
+                </div>
+              </nav>
+            )}
 
             <div className="pt-2">
               <Link

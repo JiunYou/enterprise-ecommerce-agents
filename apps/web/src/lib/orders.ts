@@ -251,15 +251,25 @@ export interface CustomerOrderSummary {
   currency: string;
 }
 
+export interface CustomerOrderPage {
+  items: CustomerOrderSummary[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
 export type GetCustomerOrdersResult =
-  | { success: true; data: CustomerOrderSummary[] }
+  | { success: true; data: CustomerOrderPage }
   | {
       success: false;
       unauthorized?: boolean;
       error: string;
     };
 
-export async function getCustomerOrders(): Promise<GetCustomerOrdersResult> {
+export async function getCustomerOrders(
+  page: number = 1,
+  pageSize: number = 25
+): Promise<GetCustomerOrdersResult> {
   const session = await auth0.getSession();
   if (!session || !session.user) {
     return {
@@ -269,10 +279,16 @@ export async function getCustomerOrders(): Promise<GetCustomerOrdersResult> {
     };
   }
 
+  const normalizedPage = Math.max(1, Math.floor(page) || 1);
+  const normalizedPageSize = Math.max(1, Math.min(100, Math.floor(pageSize) || 25));
+
   try {
-    const response = await authenticatedFetch("/api/v1/orders", {
-      cache: "no-store",
-    });
+    const response = await authenticatedFetch(
+      `/api/v1/orders?page=${normalizedPage}&pageSize=${normalizedPageSize}`,
+      {
+        cache: "no-store",
+      }
+    );
 
     if (response.status === 401 || response.status === 403) {
       return {
@@ -289,7 +305,7 @@ export async function getCustomerOrders(): Promise<GetCustomerOrdersResult> {
       };
     }
 
-    const data: CustomerOrderSummary[] = await response.json();
+    const data: CustomerOrderPage = await response.json();
     return {
       success: true,
       data,

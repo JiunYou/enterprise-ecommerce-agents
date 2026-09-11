@@ -1289,4 +1289,131 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         problemDetails!.Status.Should().Be(400);
         problemDetails.Detail.Should().Be(OrderErrors.InvalidShippingCarrier.Message);
     }
+
+    [Fact]
+    public async Task GetCustomerOrders_WhenAnonymous_Returns401Unauthorized()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/orders");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_WhenAuthenticatedWithoutCustomerIdClaim_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        // Act
+        var response = await client.GetAsync("/api/v1/orders");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_WithDefaultQuery_SendsDefaultPaginationToSender()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var emptyPageResponse = new EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderPageResponse(
+            new List<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderSummaryResponse>(),
+            1,
+            25,
+            0);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                    q => q.CustomerId == customerId && q.Page == 1 && q.PageSize == 25),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(emptyPageResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        // Act
+        var response = await client.GetAsync("/api/v1/orders");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(
+            It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                q => q.CustomerId == customerId && q.Page == 1 && q.PageSize == 25),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_WithExplicitQueryParams_SendsExplicitPaginationToSender()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var pageResponse = new EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderPageResponse(
+            new List<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderSummaryResponse>(),
+            2,
+            10,
+            20);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                    q => q.CustomerId == customerId && q.Page == 2 && q.PageSize == 10),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(pageResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        // Act
+        var response = await client.GetAsync("/api/v1/orders?page=2&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(
+            It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                q => q.CustomerId == customerId && q.Page == 2 && q.PageSize == 10),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_Security_IgnoresUntrustedCustomerIdInQuery()
+    {
+        // Arrange
+        var trustedCustomerId = Guid.NewGuid();
+        var untrustedCustomerId = Guid.NewGuid();
+        var pageResponse = new EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderPageResponse(
+            new List<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.CustomerOrderSummaryResponse>(),
+            1,
+            25,
+            0);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                    q => q.CustomerId == trustedCustomerId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(pageResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", trustedCustomerId.ToString());
+
+        // Act - 嘗試透過 Query String 傳入不受信任的 customerId
+        var response = await client.GetAsync($"/api/v1/orders?customerId={untrustedCustomerId}&page=1&pageSize=25");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(
+            It.Is<EnterpriseCommerce.Application.Orders.Queries.GetCustomerOrders.GetCustomerOrdersQuery>(
+                q => q.CustomerId == trustedCustomerId && q.CustomerId != untrustedCustomerId),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
 }

@@ -1252,3 +1252,37 @@
   - Git Diff Check: 通過 (零多餘空白或行尾問題)
   - 來源指紋 (Source Fingerprint): `0c5cfc7f6e8fb156f47f5f0e794aec020f0b2b3749f0a5e72765e5e7a083338a`
   - 運行時狀態: `AUTHENTICATED_SHIPMENT_API_ACCEPTANCE=PASS`，`AUTHENTICATED_SHIPMENT_RUNTIME=NOT_OBSERVED`（依治理規範不偽造真實 Auth0 session）
+
+### 2026-09-11 — PR #45 — feat: paginate customer order history
+- **垂直切片 (Vertical Slice)**：
+  - Customer Order History Pagination v1
+- **程序分類 (Process Classification)**：
+  - Tier-2 顧客讀取模型與 API 變更 (Tier-2 Customer Read Model and API)
+  - 嚴格紅燈優先測試驅動開發 (RED-First TDD Required: `RED_FIRST_EVIDENCE=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 將未受限的顧客歷史訂單查詢 (`GET /api/v1/orders`) 替換為有界分頁讀取模型 (`page=1&pageSize=25`)。
+  - **倉儲層 (Repository)**：以 `GetCustomerOrderHistoryAsync(customerId, page, pageSize)` 取代未受限查詢。使用 `AsNoTracking()`，以相同述詞執行 `CountAsync` 計算總數，嚴格依 `SubmittedAt DESC` 然後 `OrderId DESC` 排序後執行 `Skip((page - 1) * pageSize).Take(pageSize)` 切片，僅載入當前頁面資料。
+  - **應用層 (Application CQRS)**：擴充 `GetCustomerOrdersQuery` 包含 `Page` 與 `PageSize`。於 Handler 中實作分頁規範化（預設 `page=1`, `pageSize=25`；`page <= 0` 規範為 1，`pageSize <= 0` 規範為 25，`pageSize > 100` 規範為 100）。回傳包含 `Items`, `Page`, `PageSize`, `TotalCount` 之 `CustomerOrderPageResponse`。現有摘要欄位映射（`Id`, `Status`, `SubmittedAt`, `TotalAmount`, `Currency`）完全保持不變。
+  - **API 端點 (API Endpoint)**：維持相同端點 `GET /api/v1/orders`，增加可選查詢參數 `?page=<int>&pageSize=<int>`。顧客身分識別 `CustomerId` 嚴格僅由認證 Claim（`TryGetCustomerId`）內部解析，絕不接受或信任外部傳入之任何 customerId 參數。
+  - **越界頁碼合約 (Page Out-of-Range Contract)**：請求超出範圍頁碼（如 `page=99`）回傳 200 OK、空的 `items: []`，並正確回顯請求之頁碼與正確之 `totalCount`，不擅自正規化為最後一頁。
+  - **顧客前端介面 (Customer Web UX)**：更新 `/orders` 頁面以消費 `searchParams` Promise。分頁狀態儲存於 URL（`/orders?page=2` 等），支援重新整理、瀏覽器歷史導覽與 SSR。總數改由 `totalCount` 顯示；提供「第 X 頁，共 Y 頁」資訊與「上一頁／下一頁」Next.js `Link` 導覽；精確區隔真空狀態（`TotalCount == 0`）與越界狀態（`TotalCount > 0 && Items.Count == 0`，提供導回 `/orders?page=1` 之復原連結）；保留深色模式、44px 觸控尺寸與訂單詳情導覽。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 訂單領域層零改動 (`ORDER_DOMAIN_CHANGED=NO`)。
+  - 顧客所有權邊界零改動 (`CUSTOMER_HISTORY_OWNERSHIP_BOUNDARY_CHANGED=NO`)，嚴格防止跨顧客資料或數量外洩。
+  - 歷史訂單成員資格規則零改動 (`CUSTOMER_HISTORY_MEMBERSHIP_RULE_CHANGED=NO`)，維持 `SubmittedAt != null`（排除購物車草稿與未送出取消購物車）。
+  - 歷史排序合約零改動 (`CUSTOMER_HISTORY_SORT_ORDER_CHANGED=NO`)。
+  - 資料庫綱要零改動，無 Migration (`DB_SCHEMA_CHANGED=NO`)。
+  - 顧客訂單詳情、顧客取消、管理員訂單、金流、退款、庫存、商品目錄行為零改動。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Domain UnitTests: 通過 168 項
+  - Application UnitTests: 通過 286 項 (新增 6 項分頁與規範化測試)
+  - Infrastructure UnitTests: 通過 212 項 (新增 3 項分頁、隔離性與確定性排序測試)
+  - WebApi IntegrationTests 全套: 通過 340 項 (全套 340/340 通過)
+  - CustomerOrderHistory 穩定性門檻: 測試 fixture 修復對齊既有 15 分鐘過期生命週期，連續 5 次聚焦測試全數通過 (5 passed / 0 failed)；全套測試後連續 2 次聚焦測試全數通過
+  - 分頁回歸檢查: Application / Infrastructure / WebApi 聚焦回歸測試全數通過
+  - Customer Web 前端: Lint 與 Next.js 最佳化生產組建通過
+  - Git Diff Check: 完全通過
+  - 來源指紋 (Source Fingerprint): `6c61fddba7f2c2a25a3430882cef028635288d3a2683ce67838056b0e472659d`
+  - 運行時狀態: `AUTHENTICATED_CUSTOMER_HISTORY_API_ACCEPTANCE=PASS`，`AUTHENTICATED_CUSTOMER_HISTORY_RUNTIME=NOT_OBSERVED`（遵循治理規範不偽造真實 Auth0 瀏覽器工作階段）。
+

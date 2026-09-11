@@ -1084,3 +1084,43 @@
   - 運行時狀態: `AUTHENTICATED_PRODUCTS_LIST_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。
+
+### 2026-09-11 — PR #40 — feat: polish admin product detail experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Product Detail Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **實作範疇 (Implementation Scope)**：
+  - 僅限 4 個已凍結原始碼檔案：
+    - `apps/admin/src/app/products/[id]/page.tsx`
+    - `apps/admin/src/components/AdjustInventoryStockForm.tsx`
+    - `apps/admin/src/components/DeactivateProductButton.tsx`
+    - `apps/admin/src/components/UpdateProductPriceForm.tsx`
+- **交付成果 (Delivered)**：
+  - 交付符合 Lean Operations Console 設計語言之商品詳情管理後台體驗。
+  - 完整支援 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 響應式重排、優先級呈現與高密度操作佈局。
+  - 全面保護長識別碼與文字防溢出（商品名稱 `break-words`，Product ID 與 SKU `break-all font-mono`）。
+  - 售價調整表單 (`UpdateProductPriceForm`)：響應式輸入框與按鈕排版、約 44px 觸控友善目標（`min-h-[44px]`）與無障礙焦點樣式（`focus-visible:ring-2`）。
+  - 庫存調整作業表單 (`AdjustInventoryStockForm`)：增加與扣減按鈕在窄螢幕自動垂直堆疊排版，避免擁擠誤觸，提供明確觸控高度與焦點提示。
+  - 停用商品按鈕與確認面板 (`DeactivateProductButton`)：破壞性區域視覺層次優化，確認與取消按鈕提供自適應排列與觸控友善高度，完整保留 4 大關鍵業務警告文案。
+  - 錯誤與未登入畫面（401、403、404、系統錯誤）對齊後台統一視覺標準與行動端操作體驗。
+- **嚴格高風險功能凍結與邊界 (Strict High-Risk Functional Freeze & Scope Boundaries)**：
+  - 認證、會話與授權順序完全凍結（`auth0.getSession()`, 未登入與 401/403 阻擋邏輯不變）。
+  - 查詢行為不變：`getAdminProductById(id)` 與 `getAdminInventory(id)` 調用時機與狀態判定語意完全保留。
+  - 變更組件閘門與屬性完全不變：庫存表單僅在庫存存在時渲染；停用按鈕僅在上架中渲染；傳入屬性完全一致。
+  - 售價變更合約凍結：正浮點數校驗、非同價校驗、`updateProductPriceAction(productId, parsedPrice)` 完全未變。
+  - 停用變更合約凍結：確認與取消狀態機、`deactivateProductAction(productId)` 完全未變，業務警告語意完全一致。
+  - 庫存變更合約凍結：正整數校驗、扣減上限限制、`window.confirm`、`increaseInventoryStockAction` 與 `decreaseInventoryStockAction` 調用、預留庫存保護語意完全未變。
+  - 零後端變更 (`BACKEND_CHANGED=NO`)，`actions.ts` 與 `products.ts` 零變更，商品列表與建立零變更。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - 基準 Admin lint: PASS (`eslint`)
+  - 基準 Admin build: PASS (`next build`)
+  - 變更後 Admin lint: PASS (`eslint`)
+  - 變更後 Admin build: PASS (`next build`)
+  - Git 格式檢查: PASS (`git diff --check`)
+  - 功能性差異審計: PASS (`FUNCTIONAL_DIFF_AUDIT=PASS`)
+  - 來源指紋: `8ae5a94c879901348b6f54ecd787397ca3f3eaf820057f08cca91bcbfdbf303d`
+  - 運行時狀態: `AUTHENTICATED_PRODUCT_DETAIL_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。

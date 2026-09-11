@@ -1162,3 +1162,33 @@
   - 運行時狀態: `AUTHENTICATED_PRODUCT_CREATION_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。
+
+### 2026-09-11 — PR #42 — feat: add product reactivation lifecycle
+- **垂直切片 (Vertical Slice)**：
+  - Product Reactivation Lifecycle v1
+- **程序分類 (Process Classification)**：
+  - Tier-1 領域生命週期變更 (Tier-1 Domain Lifecycle Mutation)
+  - 嚴格紅燈優先測試驅動開發 (RED-First TDD Required: `RED_FIRST_EVIDENCE=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 交付完整之商品重新啟用生命週期 (Product Reactivation Lifecycle: Inactive → Reactivate → Active)。
+  - **領域層 (Domain)**：實作 `Product.Reactivate()`，與既有 `Product.Deactivate()` 形成嚴格對稱之生命週期；若商品已處於活躍狀態 (`IsActive == true`)，回傳 `ProductErrors.AlreadyActive` 防禦失敗，且絕不修改任何產品狀態。
+  - **應用層 (Application CQRS)**：實作 `ReactivateProductCommand`、`ReactivateProductCommandValidator` 及 `ReactivateProductCommandHandler`。採用單一 `SaveChangesAsync` 交易持久化，捕獲 EF `DbUpdateConcurrencyException` 並映射為 `ProductErrors.ConcurrencyConflict`，不自動重試並發衝突。
+  - **Web API 端點**：新增 `PUT /api/v1/products/{id:guid}/reactivate`，配置 `[Authorize(Roles = "Admin")]` 角色授權。沿用既有 `ApiControllerBase.HandleFailure`，精確映射 200 OK、400 BadRequest (AlreadyActive)、401 Unauthorized (匿名)、403 Forbidden (非 Admin)、404 NotFound 及 409 Conflict。
+  - **公開目錄資格恢復**：被重新啟用的商品在公開目錄與讀取查詢中，完全透過既有之 `IsActive` 查詢過濾自然恢復展示與加入購物車資格，無須建置任何新的公開查詢端點。
+  - **管理端 Server Action 與 UI**：在 `apps/admin/src/app/actions.ts` 實作 `reactivateProductAction`，成功時執行具體商品路徑快取重置 (`revalidatePath("/products")` 與 `revalidatePath('/products/${encodeURIComponent(productId.trim())}')`)；在 `apps/admin/src/app/products/[id]/page.tsx` 實現生命週期操作嚴格隔離（Active 僅顯示 Deactivate，Inactive 僅顯示 Reactivate），並建立具備安全確認、防重複提交與錯誤展示的 `ReactivateProductButton`。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 商品識別碼 (Id)、名稱 (Name)、SKU、售價 (Price) 與幣別 (Currency) 完全保持不變。
+  - 庫存邊界：完全不查詢、不修改、不初始化庫存，無庫存閘門依賴 (`INVENTORY_BEHAVIOR_CHANGED=NO`)。
+  - 並發模型：沿用既有 EF `Product.Version` 並發 Token (`PRODUCT_CONCURRENCY_MODEL_CHANGED=NO`)。
+  - 資料庫綱要：零遷移、零 Schema 變更 (`DB_SCHEMA_CHANGED=NO`)。
+  - 購物車、訂單與付款模組完全零改動。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Domain UnitTests: 通過 148 項 (新增 2 項)
+  - Application UnitTests: 通過 262 項 (新增 5 項)
+  - Infrastructure UnitTests: 通過 209 項
+  - WebApi IntegrationTests 全套: 通過 318 項 (含新增之 Reactivate 授權/狀態端點測試及真實 MySQL 生命週期驗收測試)
+  - Admin Lint: 通過 (0 errors, 0 warnings)
+  - Admin Build: 通過 (Next.js 最佳化生產組建成功)
+  - Git Diff Check: 通過 (無多餘空白字元或行尾問題)
+  - 來源指紋 (Source Fingerprint): `cef5058bde3fcf435f61eaee7b79f8a19f572a9561ad88b561af5f57b24e836b`

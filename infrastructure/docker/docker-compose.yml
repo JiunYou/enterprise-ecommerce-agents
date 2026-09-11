@@ -29,6 +29,22 @@ services:
     networks:
       - app-network
 
+  db-migrate:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: prawn-db-migrate
+    working_dir: /src
+    volumes:
+      - ../../services/backend:/src
+    environment:
+      - ConnectionStrings__Database=Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: >
+      sh -c "dotnet tool restore && dotnet tool run dotnet-ef database update --project EnterpriseCommerce.Infrastructure/EnterpriseCommerce.Infrastructure.csproj --startup-project EnterpriseCommerce.WebApi/EnterpriseCommerce.WebApi.csproj"
+
   backend-api:
     image: mcr.microsoft.com/dotnet/sdk:8.0
     container_name: prawn-backend-api
@@ -45,6 +61,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     networks:
       - app-network
 

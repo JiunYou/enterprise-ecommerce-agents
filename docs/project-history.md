@@ -1360,3 +1360,27 @@
   - Git Diff Check: 完全通過
   - 來源指紋 (Source Fingerprint): `2d145a2efa5164b1f6e1265e5cf1bc0c47c1fb12b308b0d63e42102e9d4ea12c`
   - 任務隔離容器資源清理完成 (`TASK_OWNED_RUNTIME_CLEANED=YES`)
+
+### 2026-09-12 — PR #48 — feat: add admin product name editing
+- **垂直切片 (Vertical Slice)**：
+  - Admin Product Name Editing v1 (`ADMIN_PRODUCT_NAME_EDITING_V1`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 提供管理員在後台商品詳情頁（Admin Product Detail）安全調整商品目錄顯示名稱（`Product.Name`）。
+  - **嚴格限縮修改範圍**：僅修改 `Product.Name` 欄位，嚴禁變更 SKU、價格（Price）、幣別（Currency）、狀態（IsActive）、庫存（Inventory）、訂單（Order/OrderItem）或支付退款資料。
+  - **支援雙狀態重命名**：允許管理員針對已上架（Active）與已下架（Inactive）商品進行重命名，且重命名操作不變更商品既有之生命週期狀態（`PRODUCT_LIFECYCLE_STATUS_CHANGED_BY_RENAME=NO`）。
+  - **Trim 正規化與邊界驗證**：輸入自動去除前後空白（Trim），拒絕空字串、純空白及修剪後超過 255 字元之名稱，回傳 `ProductErrors.InvalidName`。
+  - **樂觀並行控制**：重用既有 `Product.Version` Concurrency Token 機制，發生並行衝突時回傳 `ProductErrors.ConcurrencyConflict`（HTTP 409），不引入自動重試。
+  - **管理員專屬權限**：Web API 端點 `PUT /api/v1/products/{id}/name` 限制為 `[Authorize(Roles = "Admin")]`，非管理者回傳 403 Forbidden，未驗證回傳 401 Unauthorized。
+  - **真實 MySQL 整合驗收**：經由獨立 fresh DbContext 重新讀取，驗證名稱變更確實持久化，且 SKU、價格、幣別、狀態等不變性維持不變；匿名查詢公開商品端點 `GET /api/v1/products/{id}` 自然反映出當前最新名稱。
+  - **無資料庫遷移 (No DB Migration)**：現有 `ProductConfiguration` 已設定 Name 為必填且長度上限 255，未新增任何資料庫遷移檔案（`NEW_MIGRATION_CREATED=NO`, `DB_SCHEMA_CHANGED=NO`）。
+  - **歷史訂單行為凍結**：OrderItem 依既有架構僅記錄 ProductId、UnitPrice、Quantity，無快照或結構變更（`ORDER_DOMAIN_CHANGED=NO`, `ORDER_SCHEMA_CHANGED=NO`）。
+- **驗證成果 (Validation)**：
+  - RED-FIRST TDD 完整通過 (`DOMAIN_RED_FIRST=PASS`, `APPLICATION_RED_FIRST=PASS`, `WEBAPI_RED_FIRST=PASS`)
+  - Domain UnitTests: 通過 174 項 (新增 6 項重命名單元測試)
+  - Application UnitTests: 通過 305 項 (新增 10 項命令處理器與驗證器測試)
+  - Infrastructure UnitTests: 通過 212 項
+  - WebApi IntegrationTests: 通過 356 項 (新增 7 項控制器整合測試與 2 項真實 MySQL 驗收測試)
+  - Admin 前端: ESLint 與 Next.js 產品建置全數通過
+  - Git Diff Check: 完全通過 (`git diff --check` 無警告)
+  - 12 檔案權威來源指紋 (Source Fingerprint): `5fecc56e0829673b10741b1e1efeab746a406d5a4cd0d1fdd986add537effbea`
+  - 運行時狀態: `AUTHENTICATED_ADMIN_PRODUCT_NAME_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_NAME_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。

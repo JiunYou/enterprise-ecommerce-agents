@@ -1324,3 +1324,39 @@
   - Git Diff Check: 完全通過
   - 來源指紋 (Source Fingerprint): `20734017592dea947b5c59b6c113846776e0ca5fe6603120fe1c612f83a2e991`
   - 運行時狀態: `AUTHENTICATED_CUSTOMER_REFUND_API_ACCEPTANCE=PASS`，`AUTHENTICATED_CUSTOMER_REFUND_RUNTIME=NOT_OBSERVED`（遵循治理規範不偽造真實 Auth0 瀏覽器工作階段）。
+
+### 2026-09-12 — PR #47 — fix: bootstrap local database schema
+- **垂直切片 (Vertical Slice)**：
+  - Local DB Schema Bootstrap v1
+- **程序分類 (Process Classification)**：
+  - Tier-2 本地執行環境基礎架構 (Tier-2 Local Runtime Infrastructure)
+  - 嚴格紅燈優先驗證 (RED-First Evidence Required: `LOCAL_DB_BOOTSTRAP_RED_FIRST=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 讓本地 Docker Compose 執行環境在全新的 MySQL 實例上自我引導（Self-Bootstrap）既有的 EF Core 資料庫綱要，避免後端啟動時因無資料庫綱要而無法處理請求。
+  - **一次性遷移服務 (`db-migrate`)**：在 `infrastructure/docker/docker-compose.yml` 中新增 `db-migrate` 服務，使用 `mcr.microsoft.com/dotnet/sdk:8.0` 映像檔，掛載後端專案目錄並執行本機還原與資料庫更新命令。
+  - **倉儲本地 EF 工具資訊清單**：新增 `services/backend/.config/dotnet-tools.json`，鎖定 `dotnet-ef 8.0.2`（`DOTNET_EF_REPO_LOCAL=YES`），不依賴開發機全域安裝之工具。
+  - **啟動依賴順序編排**：確立 `mysql (healthy) → db-migrate (service_completed_successfully) → backend-api` 鏈條，`backend-api` 嚴格在 `db-migrate` 成功退出（exit 0）後方可啟動（`BACKEND_WAITS_FOR_MIGRATION_SUCCESS=YES`）。
+  - **閉鎖合約 (Fail-Closed Contract)**：當資料庫遷移失敗時，`db-migrate` 退出非 0 代碼，Compose 依賴鏈阻斷，`backend-api` 維持未啟動狀態，杜絕任何 `|| true` 或吞掉錯誤碼之情事（`MIGRATION_FAILURE_FAILS_CLOSED=PASS`）。
+  - **等冪性保證 (Idempotency)**：重複執行 `db-migrate` 退出代碼為 0，`__EFMigrationsHistory` 記錄筆數完全不變，既有資料與 API 功能正常運作（`MIGRATION_BOOTSTRAP_IDEMPOTENT=PASS`）。
+  - **僅套用既有遷移**：嚴格僅套用倉儲既有之 11 個遷移，最新遷移為 `20260911140512_AddOrderShipmentTracking`，不建立新遷移、不更動模型快照（`NEW_MIGRATION_CREATED=NO`、`DB_SCHEMA_DEFINITION_CHANGED=NO`）。
+  - **WebApi 啟動無自動遷移**：遷移編排嚴格限制於本地 Compose 啟動，不在 `Program.cs` 引入 `Database.Migrate()`（`WEBAPI_STARTUP_AUTO_MIGRATION=NO`）。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 應用程式原始碼零改動 (`APPLICATION_SOURCE_CHANGED=NO`)。
+  - 訂單、支付、退款、庫存、商品目錄領域行為零改動。
+  - Web 與 Admin 前端原始碼零改動 (`FRONTEND_WEB_CHANGED=NO`, `FRONTEND_ADMIN_CHANGED=NO`)。
+  - Redis、RabbitMQ、Elasticsearch Compose 組態零改動。
+  - MySQL 持久化模型零改動，不變更既有容器名稱 (`EXISTING_CONTAINER_NAMES_CHANGED=NO`)。
+  - 零機密提交 (`REAL_SECRET_COMMITTED=NO`)。
+  - 未修改 README.md (`README_CHANGED=NO`)。
+- **驗證成果 (Validation)**：
+  - RED 基準缺口驗證通過：全新 MySQL 下產品 API 回傳 500 且無遷移歷史表 (`LOCAL_DB_BOOTSTRAP_RED_FIRST=PASS`)
+  - GREEN 隔離環境端對端驗證通過：全新 MySQL 自動套用 11 筆遷移並啟動後端，產品 API 正常回傳 200 (`FRESH_DB_BOOTSTRAP_RUNTIME=PASS`, `LATEST_MIGRATION_APPLIED=PASS`)
+  - 等冪性驗證通過：二次執行 exit 0 且歷史筆數維持 11 (`MIGRATION_BOOTSTRAP_IDEMPOTENT=PASS`)
+  - 閉鎖驗證通過：無效連線下遷移失敗退出 1 且後端阻止啟動 (`MIGRATION_FAILURE_FAILS_CLOSED=PASS`)
+  - Domain UnitTests: 通過 168 項
+  - Application UnitTests: 通過 295 項
+  - Infrastructure UnitTests: 通過 212 項
+  - WebApi IntegrationTests 全套: 通過 347 項
+  - Git Diff Check: 完全通過
+  - 來源指紋 (Source Fingerprint): `2d145a2efa5164b1f6e1265e5cf1bc0c47c1fb12b308b0d63e42102e9d4ea12c`
+  - 任務隔離容器資源清理完成 (`TASK_OWNED_RUNTIME_CLEANED=YES`)

@@ -1049,3 +1049,38 @@
   - 基準執行紀錄: `PRE_CHANGE_BASELINE_EXECUTION=NOT_OBSERVED`
 - **程序核算分類 (Process Classification)**：
   - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。
+
+### 2026-09-11 — PR #39 — feat: polish admin products list experience
+- **垂直切片 (Vertical Slice)**：
+  - Admin Products List Visual v1
+- **視覺方向 (Visual Direction)**：
+  - 精實作業控制台風格 (Lean Operations Console)
+- **實作範疇 (Implementation Scope)**：
+  - 僅限單一原始碼檔案：`apps/admin/src/app/products/page.tsx`
+- **交付成果 (Delivered)**：
+  - 交付符合 Lean Operations Console 設計語言之管理端商品目錄列表體驗。
+  - 完整支援 Mobile (375x812)、Tablet (768x1024) 與 Desktop (1280x800) 響應式重排與優先級排序。
+  - 行動端與平板端專屬卡片清單 (`lg:hidden`)，避免小螢幕橫向捲軸與欄位擁擠。
+  - 桌面端高密度營運表格 (`hidden lg:block`)，緊湊呈現商品名稱、SKU、商品識別碼、售價、狀態與管理操作。
+  - 搜尋與篩選列響應式重構（行動端垂直堆疊、平板雙欄網格、桌面水平行）。
+  - 全面保護長識別碼與長文字防溢出（商品名稱 `break-words`，SKU 與 Product ID `break-all font-mono`）。
+  - 強化行動端觸控友善性（`h-11` / `min-h-[44px]` touch-manipulation）與鍵盤焦點環視覺提示（`focus-visible:ring-2 focus-visible:ring-indigo-500`）。
+  - 裝飾性圖示明確標記 `aria-hidden="true"`，表單與分頁導覽具備無障礙標籤。
+  - 支援暗色模式 (Dark Mode) 與細緻狀態徽章（上架中 Active: Emerald，已下架 Inactive: Zinc）。
+- **嚴格功能凍結與非範疇說明 (Strict Functional Freeze & Scope Boundaries)**：
+  - 查詢、搜尋、過濾、排序與分頁語意完全凍結（Auth0 會話處理、`searchParams` 解析、`pageSize = 20`、`getAdminProducts` 引數完全不變）。
+  - 零 Mutation 引入：商品目錄列表維持純唯讀查詢與導航介面。
+  - 商品詳情 (`apps/admin/src/app/products/[id]/**`) 與商品建立 (`apps/admin/src/app/products/new/**`) 嚴格排除在外，無任何修改。
+  - `actions.ts` 與 `products.ts` 零變更，後端核心零變更。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - 基準 Admin lint: PASS (`eslint`)
+  - 基準 Admin build: PASS (`next build`)
+  - 變更後 Admin lint: PASS (`eslint`)
+  - 變更後 Admin build: PASS (`next build`)
+  - Git 格式檢查: PASS (`git diff --check`)
+  - 功能性差異審計: PASS (`FUNCTIONAL_DIFF_AUDIT=PASS`)
+  - 來源指紋: `99afbc2b9a23d72dcb26437e2d93c0c43ddc9dddca7d7b2026bdbb4a99dbe90e`
+  - 運行時狀態: `AUTHENTICATED_PRODUCTS_LIST_RUNTIME=NOT_OBSERVED`（遵循治理規範，不偽造 session、不繞過驗證、不寫入假資料）
+- **程序核算分類 (Process Classification)**：
+  - 前端視覺實作 (Presentation-only / Tier-3 Visual，無後端或核心業務行為變更)。

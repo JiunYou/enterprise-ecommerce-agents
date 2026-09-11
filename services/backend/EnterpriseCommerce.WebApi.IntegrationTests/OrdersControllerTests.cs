@@ -637,7 +637,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success());
 
         var client = _factory.CreateClient();
@@ -645,7 +646,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -656,7 +657,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
 
         var client = _factory.CreateClient();
@@ -664,7 +666,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -1090,7 +1092,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
 
         var client = _factory.CreateClient();
@@ -1098,7 +1101,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -1113,7 +1116,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
 
         var client = _factory.CreateClient();
@@ -1121,7 +1125,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -1136,7 +1140,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.InvalidStatusTransition));
 
         var client = _factory.CreateClient();
@@ -1144,7 +1149,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -1159,7 +1164,8 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(OrderErrors.NotFound));
 
         var client = _factory.CreateClient();
@@ -1167,7 +1173,7 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var response = await client.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -1182,8 +1188,9 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
     {
         // Arrange
         var orderId = Guid.NewGuid();
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
         var callCount = 0;
-        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var current = Interlocked.Increment(ref callCount);
@@ -1199,13 +1206,87 @@ public class OrdersControllerTests : IClassFixture<WebApplicationFactory<Program
         client2.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
 
         // Act
-        var task1 = client1.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
-        var task2 = client2.PutAsync($"/api/v1/Orders/{orderId}/ship", null);
+        var task1 = client1.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
+        var task2 = client2.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
         var responses = await Task.WhenAll(task1, task2);
 
         // Assert
         var statusCodes = responses.Select(r => r.StatusCode).ToList();
         statusCodes.Should().Contain(HttpStatusCode.OK);
         statusCodes.Should().Contain(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithConcurrencyConflict_Returns409Conflict()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        var conflictError = new Error("Order.ConcurrencyConflict", "The order was modified by another operation.");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(conflictError));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(409);
+        problemDetails.Title.Should().Be("Conflict");
+        problemDetails.Detail.Should().Be(conflictError.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithMissingShippingAddress_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var request = new ShipOrderRequest("DHL", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId && c.Carrier == "DHL" && c.TrackingNumber == "TRACK-123"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.ShippingAddressRequired));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.ShippingAddressRequired.Message);
+    }
+
+    [Fact]
+    public async Task ShipOrder_WithInvalidCarrier_Returns400BadRequest()
+    {
+        // Arrange
+        var orderId = Guid.NewGuid();
+        var request = new ShipOrderRequest("", "TRACK-123");
+        _senderMock.Setup(m => m.Send(It.Is<EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand>(c => c.OrderId == orderId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(OrderErrors.InvalidShippingCarrier));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Orders/{orderId}/ship", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Detail.Should().Be(OrderErrors.InvalidShippingCarrier.Message);
     }
 }

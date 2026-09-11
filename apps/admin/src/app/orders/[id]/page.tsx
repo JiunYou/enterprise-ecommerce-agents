@@ -361,6 +361,58 @@ export default async function AdminOrderDetailPage({ params }: OrderDetailPagePr
             refundRequiredPayments={order.refundRequiredPayments}
           />
 
+          {/* 出貨與物流追蹤資訊區塊（僅於 Shipped 狀態顯示） */}
+          {order.status === "Shipped" && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-5 sm:p-6 shadow-xs dark:border-blue-900/50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 dark:bg-blue-900 dark:text-blue-400"
+                >
+                  🚚
+                </span>
+                <h3 className="text-sm font-bold text-blue-900 dark:text-blue-200">
+                  出貨與物流追蹤 (Shipment Tracking)
+                </h3>
+              </div>
+
+              {order.shipmentTracking ? (
+                <div className="mt-4 grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
+                  <div>
+                    <span className="font-semibold text-blue-800 dark:text-blue-300">
+                      物流業者 (Carrier)：
+                    </span>
+                    <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {order.shipmentTracking.carrier}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-blue-800 dark:text-blue-300">
+                      物流追蹤單號 (Tracking Number)：
+                    </span>
+                    <p className="mt-1 font-mono text-sm font-bold text-zinc-900 dark:text-zinc-100 select-all">
+                      {order.shipmentTracking.trackingNumber}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-blue-800 dark:text-blue-300">
+                      出貨時間 (Shipped At)：
+                    </span>
+                    <p className="mt-1 font-mono text-zinc-800 dark:text-zinc-200">
+                      {new Date(order.shipmentTracking.shippedAt).toLocaleString("zh-TW", {
+                        timeZone: "Asia/Taipei",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-400">
+                  此訂單於物流追蹤資料功能啟用前出貨，未保存物流追蹤資訊。
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 雙欄格線：左側訂單商品，右側配送收件地址 */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* 左側：訂購項目清單 */}

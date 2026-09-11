@@ -346,7 +346,7 @@ public class OrderTests
     }
 
     [Fact]
-    public void Ship_ShouldSucceed_WhenOrderIsPaid()
+    public void Ship_ShouldSucceed_WhenOrderIsPaidAndHasShippingAddressAndValidCarrierAndTrackingNumber()
     {
         // Arrange
         var order = Order.Create(_customerId, _currency);
@@ -355,17 +355,148 @@ public class OrderTests
         order.MarkAsPaid();
         order.ClearDomainEvents();
 
+        var shippedAt = DateTimeOffset.UtcNow;
+
         // Act
-        var result = order.Ship();
+        var result = order.Ship("  Black Cat Express  ", "  TRACK-987654  ", shippedAt);
 
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(OrderStatus.Shipped, order.Status);
+        Assert.Equal("Black Cat Express", order.ShippingCarrier);
+        Assert.Equal("TRACK-987654", order.ShippingTrackingNumber);
+        Assert.Equal(shippedAt, order.ShippedAt);
 
         var domainEvent = order.GetDomainEvents().SingleOrDefault(e => e is OrderStatusChangedDomainEvent) as OrderStatusChangedDomainEvent;
         Assert.NotNull(domainEvent);
         Assert.Equal(OrderStatus.Paid, domainEvent.OldStatus);
         Assert.Equal(OrderStatus.Shipped, domainEvent.NewStatus);
+    }
+
+    [Fact]
+    public void Ship_ShouldFail_WhenShippingAddressIsNull()
+    {
+        // Arrange: construct a Paid order without shipping address
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.ChangeStatus(OrderStatus.Submitted);
+        order.ChangeStatus(OrderStatus.Paid);
+        Assert.Null(order.ShippingAddress);
+
+        var shippedAt = DateTimeOffset.UtcNow;
+
+        // Act
+        var result = order.Ship("Carrier", "TRACK-1", shippedAt);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.ShippingAddressRequired, result.Error);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Null(order.ShippingCarrier);
+        Assert.Null(order.ShippingTrackingNumber);
+        Assert.Null(order.ShippedAt);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    [InlineData("Carrier\nName")]
+    [InlineData("Carrier\rName")]
+    [InlineData("Carrier\tName")]
+    public void Ship_ShouldFail_WhenCarrierIsInvalid(string? invalidCarrier)
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-1));
+        order.MarkAsPaid();
+
+        var shippedAt = DateTimeOffset.UtcNow;
+
+        // Act
+        var result = order.Ship(invalidCarrier!, "TRACK-1", shippedAt);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidShippingCarrier, result.Error);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Null(order.ShippingCarrier);
+        Assert.Null(order.ShippingTrackingNumber);
+        Assert.Null(order.ShippedAt);
+    }
+
+    [Fact]
+    public void Ship_ShouldFail_WhenCarrierExceeds100Characters()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-1));
+        order.MarkAsPaid();
+
+        var carrierTooLong = new string('A', 101);
+        var shippedAt = DateTimeOffset.UtcNow;
+
+        // Act
+        var result = order.Ship(carrierTooLong, "TRACK-1", shippedAt);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidShippingCarrier, result.Error);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Null(order.ShippingCarrier);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    [InlineData("TRACK\n123")]
+    [InlineData("TRACK\r123")]
+    [InlineData("TRACK\t123")]
+    public void Ship_ShouldFail_WhenTrackingNumberIsInvalid(string? invalidTracking)
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-1));
+        order.MarkAsPaid();
+
+        var shippedAt = DateTimeOffset.UtcNow;
+
+        // Act
+        var result = order.Ship("Carrier", invalidTracking!, shippedAt);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidShippingTrackingNumber, result.Error);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Null(order.ShippingCarrier);
+        Assert.Null(order.ShippingTrackingNumber);
+        Assert.Null(order.ShippedAt);
+    }
+
+    [Fact]
+    public void Ship_ShouldFail_WhenTrackingNumberExceeds100Characters()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-1));
+        order.MarkAsPaid();
+
+        var trackingTooLong = new string('T', 101);
+        var shippedAt = DateTimeOffset.UtcNow;
+
+        // Act
+        var result = order.Ship("Carrier", trackingTooLong, shippedAt);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.InvalidShippingTrackingNumber, result.Error);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        Assert.Null(order.ShippingTrackingNumber);
     }
 
     [Fact]
@@ -376,7 +507,7 @@ public class OrderTests
         order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
 
         // Act
-        var result = order.Ship();
+        var result = order.Ship("Carrier", "TRACK-1", DateTimeOffset.UtcNow);
 
         // Assert
         Assert.True(result.IsFailure);
@@ -392,11 +523,35 @@ public class OrderTests
         order.Cancel();
 
         // Act
-        var result = order.Ship();
+        var result = order.Ship("Carrier", "TRACK-1", DateTimeOffset.UtcNow);
 
         // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(OrderErrors.InvalidStatusTransition, result.Error);
+    }
+
+    [Fact]
+    public void Ship_ShouldFail_WhenOrderIsAlreadyShipped()
+    {
+        // Arrange
+        var order = Order.Create(_customerId, _currency);
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100, _currency), 1);
+        order.Submit(CreateTestShippingAddress(), DateTimeOffset.UtcNow.AddMinutes(-2));
+        order.MarkAsPaid();
+
+        var firstShipTime = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var firstResult = order.Ship("Initial Carrier", "INIT-123", firstShipTime);
+        Assert.True(firstResult.IsSuccess);
+
+        // Act
+        var secondResult = order.Ship("Second Carrier", "SECOND-456", DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.True(secondResult.IsFailure);
+        Assert.Equal(OrderErrors.InvalidStatusTransition, secondResult.Error);
+        Assert.Equal("Initial Carrier", order.ShippingCarrier);
+        Assert.Equal("INIT-123", order.ShippingTrackingNumber);
+        Assert.Equal(firstShipTime, order.ShippedAt);
     }
 
     [Fact]

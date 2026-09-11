@@ -16,6 +16,11 @@ public sealed record ShippingAddressResponse(
     string AddressLine1,
     string? AddressLine2);
 
+public sealed record ShipmentTrackingResponse(
+    string Carrier,
+    string TrackingNumber,
+    DateTimeOffset ShippedAt);
+
 public sealed record OrderResponse(
     Guid Id,
     Guid CustomerId,
@@ -23,4 +28,5 @@ public sealed record OrderResponse(
     string Currency,
     decimal TotalAmount,
     IReadOnlyCollection<OrderItemResponse> Items,
-    ShippingAddressResponse? ShippingAddress = null);
+    ShippingAddressResponse? ShippingAddress = null,
+    ShipmentTrackingResponse? ShipmentTracking = null);

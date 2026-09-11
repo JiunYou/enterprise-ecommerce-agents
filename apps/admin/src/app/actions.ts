@@ -463,6 +463,88 @@ export async function deactivateProductAction(
   }
 }
 
+export interface ReactivateProductResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function reactivateProductAction(
+  productId: string
+): Promise<ReactivateProductResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/reactivate`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "該商品已經處於啟用上架狀態。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可執行商品重新啟用上架。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "重新啟用商品失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "伺服器通訊錯誤，無法完成商品重新啟用。",
+    };
+  }
+}
+
 export interface AdjustInventoryStockResult {
   success: boolean;
   error?: string;

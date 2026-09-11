@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using EnterpriseCommerce.Application.Catalog.Commands.CreateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
+using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
@@ -532,5 +533,149 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_AnonymousUser_ReturnsUnauthorized()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PutAsync($"/api/v1/Products/{productId}/reactivate", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_NonAdminUser_ReturnsForbidden()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/reactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_AdminUser_Success_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<ReactivateProductCommand>(c => c.ProductId == productId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/reactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_AlreadyActive_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<ReactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.AlreadyActive));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/reactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<ReactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/reactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ReactivateProduct_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<ReactivateProductCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/reactivate");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task GetProductById_AfterReactivation_BecomesVisibleToNonAdmin()
+    {
+        // Arrange: 模擬商品經由 Reactivate 成為 Active 後，非 Admin 查詢得以成功取得
+        var productId = Guid.NewGuid();
+        var reactivatedProductResponse = new ProductResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(reactivatedProductResponse));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/Products/{productId}");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ProductResponse>();
+        content.Should().NotBeNull();
+        content!.Id.Should().Be(productId);
+        content.IsActive.Should().BeTrue();
     }
 }

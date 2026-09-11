@@ -97,4 +97,42 @@ public class ProductTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(ProductErrors.AlreadyDeactivated);
     }
+
+    [Fact]
+    public void Reactivate_WhenInactive_SetsIsActiveToTrue()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.Deactivate();
+
+        // Act
+        var result = product.Reactivate();
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.IsActive.Should().BeTrue();
+        product.Name.Should().Be("Test Product");
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+    }
+
+    [Fact]
+    public void Reactivate_WhenAlreadyActive_ReturnsFailure()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.Reactivate();
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.AlreadyActive);
+        product.IsActive.Should().BeTrue();
+        product.Name.Should().Be("Test Product");
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+    }
 }

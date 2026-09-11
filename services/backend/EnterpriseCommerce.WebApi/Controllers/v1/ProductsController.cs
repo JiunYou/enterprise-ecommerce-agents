@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using EnterpriseCommerce.Application.Catalog.Commands.CreateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
+using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
@@ -134,6 +135,26 @@ public class ProductsController : ApiControllerBase
     public async Task<IActionResult> DeactivateProduct(Guid id, CancellationToken cancellationToken)
     {
         var command = new DeactivateProductCommand(id);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    [HttpPut("{id:guid}/reactivate")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ReactivateProduct(Guid id, CancellationToken cancellationToken)
+    {
+        var command = new ReactivateProductCommand(id);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

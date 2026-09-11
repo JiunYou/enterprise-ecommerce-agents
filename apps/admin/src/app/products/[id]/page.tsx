@@ -3,6 +3,7 @@ import { auth0 } from "@/lib/auth0";
 import { getAdminProductById, getAdminInventory } from "@/lib/products";
 import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
+import { ReactivateProductButton } from "@/components/ReactivateProductButton";
 import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
 import { AdminHeader } from "@/components/AdminHeader";
 
@@ -284,7 +285,7 @@ export default async function AdminProductDetailPage({
                   商品生命週期提示
                 </h4>
                 <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  此商品目前處於停用下架狀態。前台顧客無法在目錄中搜尋或瀏覽此商品，亦無法將其加入購物車。當前版本 (v1) 不提供重新上架 (Reactivate) 功能。
+                  此商品目前處於停用下架狀態。前台顧客無法在目錄中搜尋或瀏覽此商品，亦無法將其加入購物車。管理員可於右側操作區執行「重新上架啟用」以恢復公開顯示與販售資格。
                 </p>
               </div>
             )}
@@ -380,9 +381,14 @@ export default async function AdminProductDetailPage({
               currency={product.currency}
             />
 
-            {/* 停用商品按鈕（僅在商品為 Active 狀態時顯示） */}
-            {product.isActive && (
+            {/* 生命週期操作按鈕：Active 僅顯示 Deactivate，Inactive 僅顯示 Reactivate */}
+            {product.isActive ? (
               <DeactivateProductButton
+                productId={product.id}
+                productName={product.name}
+              />
+            ) : (
+              <ReactivateProductButton
                 productId={product.id}
                 productName={product.name}
               />

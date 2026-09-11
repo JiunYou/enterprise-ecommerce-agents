@@ -16,9 +16,14 @@ public static class ProductErrors
         "Product.AlreadyDeactivated",
         "The product is already deactivated.");
 
+    public static readonly Error AlreadyActive = new(
+        "Product.AlreadyActive",
+        "The product is already active.");
+
     public static readonly Error NotActive = new(
         "Product.NotActive",
         "The product is not active and cannot be purchased.");
+
 
     public static readonly Error ConcurrencyConflict = new(
         "Product.ConcurrencyConflict",

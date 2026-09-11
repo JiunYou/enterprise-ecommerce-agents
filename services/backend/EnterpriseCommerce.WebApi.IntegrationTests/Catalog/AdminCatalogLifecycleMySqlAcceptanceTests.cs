@@ -138,4 +138,62 @@ public class AdminCatalogLifecycleMySqlAcceptanceTests : IAsyncLifetime
         detailResult.Price.Should().Be(updatedPrice);
         detailResult.Sku.Should().Be(sku);
     }
+
+    [Fact]
+    public async Task AdminCatalog_RealMySql_ReactivateLifecycle_RestoresPublicCatalogEligibility()
+    {
+        var runId = Guid.NewGuid().ToString("N")[..8];
+        var sku = $"SKU-REACTIVATE-{runId}";
+        var originalPrice = 120m;
+
+        // 1. 在真實 MySQL 中建立並持久化商品
+        var product = Product.Create($"Reactivation Product {runId}", sku, originalPrice, "TWD").Value;
+        await using (var db = CreateFreshDbContext())
+        {
+            db.Products.Add(product);
+            await db.SaveChangesAsync();
+        }
+
+        var adminClient = CreateAdminClient();
+        var anonClient = _factory!.CreateClient();
+
+        // 2. 先將商品停用（Deactivate）
+        var deactivateResponse = await adminClient.PutAsync($"/api/v1/products/{product.Id}/deactivate", null);
+        deactivateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 3. 驗證公開匿名端點此時查不到該已停用商品 (404)
+        var publicBeforeReactivate = await anonClient.GetAsync($"/api/v1/products/{product.Id}");
+        publicBeforeReactivate.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 4. 呼叫管理員重新啟用端點 PUT /api/v1/products/{id}/reactivate
+        var reactivateResponse = await adminClient.PutAsync($"/api/v1/products/{product.Id}/reactivate", null);
+        reactivateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 5. 開啟獨立 fresh DbContext，驗證 IsActive 已成功變更為 true，且識別碼與所有屬性保持不變
+        await using (var db = CreateFreshDbContext())
+        {
+            var reloadedProduct = await db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == product.Id);
+            reloadedProduct.Should().NotBeNull();
+            reloadedProduct!.IsActive.Should().BeTrue();
+            reloadedProduct.Id.Should().Be(product.Id);
+            reloadedProduct.Sku.Should().Be(sku);
+            reloadedProduct.Price.Should().Be(originalPrice);
+            reloadedProduct.Currency.Should().Be("TWD");
+            reloadedProduct.Name.Should().Be($"Reactivation Product {runId}");
+        }
+
+        // 6. 重複呼叫重新啟用端點，驗證回傳 400 BadRequest (ProductErrors.AlreadyActive)
+        var repeatedReactivateResponse = await adminClient.PutAsync($"/api/v1/products/{product.Id}/reactivate", null);
+        repeatedReactivateResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // 7. 驗證公開匿名端點在 Reactivate 成功後，商品自動恢復可見性並成功返回 200 OK
+        var publicAfterReactivate = await anonClient.GetAsync($"/api/v1/products/{product.Id}");
+        publicAfterReactivate.StatusCode.Should().Be(HttpStatusCode.OK);
+        var publicProduct = await publicAfterReactivate.Content.ReadFromJsonAsync<ProductResponse>();
+        publicProduct.Should().NotBeNull();
+        publicProduct!.Id.Should().Be(product.Id);
+        publicProduct.IsActive.Should().BeTrue();
+        publicProduct.Sku.Should().Be(sku);
+        publicProduct.Price.Should().Be(originalPrice);
+    }
 }

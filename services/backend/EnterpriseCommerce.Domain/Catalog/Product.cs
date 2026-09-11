@@ -61,4 +61,16 @@ public sealed class Product : AggregateRoot<Guid>
         
         return Result.Success();
     }
+
+    public Result Reactivate()
+    {
+        if (IsActive)
+        {
+            return Result.Failure(ProductErrors.AlreadyActive);
+        }
+
+        IsActive = true;
+
+        return Result.Success();
+    }
 }

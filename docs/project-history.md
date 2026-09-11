@@ -1278,10 +1278,11 @@
   - Domain UnitTests: 通過 168 項
   - Application UnitTests: 通過 286 項 (新增 6 項分頁與規範化測試)
   - Infrastructure UnitTests: 通過 212 項 (新增 3 項分頁、隔離性與確定性排序測試)
-  - WebApi IntegrationTests 全套: 通過 340 項 (新增 Controller 分頁參數轉發、安全性測試與多頁真實 MySQL 驗收測試)
-  - CustomerOrderHistory 穩定性複檢: 通過 5 項
+  - WebApi IntegrationTests 全套: 通過 340 項 (全套 340/340 通過)
+  - CustomerOrderHistory 穩定性門檻: 測試 fixture 修復對齊既有 15 分鐘過期生命週期，連續 5 次聚焦測試全數通過 (5 passed / 0 failed)；全套測試後連續 2 次聚焦測試全數通過
+  - 分頁回歸檢查: Application / Infrastructure / WebApi 聚焦回歸測試全數通過
   - Customer Web 前端: Lint 與 Next.js 最佳化生產組建通過
   - Git Diff Check: 完全通過
-  - 來源指紋 (Source Fingerprint): `13e38b2b4700a03627bcd5f130a39531286c6b893cbdba2468bc701561925017`
+  - 來源指紋 (Source Fingerprint): `6c61fddba7f2c2a25a3430882cef028635288d3a2683ce67838056b0e472659d`
   - 運行時狀態: `AUTHENTICATED_CUSTOMER_HISTORY_API_ACCEPTANCE=PASS`，`AUTHENTICATED_CUSTOMER_HISTORY_RUNTIME=NOT_OBSERVED`（遵循治理規範不偽造真實 Auth0 瀏覽器工作階段）。
 

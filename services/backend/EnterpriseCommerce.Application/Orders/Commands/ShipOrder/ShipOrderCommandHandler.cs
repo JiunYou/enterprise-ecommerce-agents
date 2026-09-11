@@ -10,11 +10,16 @@ internal sealed class ShipOrderCommandHandler : ICommandHandler<ShipOrderCommand
 {
     private readonly IOrderRepository _orderRepository;
     private readonly IApplicationUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
-    public ShipOrderCommandHandler(IOrderRepository orderRepository, IApplicationUnitOfWork unitOfWork)
+    public ShipOrderCommandHandler(
+        IOrderRepository orderRepository,
+        IApplicationUnitOfWork unitOfWork,
+        TimeProvider timeProvider)
     {
         _orderRepository = orderRepository;
         _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider;
     }
 
     public async Task<Result> Handle(ShipOrderCommand request, CancellationToken cancellationToken)
@@ -27,14 +32,22 @@ internal sealed class ShipOrderCommandHandler : ICommandHandler<ShipOrderCommand
             return Result.Failure(OrderErrors.NotFound);
         }
 
-        var shipResult = order.Ship();
+        var shippedAt = _timeProvider.GetUtcNow();
+        var shipResult = order.Ship(request.Carrier, request.TrackingNumber, shippedAt);
 
         if (shipResult.IsFailure)
         {
             return shipResult;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.GetType().FullName?.Contains("DbUpdateConcurrencyException") == true)
+        {
+            return Result.Failure(new Error("Order.ConcurrencyConflict", "The order was modified by another operation."));
+        }
 
         return Result.Success();
     }

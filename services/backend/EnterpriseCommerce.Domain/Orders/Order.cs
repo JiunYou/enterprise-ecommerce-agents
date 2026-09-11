@@ -13,6 +13,9 @@ public sealed class Order : AggregateRoot<OrderId>
     public string Currency { get; private set; } = default!;
     public DateTimeOffset? SubmittedAt { get; private set; }
     public ShippingAddress? ShippingAddress { get; private set; }
+    public string? ShippingCarrier { get; private set; }
+    public string? ShippingTrackingNumber { get; private set; }
+    public DateTimeOffset? ShippedAt { get; private set; }
     
     public bool IsExpired(DateTimeOffset threshold)
     {
@@ -173,5 +176,52 @@ public sealed class Order : AggregateRoot<OrderId>
     public Result Ship()
     {
         return ChangeStatus(OrderStatus.Shipped);
+    }
+
+    public Result Ship(string carrier, string trackingNumber, DateTimeOffset shippedAt)
+    {
+        if (Status != OrderStatus.Paid)
+        {
+            return Result.Failure(OrderErrors.InvalidStatusTransition);
+        }
+
+        if (ShippingAddress is null)
+        {
+            return Result.Failure(OrderErrors.ShippingAddressRequired);
+        }
+
+        if (string.IsNullOrWhiteSpace(carrier))
+        {
+            return Result.Failure(OrderErrors.InvalidShippingCarrier);
+        }
+
+        var trimmedCarrier = carrier.Trim();
+        if (trimmedCarrier.Length > 100 || trimmedCarrier.Any(char.IsControl))
+        {
+            return Result.Failure(OrderErrors.InvalidShippingCarrier);
+        }
+
+        if (string.IsNullOrWhiteSpace(trackingNumber))
+        {
+            return Result.Failure(OrderErrors.InvalidShippingTrackingNumber);
+        }
+
+        var trimmedTrackingNumber = trackingNumber.Trim();
+        if (trimmedTrackingNumber.Length > 100 || trimmedTrackingNumber.Any(char.IsControl))
+        {
+            return Result.Failure(OrderErrors.InvalidShippingTrackingNumber);
+        }
+
+        var result = ChangeStatus(OrderStatus.Shipped);
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        ShippingCarrier = trimmedCarrier;
+        ShippingTrackingNumber = trimmedTrackingNumber;
+        ShippedAt = shippedAt;
+
+        return Result.Success();
     }
 }

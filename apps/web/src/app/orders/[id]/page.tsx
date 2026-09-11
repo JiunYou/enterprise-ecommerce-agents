@@ -26,7 +26,9 @@ export default async function OrderConfirmationPage({
 
   const isSubmitted = result.success && result.data.status === "Submitted";
   const isPaid = result.success && result.data.status === "Paid";
+  const isShipped = result.success && result.data.status === "Shipped";
   const isCancelled = result.success && result.data.status === "Cancelled";
+
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
@@ -239,7 +241,34 @@ export default async function OrderConfirmationPage({
 
             {/* 標準狀態橫幅 (無 query parameter 時) */}
             {!paymentParam && (
-              isPaid ? (
+              isShipped ? (
+                <section
+                  aria-labelledby="order-shipped-heading"
+                  className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-5 dark:border-indigo-900/40 dark:bg-indigo-950/25 dark:text-indigo-300 sm:p-6"
+                >
+                  <div className="flex items-start gap-3.5 sm:gap-4">
+                    <div
+                      aria-hidden="true"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        id="order-shipped-heading"
+                        className="text-base font-bold text-indigo-950 dark:text-indigo-100 sm:text-lg"
+                      >
+                        商品已出貨
+                      </h2>
+                      <p className="mt-1 break-words text-xs text-indigo-900/90 dark:text-indigo-200/90 sm:text-sm">
+                        您的商品已完成包裝並出貨，請參考下方物流出貨追蹤資訊。
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              ) : isPaid ? (
                 <section
                   aria-labelledby="order-paid-heading"
                   className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-300 sm:p-6"
@@ -340,7 +369,11 @@ export default async function OrderConfirmationPage({
                       訂單狀態
                     </span>
                     <div className="mt-1">
-                      {isPaid ? (
+                      {isShipped ? (
+                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-500/30">
+                          {result.data.status} (已出貨)
+                        </span>
+                      ) : isPaid ? (
                         <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-500/30">
                           {result.data.status} (已付款)
                         </span>
@@ -448,6 +481,49 @@ export default async function OrderConfirmationPage({
                   </div>
                 )}
               </div>
+
+              {/* 物流出貨追蹤資訊 (僅在已出貨狀態下顯示) */}
+              {isShipped && (
+                <div className="border-t border-stone-100 bg-white p-5 dark:border-stone-800 dark:bg-stone-900 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      物流出貨追蹤
+                    </h3>
+                    <span className="text-xs text-stone-400 dark:text-stone-500">
+                      本地物流紀錄
+                    </span>
+                  </div>
+
+                  {result.data.shipmentTracking ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+                      <div className="rounded-xl border border-stone-100 bg-stone-50/50 p-3.5 dark:border-stone-800/80 dark:bg-stone-800/40">
+                        <span className="text-xs font-medium text-stone-400 dark:text-stone-500">物流業者 (Carrier)</span>
+                        <p className="mt-0.5 font-medium text-stone-900 dark:text-stone-100 break-words">
+                          {result.data.shipmentTracking.carrier}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-stone-100 bg-stone-50/50 p-3.5 dark:border-stone-800/80 dark:bg-stone-800/40">
+                        <span className="text-xs font-medium text-stone-400 dark:text-stone-500">追蹤單號 (Tracking Number)</span>
+                        <p className="mt-0.5 font-mono font-medium text-stone-900 dark:text-stone-100 break-all select-all">
+                          {result.data.shipmentTracking.trackingNumber}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-stone-100 bg-stone-50/50 p-3.5 dark:border-stone-800/80 dark:bg-stone-800/40">
+                        <span className="text-xs font-medium text-stone-400 dark:text-stone-500">出貨時間 (Shipped At)</span>
+                        <p className="mt-0.5 font-medium text-stone-900 dark:text-stone-100 break-words">
+                          {new Date(result.data.shipmentTracking.shippedAt).toLocaleString("zh-TW", {
+                            timeZone: "Asia/Taipei",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50/60 p-4 text-xs text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400 break-words">
+                      此訂單於物流追蹤資料功能啟用前出貨，未保存物流追蹤資訊。
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 總計摘要與付款按鈕區 */}
               <div className="border-t border-stone-100 bg-stone-50/80 p-5 dark:border-stone-800 dark:bg-stone-900/60 sm:p-6">

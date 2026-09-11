@@ -8,26 +8,74 @@ export interface ShipOrderResult {
   error?: string;
 }
 
-export async function shipOrderAction(orderId: string): Promise<ShipOrderResult> {
-  if (!orderId || typeof orderId !== "string") {
+export async function shipOrderAction(
+  orderId: string,
+  carrier: string,
+  trackingNumber: string
+): Promise<ShipOrderResult> {
+  if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
     return { success: false, error: "無效的訂單編號。" };
   }
 
+  if (typeof carrier !== "string") {
+    return { success: false, error: "物流業者必須為文字。" };
+  }
+
+  const trimmedCarrier = carrier.trim();
+  if (trimmedCarrier.length === 0) {
+    return { success: false, error: "請填寫物流業者名稱。" };
+  }
+
+  if (trimmedCarrier.length > 100) {
+    return { success: false, error: "物流業者名稱長度不可超過 100 個字元。" };
+  }
+
+  // 檢查是否含有控制字元
+  if (/[\x00-\x1F\x7F]/.test(trimmedCarrier)) {
+    return { success: false, error: "物流業者名稱不可包含控制字元。" };
+  }
+
+  if (typeof trackingNumber !== "string") {
+    return { success: false, error: "物流追蹤單號必須為文字。" };
+  }
+
+  const trimmedTrackingNumber = trackingNumber.trim();
+  if (trimmedTrackingNumber.length === 0) {
+    return { success: false, error: "請填寫物流追蹤單號。" };
+  }
+
+  if (trimmedTrackingNumber.length > 100) {
+    return { success: false, error: "物流追蹤單號長度不可超過 100 個字元。" };
+  }
+
+  if (/[\x00-\x1F\x7F]/.test(trimmedTrackingNumber)) {
+    return { success: false, error: "物流追蹤單號不可包含控制字元。" };
+  }
+
   try {
-    const response = await authenticatedFetch(`/api/v1/orders/${encodeURIComponent(orderId)}/ship`, {
+    const response = await authenticatedFetch(`/api/v1/orders/${encodeURIComponent(orderId.trim())}/ship`, {
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        carrier: trimmedCarrier,
+        trackingNumber: trimmedTrackingNumber,
+      }),
     });
 
     if (response.status === 200) {
       revalidatePath("/");
+      revalidatePath(`/orders/${orderId.trim()}`);
       return { success: true };
     }
 
     if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
       revalidatePath("/");
       return {
         success: false,
-        error: "訂單非可發貨狀態（可能已發貨或狀態已變更）。",
+        error: errorJson?.detail || "出貨資料無效、缺少收件地址，或訂單非可出貨狀態。",
       };
     }
 
@@ -50,6 +98,15 @@ export async function shipOrderAction(orderId: string): Promise<ShipOrderResult>
       return {
         success: false,
         error: "該訂單已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      revalidatePath("/");
+      revalidatePath(`/orders/${orderId.trim()}`);
+      return {
+        success: false,
+        error: "訂單狀態已被並發變更，請重新整理頁面確認最新狀態。",
       };
     }
 

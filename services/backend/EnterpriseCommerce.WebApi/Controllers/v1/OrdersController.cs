@@ -234,10 +234,12 @@ public class OrdersController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> ShipOrder(Guid id, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ShipOrder(Guid id, [FromBody] ShipOrderRequest request, CancellationToken cancellationToken)
     {
-        var command = new EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand(id);
+        var command = new EnterpriseCommerce.Application.Orders.Commands.ShipOrder.ShipOrderCommand(id, request.Carrier, request.TrackingNumber);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

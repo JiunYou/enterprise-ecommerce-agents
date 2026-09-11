@@ -42,6 +42,16 @@ internal sealed class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery
                 order.ShippingAddress.AddressLine2)
             : null;
 
+        ShipmentTrackingResponse? shipmentTracking =
+            order.ShippingCarrier is not null &&
+            order.ShippingTrackingNumber is not null &&
+            order.ShippedAt is not null
+                ? new ShipmentTrackingResponse(
+                    order.ShippingCarrier,
+                    order.ShippingTrackingNumber,
+                    order.ShippedAt.Value)
+                : null;
+
         var response = new OrderResponse(
             order.Id.Value,
             order.CustomerId,
@@ -49,7 +59,8 @@ internal sealed class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery
             order.Currency,
             order.TotalAmount.Amount,
             items,
-            shippingAddress);
+            shippingAddress,
+            shipmentTracking);
 
         return Result.Success(response);
     }

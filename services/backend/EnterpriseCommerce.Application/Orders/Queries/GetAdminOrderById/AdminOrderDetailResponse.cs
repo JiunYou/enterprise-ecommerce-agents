@@ -12,10 +12,12 @@ public sealed record AdminOrderDetailResponse(
     IReadOnlyCollection<OrderItemResponse> Items,
     ShippingAddressResponse? ShippingAddress = null,
     AdminCancellationResponse? AdminCancellation = null,
-    IReadOnlyCollection<AdminRefundRequiredPaymentResponse>? RefundRequiredPayments = null)
+    IReadOnlyCollection<AdminRefundRequiredPaymentResponse>? RefundRequiredPayments = null,
+    ShipmentTrackingResponse? ShipmentTracking = null)
 {
     public IReadOnlyCollection<AdminRefundRequiredPaymentResponse> RefundRequiredPayments { get; init; } = RefundRequiredPayments ?? Array.Empty<AdminRefundRequiredPaymentResponse>();
 }
+
 
 public sealed record AdminCancellationResponse(
     string ActorIssuer,

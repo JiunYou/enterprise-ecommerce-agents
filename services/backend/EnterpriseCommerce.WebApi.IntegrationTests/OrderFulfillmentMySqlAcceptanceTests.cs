@@ -1,10 +1,12 @@
 using EnterpriseCommerce.Application.Orders;
+using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderById;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Orders.ValueObjects;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.Infrastructure.Persistence;
 using EnterpriseCommerce.Infrastructure.Persistence.Repositories;
+using EnterpriseCommerce.WebApi.Contracts.Orders;
 using EnterpriseCommerce.WebApi.IntegrationTests.Fixtures;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
@@ -23,6 +25,7 @@ namespace EnterpriseCommerce.WebApi.IntegrationTests;
 public class OrderFulfillmentMySqlAcceptanceTests : IAsyncLifetime
 {
     private readonly MySqlFixture _mySqlFixture;
+
     private WebApplicationFactory<Program>? _factory;
     private DbContextOptions<EnterpriseCommerceDbContext> _dbContextOptions = null!;
 
@@ -215,7 +218,8 @@ public class OrderFulfillmentMySqlAcceptanceTests : IAsyncLifetime
         apiRelevant[1].ShippingAddress!.RecipientName.Should().Be($"Recipient {testRunPrefix} 1");
 
         // 4. 驗證真實發貨 (PUT /api/v1/Orders/{id}/ship) 變更狀態並將訂單從佇列移除
-        var shipResponse = await client.PutAsync($"/api/v1/Orders/{paidOrder1.Id.Value}/ship", null);
+        var shipRequest = new ShipOrderRequest("Standard Express", "TRACK-ORIGINAL-001");
+        var shipResponse = await client.PutAsJsonAsync($"/api/v1/Orders/{paidOrder1.Id.Value}/ship", shipRequest);
         shipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // 重新查詢佇列，paidOrder1 應已被移出佇列
@@ -225,11 +229,207 @@ public class OrderFulfillmentMySqlAcceptanceTests : IAsyncLifetime
         afterShipOrders.Should().NotBeNull();
         afterShipOrders!.Any(o => o.Id == paidOrder1.Id.Value).Should().BeFalse();
 
-        // 驗證資料庫中 paidOrder1 狀態確實為 Shipped
+        // 驗證資料庫中 paidOrder1 狀態確實為 Shipped，且物流資訊被正確保存
         await using (var dbContext = CreateFreshDbContext())
         {
             var dbOrder = await dbContext.Orders.FirstAsync(o => o.Id == paidOrder1.Id);
             dbOrder.Status.Should().Be(OrderStatus.Shipped);
+            dbOrder.ShippingCarrier.Should().Be("Standard Express");
+            dbOrder.ShippingTrackingNumber.Should().Be("TRACK-ORIGINAL-001");
+            dbOrder.ShippedAt.Should().NotBeNull();
+        }
+    }
+
+    [Fact]
+    public async Task ShipOrder_RealMySql_SuccessScenario_PersistsTracking_RemovesFromQueue_AndReadsFromCustomerAndAdminEndpoints()
+    {
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(500m, "TWD"), 1);
+        var address = ShippingAddress.Create(
+            "Test Customer",
+            "+886988123456",
+            "TW",
+            "100",
+            "Taipei",
+            "Zhongxiao E. Rd",
+            "Sec 4").Value;
+        order.Submit(address, DateTimeOffset.UtcNow);
+        order.MarkAsPaid();
+
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            dbContext.Orders.Add(order);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = _factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // 1. Act: Ship through actual Admin Ship HTTP endpoint
+        var request = new ShipOrderRequest("Test Carrier", "TRACK-123456");
+        var shipResponse = await client.PutAsJsonAsync($"/api/v1/Orders/{order.Id.Value}/ship", request);
+        shipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 2. Verify in fresh DbContext
+        DateTimeOffset persistedShippedAt;
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            var dbOrder = await dbContext.Orders.FirstAsync(o => o.Id == order.Id);
+            dbOrder.Status.Should().Be(OrderStatus.Shipped);
+            dbOrder.ShippingCarrier.Should().Be("Test Carrier");
+            dbOrder.ShippingTrackingNumber.Should().Be("TRACK-123456");
+            dbOrder.ShippedAt.Should().NotBeNull();
+            persistedShippedAt = dbOrder.ShippedAt!.Value;
+        }
+
+        // 3. Verify removed from Paid fulfillment queue
+        var queueResponse = await client.GetAsync("/api/v1/Orders/fulfillment?limit=50");
+        queueResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var queueOrders = await queueResponse.Content.ReadFromJsonAsync<List<OrderResponse>>();
+        queueOrders.Should().NotBeNull();
+        queueOrders!.Any(o => o.Id == order.Id.Value).Should().BeFalse();
+
+        // 4. Verify Customer Owner Order Detail returns shipment tracking
+        var customerClient = _factory!.CreateClient();
+        customerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        customerClient.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var customerResponse = await customerClient.GetAsync($"/api/v1/Orders/{order.Id.Value}");
+        customerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var customerOrderDetail = await customerResponse.Content.ReadFromJsonAsync<OrderResponse>();
+        customerOrderDetail.Should().NotBeNull();
+        customerOrderDetail!.ShipmentTracking.Should().NotBeNull();
+        customerOrderDetail.ShipmentTracking!.Carrier.Should().Be("Test Carrier");
+        customerOrderDetail.ShipmentTracking.TrackingNumber.Should().Be("TRACK-123456");
+        customerOrderDetail.ShipmentTracking.ShippedAt.Should().Be(persistedShippedAt);
+
+        // 5. Verify Admin Order Detail returns shipment tracking
+        var adminDetailResponse = await client.GetAsync($"/api/v1/admin/orders/{order.Id.Value}");
+        adminDetailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var adminOrderDetail = await adminDetailResponse.Content.ReadFromJsonAsync<AdminOrderDetailResponse>();
+        adminOrderDetail.Should().NotBeNull();
+        adminOrderDetail!.ShipmentTracking.Should().NotBeNull();
+        adminOrderDetail.ShipmentTracking!.Carrier.Should().Be("Test Carrier");
+        adminOrderDetail.ShipmentTracking.TrackingNumber.Should().Be("TRACK-123456");
+        adminOrderDetail.ShipmentTracking.ShippedAt.Should().Be(persistedShippedAt);
+    }
+
+    [Fact]
+    public async Task ShipOrder_RealMySql_FailureAndCompatibilityScenarios_PreservesInvariants()
+    {
+        var customerId = Guid.NewGuid();
+
+        // Scenario A: Paid historical Order without ShippingAddress
+        var historicalPaidOrder = Order.Create(customerId, "TWD");
+        historicalPaidOrder.AddItem(new ProductId(Guid.NewGuid()), new Money(200m, "TWD"), 1);
+        historicalPaidOrder.ChangeStatus(OrderStatus.Submitted);
+        historicalPaidOrder.MarkAsPaid();
+
+        // Scenario B: Historical already-Shipped row with null tracking
+        var historicalShippedOrder = Order.Create(customerId, "TWD");
+        historicalShippedOrder.AddItem(new ProductId(Guid.NewGuid()), new Money(300m, "TWD"), 1);
+        historicalShippedOrder.ChangeStatus(OrderStatus.Submitted);
+        historicalShippedOrder.MarkAsPaid();
+        historicalShippedOrder.ChangeStatus(OrderStatus.Shipped);
+
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            dbContext.Orders.AddRange(historicalPaidOrder, historicalShippedOrder);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = _factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        // Act on Scenario A: Attempt to ship Paid order without ShippingAddress
+        var shipRequest = new ShipOrderRequest("Test Carrier", "TRACK-789");
+        var shipFailResponse = await client.PutAsJsonAsync($"/api/v1/Orders/{historicalPaidOrder.Id.Value}/ship", shipRequest);
+
+        // Assert Scenario A: Must fail with 400 Bad Request and remain Paid with null shipment fields
+        shipFailResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            var dbHistoricalOrder = await dbContext.Orders.FirstAsync(o => o.Id == historicalPaidOrder.Id);
+            dbHistoricalOrder.Status.Should().Be(OrderStatus.Paid);
+            dbHistoricalOrder.ShippingCarrier.Should().BeNull();
+            dbHistoricalOrder.ShippingTrackingNumber.Should().BeNull();
+            dbHistoricalOrder.ShippedAt.Should().BeNull();
+        }
+
+        // Assert Scenario B: Customer and Admin detail reads for historical shipped order with null tracking
+        var customerClient = _factory!.CreateClient();
+        customerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        customerClient.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var customerResponse = await customerClient.GetAsync($"/api/v1/Orders/{historicalShippedOrder.Id.Value}");
+        customerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var customerOrderDetail = await customerResponse.Content.ReadFromJsonAsync<OrderResponse>();
+        customerOrderDetail.Should().NotBeNull();
+        customerOrderDetail!.Status.Should().Be("Shipped");
+        customerOrderDetail.ShipmentTracking.Should().BeNull();
+
+        var adminResponse = await client.GetAsync($"/api/v1/admin/orders/{historicalShippedOrder.Id.Value}");
+        adminResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var adminOrderDetail = await adminResponse.Content.ReadFromJsonAsync<AdminOrderDetailResponse>();
+        adminOrderDetail.Should().NotBeNull();
+        adminOrderDetail!.Status.Should().Be("Shipped");
+        adminOrderDetail.ShipmentTracking.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ShipOrder_RealMySql_ConcurrentShip_ProducesConflict409OrBadRequest_WithoutPoisoning()
+    {
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(600m, "TWD"), 1);
+        var address = ShippingAddress.Create(
+            "Concurrent Customer",
+            "+886911223344",
+            "TW",
+            "100",
+            "Taipei",
+            "Xinyi Rd",
+            "Sec 5").Value;
+        order.Submit(address, DateTimeOffset.UtcNow);
+        order.MarkAsPaid();
+
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            dbContext.Orders.Add(order);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client1 = _factory!.CreateClient();
+        client1.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client1.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        var client2 = _factory!.CreateClient();
+        client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        client2.DefaultRequestHeaders.Add("X-Test-Role", "Admin");
+
+        var request1 = new ShipOrderRequest("Carrier A", "TRACK-A-001");
+        var request2 = new ShipOrderRequest("Carrier B", "TRACK-B-002");
+
+        var task1 = client1.PutAsJsonAsync($"/api/v1/Orders/{order.Id.Value}/ship", request1);
+        var task2 = client2.PutAsJsonAsync($"/api/v1/Orders/{order.Id.Value}/ship", request2);
+
+        var responses = await Task.WhenAll(task1, task2);
+
+        var statuses = responses.Select(r => r.StatusCode).ToList();
+        statuses.Should().Contain(HttpStatusCode.OK);
+        statuses.Should().Match(s => s.Contains(HttpStatusCode.BadRequest) || s.Contains(HttpStatusCode.Conflict));
+
+        await using (var dbContext = CreateFreshDbContext())
+        {
+            var finalOrder = await dbContext.Orders.FirstAsync(o => o.Id == order.Id);
+            finalOrder.Status.Should().Be(OrderStatus.Shipped);
+            finalOrder.ShippingCarrier.Should().NotBeNull();
+            finalOrder.ShippingTrackingNumber.Should().NotBeNull();
+            finalOrder.ShippedAt.Should().NotBeNull();
         }
     }
 }

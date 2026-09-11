@@ -140,6 +140,16 @@ internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrde
             }
         }
 
+        ShipmentTrackingResponse? shipmentTracking =
+            order.ShippingCarrier is not null &&
+            order.ShippingTrackingNumber is not null &&
+            order.ShippedAt is not null
+                ? new ShipmentTrackingResponse(
+                    order.ShippingCarrier,
+                    order.ShippingTrackingNumber,
+                    order.ShippedAt.Value)
+                : null;
+
         var response = new AdminOrderDetailResponse(
             order.Id.Value,
             order.CustomerId,
@@ -150,8 +160,10 @@ internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrde
             items,
             shippingAddress,
             adminCancellation,
-            refundRequiredPayments);
+            refundRequiredPayments,
+            shipmentTracking);
 
         return Result.Success(response);
+
     }
 }

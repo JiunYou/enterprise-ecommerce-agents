@@ -22,6 +22,12 @@ export interface ShippingAddress {
   addressLine2?: string | null;
 }
 
+export interface ShipmentTracking {
+  carrier: string;
+  trackingNumber: string;
+  shippedAt: string;
+}
+
 export interface OrderDetail {
   id: string;
   customerId: string;
@@ -30,7 +36,9 @@ export interface OrderDetail {
   totalAmount: number;
   items: OrderItem[];
   shippingAddress?: ShippingAddress | null;
+  shipmentTracking?: ShipmentTracking | null;
 }
+
 
 export type SubmitOrderResult =
   | { success: true }

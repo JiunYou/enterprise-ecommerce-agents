@@ -185,4 +185,59 @@ public class GetAdminOrderByIdQueryHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Null(result.Value.AdminCancellation);
     }
+
+    [Fact]
+    public async Task Handle_WhenOrderIsShippedWithCompleteTracking_MapsShipmentTrackingCorrectly()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
+        var shipping = ShippingAddress.Create("Alice Chen", "+886912345678", "TW", "100", "Taipei", "Zhongxiao E Rd", "5F").Value;
+        order.Submit(shipping, DateTimeOffset.UtcNow.AddMinutes(-10));
+        order.MarkAsPaid();
+
+        var shippedAt = new DateTimeOffset(2026, 9, 11, 15, 30, 0, TimeSpan.Zero);
+        order.Ship("Black Cat Express", "TCAT-8888", shippedAt);
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var query = new GetAdminOrderByIdQuery(order.Id.Value);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value.ShipmentTracking);
+        Assert.Equal("Black Cat Express", result.Value.ShipmentTracking!.Carrier);
+        Assert.Equal("TCAT-8888", result.Value.ShipmentTracking.TrackingNumber);
+        Assert.Equal(shippedAt, result.Value.ShipmentTracking.ShippedAt);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOrderIsHistoricalShippedWithoutTracking_ReturnsNullShipmentTracking()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        order.AddItem(new ProductId(Guid.NewGuid()), new Money(100m, "TWD"), 1);
+        order.ChangeStatus(OrderStatus.Submitted);
+        order.ChangeStatus(OrderStatus.Paid);
+        order.Ship();
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var query = new GetAdminOrderByIdQuery(order.Id.Value);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Shipped", result.Value.Status);
+        Assert.Null(result.Value.ShipmentTracking);
+    }
 }

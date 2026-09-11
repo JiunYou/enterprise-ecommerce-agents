@@ -63,4 +63,12 @@ public static class OrderErrors
     public static readonly Error CannotCancelPaidOrder = new(
         "Order.CannotCancelPaidOrder",
         "Paid orders cannot be cancelled by this operation.");
+
+    public static readonly Error InvalidShippingCarrier = new(
+        "Order.InvalidShippingCarrier",
+        "Shipping carrier is required, must not exceed 100 characters, and must not contain control characters.");
+
+    public static readonly Error InvalidShippingTrackingNumber = new(
+        "Order.InvalidShippingTrackingNumber",
+        "Shipping tracking number is required, must not exceed 100 characters, and must not contain control characters.");
 }

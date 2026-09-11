@@ -50,6 +50,12 @@ export interface AdminRefundRequiredPayment {
   refundStatus: string | null;
 }
 
+export interface ShipmentTracking {
+  carrier: string;
+  trackingNumber: string;
+  shippedAt: string;
+}
+
 export interface AdminOrderDetail {
   id: string;
   customerId: string;
@@ -61,7 +67,9 @@ export interface AdminOrderDetail {
   shippingAddress: ShippingAddress | null;
   adminCancellation: AdminCancellation | null;
   refundRequiredPayments?: AdminRefundRequiredPayment[];
+  shipmentTracking?: ShipmentTracking | null;
 }
+
 
 export type GetAdminOrdersResult =
   | { status: "unauthenticated" }

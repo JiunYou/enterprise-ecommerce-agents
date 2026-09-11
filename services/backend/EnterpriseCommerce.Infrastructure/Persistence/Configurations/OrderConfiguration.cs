@@ -32,7 +32,16 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.SubmittedAt);
 
+        builder.Property(o => o.ShippingCarrier)
+            .HasMaxLength(100);
+
+        builder.Property(o => o.ShippingTrackingNumber)
+            .HasMaxLength(100);
+
+        builder.Property(o => o.ShippedAt);
+
         builder.HasIndex(o => new { o.Status, o.SubmittedAt });
+
 
         builder.OwnsOne(o => o.ShippingAddress, shippingBuilder =>
         {

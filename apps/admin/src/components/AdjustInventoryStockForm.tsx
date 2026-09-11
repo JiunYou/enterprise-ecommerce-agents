@@ -70,7 +70,7 @@ export function AdjustInventoryStockForm({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
       <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
         庫存調整作業
       </h3>
@@ -86,7 +86,7 @@ export function AdjustInventoryStockForm({
           >
             調整數量 (正整數)
           </label>
-          <div className="mt-1.5 flex rounded-lg shadow-sm">
+          <div className="mt-1.5">
             <input
               type="number"
               id="adjustQuantity"
@@ -97,30 +97,36 @@ export function AdjustInventoryStockForm({
               disabled={isPending}
               value={quantityInput}
               onChange={(e) => setQuantityInput(e.target.value)}
-              className="block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+              className="block min-h-[44px] w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 shadow-xs transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500 dark:disabled:bg-zinc-800/50"
               placeholder="例如 10"
             />
           </div>
         </div>
 
         {errorMessage && (
-          <div className="rounded-md bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+          <div
+            role="alert"
+            className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+          >
             {errorMessage}
           </div>
         )}
 
         {successMessage && (
-          <div className="rounded-md bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <div
+            role="alert"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
             {successMessage}
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
           <button
             type="button"
             disabled={isPending}
             onClick={() => handleAdjust("increase")}
-            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+            className="inline-flex min-h-[44px] w-full touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-500 active:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-zinc-900"
           >
             {isPending ? "處理中..." : "+ 增加庫存 (Increase Stock)"}
           </button>
@@ -129,7 +135,7 @@ export function AdjustInventoryStockForm({
             type="button"
             disabled={isPending || availableQuantity <= 0}
             onClick={() => handleAdjust("decrease")}
-            className="inline-flex items-center justify-center rounded-lg border border-rose-300 bg-white px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/60 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
+            className="inline-flex min-h-[44px] w-full touch-manipulation items-center justify-center rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-xs font-semibold text-rose-700 shadow-xs transition-colors hover:bg-rose-50 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-rose-900/60 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950/30 dark:focus-visible:ring-offset-zinc-900"
           >
             {isPending ? "處理中..." : "- 扣減庫存 (Decrease Stock)"}
           </button>

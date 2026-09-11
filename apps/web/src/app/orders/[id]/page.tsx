@@ -525,6 +525,75 @@ export default async function OrderConfirmationPage({
                 </div>
               )}
 
+              {/* 退款狀態區塊 (僅在有退款義務且非空時顯示) */}
+              {result.data.refunds && result.data.refunds.length > 0 && (
+                <div className="border-t border-stone-100 bg-white p-5 dark:border-stone-800 dark:bg-stone-900 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      退款狀態
+                    </h3>
+                    <span className="text-xs text-stone-400 dark:text-stone-500">
+                      共 {result.data.refunds.length} 筆退款進度
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {result.data.refunds.map((refund, idx) => {
+                      let statusTitle = "退款需求已建立";
+                      let statusText = "此筆付款已建立退款義務，正在等待後續退款處理。";
+                      let badgeClass = "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/30";
+
+                      if (refund.status === "Processing") {
+                        statusTitle = "退款處理中";
+                        statusText = "退款程序已開始，目前正在處理中。";
+                        badgeClass = "bg-sky-50 text-sky-800 ring-sky-600/20 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-500/30";
+                      } else if (refund.status === "Succeeded") {
+                        statusTitle = "退款已完成";
+                        statusText = "系統已完成退款處理；實際入帳時間仍可能依支付機構或銀行作業時間而異。";
+                        badgeClass = "bg-emerald-50 text-emerald-800 ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-500/30";
+                      } else if (refund.status === "NeedsReview") {
+                        statusTitle = "退款處理需進一步確認";
+                        statusText = "此筆退款需要進一步確認。如長時間未更新，請聯繫客服協助。";
+                        badgeClass = "bg-rose-50 text-rose-800 ring-rose-600/20 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-500/30";
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          className="rounded-xl border border-stone-100 bg-stone-50/50 p-4 dark:border-stone-800/80 dark:bg-stone-800/40"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${badgeClass}`}>
+                                {statusTitle}
+                              </span>
+                              <span className="font-mono text-sm font-bold text-stone-950 dark:text-stone-50">
+                                {formatPrice(refund.amount, refund.currency)}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
+                              {refund.requestedAt && (
+                                <span>
+                                  申請時間：{new Date(refund.requestedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
+                                </span>
+                              )}
+                              {refund.completedAt && (
+                                <span>
+                                  完成時間：{new Date(refund.completedAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-stone-600 dark:text-stone-300">
+                            {statusText}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* 總計摘要與付款按鈕區 */}
               <div className="border-t border-stone-100 bg-stone-50/80 p-5 dark:border-stone-800 dark:bg-stone-900/60 sm:p-6">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">

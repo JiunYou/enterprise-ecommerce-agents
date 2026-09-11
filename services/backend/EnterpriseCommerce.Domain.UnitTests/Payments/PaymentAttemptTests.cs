@@ -171,12 +171,88 @@ public class PaymentAttemptTests
     }
 
     [Fact]
-    public void MarkAsRefundRequired_WithReferenceExceeding100Chars_StoresNull()
+    public void RequireRefundAfterCancellation_WhenSucceeded_ShouldTransitionToRefundRequiredAndPreserveMetadata()
     {
         var attempt = CreatePendingAttempt();
-        var longRef = new string('X', 101);
-        attempt.MarkAsRefundRequired("tx-123", DateTimeOffset.UtcNow, longRef);
+        var txId = "tx-paid-cancel-123";
+        var completedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var authRef = "AUTH-PRESERVE-789";
 
-        attempt.ProviderAuthorizationReference.Should().BeNull();
+        var succeedResult = attempt.MarkAsSucceeded(txId, completedAt, authRef);
+        succeedResult.IsSuccess.Should().BeTrue();
+
+        var expectedId = attempt.Id;
+        var expectedOrderId = attempt.OrderId;
+        var expectedAmount = attempt.Amount.Amount;
+        var expectedCurrency = attempt.Amount.Currency;
+        var expectedProvider = attempt.Provider;
+        var expectedTxId = attempt.ProviderTransactionId;
+        var expectedAuthRef = attempt.ProviderAuthorizationReference;
+        var expectedCreatedAt = attempt.CreatedAt;
+        var expectedCompletedAt = attempt.CompletedAt;
+        var expectedIdempotencyKey = attempt.IdempotencyKey;
+
+        var result = attempt.RequireRefundAfterCancellation();
+
+        result.IsSuccess.Should().BeTrue();
+        attempt.Status.Should().Be(PaymentAttemptStatus.RefundRequired);
+
+        attempt.Id.Should().Be(expectedId);
+        attempt.OrderId.Should().Be(expectedOrderId);
+        attempt.Amount.Amount.Should().Be(expectedAmount);
+        attempt.Amount.Currency.Should().Be(expectedCurrency);
+        attempt.Provider.Should().Be(expectedProvider);
+        attempt.ProviderTransactionId.Should().Be(expectedTxId);
+        attempt.ProviderAuthorizationReference.Should().Be(expectedAuthRef);
+        attempt.CreatedAt.Should().Be(expectedCreatedAt);
+        attempt.CompletedAt.Should().Be(expectedCompletedAt);
+        attempt.IdempotencyKey.Should().Be(expectedIdempotencyKey);
+    }
+
+    [Theory]
+    [InlineData(PaymentAttemptStatus.Pending)]
+    [InlineData(PaymentAttemptStatus.Failed)]
+    [InlineData(PaymentAttemptStatus.RefundRequired)]
+    public void RequireRefundAfterCancellation_WhenNotSucceeded_ShouldFailWithoutMutation(PaymentAttemptStatus nonSucceededState)
+    {
+        var attempt = CreatePendingAttempt();
+        var time = DateTimeOffset.UtcNow;
+
+        switch (nonSucceededState)
+        {
+            case PaymentAttemptStatus.Pending:
+                break;
+            case PaymentAttemptStatus.Failed:
+                attempt.MarkAsFailed("tx-fail", time);
+                break;
+            case PaymentAttemptStatus.RefundRequired:
+                attempt.MarkAsRefundRequired("tx-refund", time);
+                break;
+        }
+
+        var statusBefore = attempt.Status;
+        var txBefore = attempt.ProviderTransactionId;
+        var completedBefore = attempt.CompletedAt;
+
+        var result = attempt.RequireRefundAfterCancellation();
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(PaymentErrors.InvalidStatusTransition);
+        attempt.Status.Should().Be(statusBefore);
+        attempt.ProviderTransactionId.Should().Be(txBefore);
+        attempt.CompletedAt.Should().Be(completedBefore);
+    }
+
+    [Fact]
+    public void MarkAsRefundRequired_FromSucceeded_ShouldFailAndNotBeBroadened()
+    {
+        var attempt = CreatePendingAttempt();
+        attempt.MarkAsSucceeded("tx-succeeded", DateTimeOffset.UtcNow);
+
+        var result = attempt.MarkAsRefundRequired("tx-new", DateTimeOffset.UtcNow);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(PaymentErrors.InvalidStatusTransition);
+        attempt.Status.Should().Be(PaymentAttemptStatus.Succeeded);
     }
 }

@@ -1192,3 +1192,31 @@
   - Admin Build: 通過 (Next.js 最佳化生產組建成功)
   - Git Diff Check: 通過 (無多餘空白字元或行尾問題)
   - 來源指紋 (Source Fingerprint): `cef5058bde3fcf435f61eaee7b79f8a19f572a9561ad88b561af5f57b24e836b`
+
+### 2026-09-11 — PR #43 — feat: support paid order cancellation with refund obligation
+- **垂直切片 (Vertical Slice)**：
+  - Admin Paid Order Cancellation with Refund Obligation v1
+- **程序分類 (Process Classification)**：
+  - Tier-1 資金與訂單領域生命週期變更 (Tier-1 Money Domain Mutation)
+  - 嚴格紅燈優先測試驅動開發 (RED-First TDD Required: `RED_FIRST_EVIDENCE=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 支援管理員安全取消已付款（Paid）訂單，並建立退款義務 (`Paid → Cancelled`)。
+  - **領域層 (Domain)**：於 `PaymentAttempt` 實作專用語意方法 `RequireRefundAfterCancellation()`，僅允許來源狀態為 `Succeeded` 並轉移至 `RefundRequired`。嚴格保留既有所有金額、幣別、金流商、授權代碼、交易標識與時間戳記等中繼資料，且絕不修改既有 Webhook 競態路徑之 `MarkAsRefundRequired`。
+  - **付款基數不變量 (Payment Cardinality Invariant)**：取消已付款訂單時，嚴格要求恰好具備 1 筆 `Succeeded` 付款；若為 0 筆或 2 筆以上 `Succeeded`，實施違規封閉拒絕（Fail-Closed），回傳 `PaymentRefundErrors.RefundOrderPaymentInvariantViolation`，且資料庫絕不產生任何持久化變更。若存在其他 `Pending`、`Failed` 或既有之 `RefundRequired` 記錄，取消操作仍可安全進行，僅唯一之 `Succeeded` 轉換為 `RefundRequired`。
+  - **單一本機事務原子性 (Local DB Atomicity)**：訂單取消狀態、付款退款義務、管理員審計紀錄（`AdminOrderCancellation`）與取消領域事件 Outbox 訊息，由單一 `SaveChangesAsync` 統一原子性提交。
+  - **庫存釋放非同步化 (Eventual Inventory Release)**：取消 Handler 內部絕無直接呼叫庫存變更，預留庫存之釋放完全依循 Outbox 排程與既有之 `OrderCancelledDomainEventHandler` → `ReleaseInventoryReservationCommand` 非同步最終一致性完成。
+  - **外部金流退款解耦**：取消操作本身絕不呼叫外部金流商退款 API，取消後於管理員讀取模型自然呈現為 `RefundRequired`（具備 `Eligible` 資格），由管理員後續於現有 Refund Processing v1 流程顯式執行退款與對帳。
+  - **管理員前端介面 (Admin UI)**：更新 `CancelOrderSection.tsx` 納入 `Paid` 狀態取消，並在確認對話框內提供清楚之取消與退款義務說明卡片，明訂取消不代表金流退款已完成。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 顧客端已付款訂單取消持續受阻擋，顧客取消行為零變更 (`CUSTOMER_PAID_CANCELLATION_CHANGED=NO`)。
+  - 現有退款執行管線與讀取模型零改動 (`REFUND_EXECUTION_PIPELINE_CHANGED=NO`)。
+  - 沿用訂單與付款之樂觀並行存取權杖 (`Version`)，資料庫零綱要變更、零 Migration (`DB_SCHEMA_CHANGED=NO`)。
+  - 未修改 README.md。
+- **驗證成果 (Validation)**：
+  - Domain UnitTests: 通過 152 項 (新增 4 項)
+  - Application UnitTests: 通過 267 項 (新增 5 項)
+  - Infrastructure UnitTests: 通過 209 項
+  - WebApi IntegrationTests: 通過 323 項 (含新增之管理員取消已付款端點與 MySQL 驗收測試)
+  - Admin Lint & Build: 通過 (0 errors, 0 warnings, Next.js build pass)
+  - 來源指紋 (Source Fingerprint): `f9c73e1b6508b0e6c4b84c7f584e5070ebf932cfba6bb147cdab4151d664a74a`
+  - 運行時狀態: `AUTHENTICATED_PAID_CANCEL_RUNTIME=NOT_OBSERVED`（遵循治理規範，不執行真實金流操作）

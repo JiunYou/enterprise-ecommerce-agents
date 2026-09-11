@@ -1,7 +1,9 @@
 using EnterpriseCommerce.Application.Abstractions;
 using EnterpriseCommerce.Application.Common.CQRS;
+using EnterpriseCommerce.Application.Payments;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Orders.ValueObjects;
+using EnterpriseCommerce.Domain.Payments;
 using EnterpriseCommerce.Domain.Primitives;
 
 namespace EnterpriseCommerce.Application.Orders.Commands.AdminCancelOrder;
@@ -15,17 +17,20 @@ internal sealed class AdminCancelOrderCommandHandler : ICommandHandler<AdminCanc
     private readonly IAdminOrderCancellationStore _adminOrderCancellationStore;
     private readonly IApplicationUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
+    private readonly IPaymentAttemptRepository? _paymentAttemptRepository;
 
     public AdminCancelOrderCommandHandler(
         IOrderRepository orderRepository,
         IAdminOrderCancellationStore adminOrderCancellationStore,
         IApplicationUnitOfWork unitOfWork,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IPaymentAttemptRepository? paymentAttemptRepository = null)
     {
         _orderRepository = orderRepository;
         _adminOrderCancellationStore = adminOrderCancellationStore;
         _unitOfWork = unitOfWork;
         _timeProvider = timeProvider;
+        _paymentAttemptRepository = paymentAttemptRepository;
     }
 
     public async Task<Result> Handle(AdminCancelOrderCommand request, CancellationToken cancellationToken)
@@ -38,13 +43,26 @@ internal sealed class AdminCancelOrderCommandHandler : ICommandHandler<AdminCanc
             return Result.Failure(OrderErrors.NotFound);
         }
 
-        // 管理員取消策略：僅允許 Pending 與 Submitted 狀態
+        PaymentAttempt? succeededAttempt = null;
+
         if (order.Status == OrderStatus.Paid)
         {
-            return Result.Failure(new Error("Order.CannotCancelPaidOrder", "Paid orders cannot be cancelled by this operation."));
-        }
+            if (_paymentAttemptRepository is null)
+            {
+                return Result.Failure(PaymentRefundErrors.RefundOrderPaymentInvariantViolation);
+            }
 
-        if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Submitted)
+            var attempts = await _paymentAttemptRepository.GetByOrderIdAsync(order.Id, cancellationToken);
+            var succeededAttempts = attempts.Where(a => a.Status == PaymentAttemptStatus.Succeeded).ToList();
+
+            if (succeededAttempts.Count != 1)
+            {
+                return Result.Failure(PaymentRefundErrors.RefundOrderPaymentInvariantViolation);
+            }
+
+            succeededAttempt = succeededAttempts[0];
+        }
+        else if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Submitted)
         {
             return Result.Failure(OrderErrors.InvalidStatusTransition);
         }
@@ -53,6 +71,15 @@ internal sealed class AdminCancelOrderCommandHandler : ICommandHandler<AdminCanc
         if (cancelResult.IsFailure)
         {
             return cancelResult;
+        }
+
+        if (succeededAttempt is not null)
+        {
+            var refundTransitionResult = succeededAttempt.RequireRefundAfterCancellation();
+            if (refundTransitionResult.IsFailure)
+            {
+                return refundTransitionResult;
+            }
         }
 
         var cancelledAt = _timeProvider.GetUtcNow();

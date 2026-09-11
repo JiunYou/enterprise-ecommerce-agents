@@ -15,23 +15,8 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isCancellable = status === "Pending" || status === "Submitted";
   const isPaid = status === "Paid";
-
-  if (isPaid) {
-    return (
-      <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-4 shadow-xs text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
-        <div className="flex items-center gap-2">
-          <span aria-hidden="true" className="font-bold text-amber-600 dark:text-amber-400">
-            ℹ️
-          </span>
-          <p className="font-medium text-amber-800 dark:text-amber-300">
-            已付款訂單暫不支援取消，需待退款功能完備後開放。
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const isCancellable = status === "Pending" || status === "Submitted" || isPaid;
 
   if (!isCancellable) {
     return null;
@@ -88,7 +73,7 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
               訂單操作 (Order Actions)
             </h3>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              管理員可對待處理或已提交狀態之訂單執行取消操作。
+              管理員可對待處理、已提交或已付款狀態之訂單執行取消操作。
             </p>
           </div>
           {!isOpen && (
@@ -110,6 +95,26 @@ export function CancelOrderSection({ orderId, status }: CancelOrderSectionProps)
             <p className="mt-1 text-xs text-rose-700 dark:text-rose-400">
               取消後訂單狀態將轉為已取消（Cancelled），並依規則釋放預留庫存。此操作無法復原。
             </p>
+
+            {isPaid && (
+              <div className="mt-3 rounded-md border border-amber-300/80 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <div className="flex items-start gap-2">
+                  <span aria-hidden="true" className="font-bold text-amber-600 dark:text-amber-400">
+                    ⚠️
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-semibold">已付款訂單取消與退款義務說明：</p>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-amber-800 dark:text-amber-300">
+                      <li>訂單狀態將轉為已取消（Cancelled）。</li>
+                      <li>預留庫存將遵循正常取消事件流程非同步釋放。</li>
+                      <li>成功付款將轉為全額退款義務（RefundRequired）。</li>
+                      <li>本次取消操作並不代表金流商已完成退款。</li>
+                      <li>取消後，實際退款執行與對帳仍為獨立操作，需至下方待退款項（Refund Required）區塊手動執行。</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-3">
               <label

@@ -238,12 +238,31 @@ public class AdminOrdersCancelEndpointTests : IClassFixture<WebApplicationFactor
     }
 
     [Fact]
-    public async Task CancelOrder_WhenOrderIsPaid_Returns400BadRequest()
+    public async Task CancelOrder_WhenOrderIsPaid_WithAdminRole_Returns200Ok()
     {
         // Arrange
         _senderMock.Reset();
         _senderMock.Setup(m => m.Send(It.IsAny<AdminCancelOrderCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Failure(new Error("Order.CannotCancelPaidOrder", "Paid orders cannot be cancelled by this operation.")));
+            .ReturnsAsync(Result.Success());
+
+        var client = CreateClientWithRole("Admin");
+        var orderId = Guid.NewGuid();
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/admin/orders/{orderId}/cancel", new AdminCancelOrderRequest("Reason"));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(It.Is<AdminCancelOrderCommand>(c => c.OrderId == orderId && c.Reason == "Reason"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CancelOrder_WhenOrderIsPaid_WithInvalidPaymentInvariant_Returns400BadRequest()
+    {
+        // Arrange
+        _senderMock.Reset();
+        _senderMock.Setup(m => m.Send(It.IsAny<AdminCancelOrderCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error("Payment.RefundOrderPaymentInvariantViolation", "Refund order payment invariant violation.")));
 
         var client = CreateClientWithRole("Admin");
         var orderId = Guid.NewGuid();
@@ -254,7 +273,7 @@ public class AdminOrdersCancelEndpointTests : IClassFixture<WebApplicationFactor
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Paid orders cannot be cancelled by this operation.");
+        body.Should().Contain("Refund order payment invariant violation.");
     }
 
     [Fact]

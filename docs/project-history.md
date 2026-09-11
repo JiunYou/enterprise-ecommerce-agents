@@ -1286,3 +1286,41 @@
   - 來源指紋 (Source Fingerprint): `6c61fddba7f2c2a25a3430882cef028635288d3a2683ce67838056b0e472659d`
   - 運行時狀態: `AUTHENTICATED_CUSTOMER_HISTORY_API_ACCEPTANCE=PASS`，`AUTHENTICATED_CUSTOMER_HISTORY_RUNTIME=NOT_OBSERVED`（遵循治理規範不偽造真實 Auth0 瀏覽器工作階段）。
 
+### 2026-09-12 — PR #46 — feat: show customer refund status
+- **垂直切片 (Vertical Slice)**：
+  - Customer Refund Status Visibility v1
+- **程序分類 (Process Classification)**：
+  - Tier-2 顧客支付讀取模型 (Tier-2 Customer Payment Read Model)
+  - 嚴格紅燈優先測試驅動開發 (RED-First TDD Required: `RED_FIRST_EVIDENCE=PASS`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 於既有顧客訂單詳情端點 `GET /api/v1/orders/{id}` 及顧客 Web 頁面 `/orders/{id}` 提供唯讀之顧客安全退款進度查詢投影。
+  - **四種顧客安全狀態**：精準對應現有 durable 狀態：
+    - `RefundRequired` 且無 `PaymentRefund` $\rightarrow$ `Required`（時間戳為 `null`，代表已建立退款義務但尚未執行）
+    - `PaymentRefund.Status == Pending` $\rightarrow$ `Processing`（退款處理中）
+    - `PaymentRefund.Status == Succeeded` $\rightarrow$ `Succeeded`（退款已完成，保留實際銀行作業免責警語）
+    - `PaymentRefund.Status == Failed` $\rightarrow$ `NeedsReview`（退款處理需進一步確認）
+    - `PaymentRefund.Status == Unresolved` $\rightarrow$ `NeedsReview`（退款處理需進一步確認）
+  - **權威納入準則**：僅以 `PaymentAttempt.Status == RefundRequired` 作為納入顧客退款投影之依據，非 RefundRequired 之支付嘗試不被暴露；不依賴訂單取消狀態推論退款。
+  - **多筆退款義務支援**：支援多筆 `RefundRequired` 並存，依 `PaymentAttempt.CreatedAt ASC` 然後 `PaymentAttempt.Id.Value ASC` 確定性排序並獨立關聯 `PaymentRefund`。
+  - **安全邊界與 IDOR 防護**：落實先驗證訂單擁有權（`order.CustomerId == request.CustomerId`）後才允許查詢支付與退款儲存庫；跨客戶請求直接回傳 `NotFound`，杜絕任何側信道洩漏。
+  - **敏感資訊徹底排除**：機械式斷言確保顧客回傳 Payload 絕不包含 `paymentAttemptId`、`provider`、`providerTransactionId`、`providerAuthorizationReference`、`idempotencyKey`、`reason`、`actorIssuer`、`actorSubject`、`capability` 與金流商錯誤細節。
+  - **儲存庫效能最佳化**：當訂單無任何 `RefundRequired` 支付嘗試時，跳過 `IPaymentRefundRepository` 查詢，直接回傳空陣列。
+  - **顧客前端介面 (Customer Web UX)**：於訂單詳情頁面渲染唯讀「退款狀態」卡片，以格式化顯示退款金額、幣別、狀態徽章、申請時間與完成時間；當無退款義務時不渲染該區塊；頁面絕無任何顧客操作按鈕或重試按鈕。
+- **嚴格不變性與邊界 (Strict Invariants & Boundaries)**：
+  - 訂單領域、支付領域、退款領域模型零改動 (`ORDER_DOMAIN_CHANGED=NO`, `PAYMENT_DOMAIN_CHANGED=NO`, `REFUND_DOMAIN_CHANGED=NO`)。
+  - 退款執行器、對帳器、金流 Webhook、管理員退款與取消邏輯零改動 (`REFUND_EXECUTION_CHANGED=NO`, `ADMIN_REFUND_BEHAVIOR_CHANGED=NO`, `ADMIN_ORDER_DETAIL_CHANGED=NO`)。
+  - 絕不呼叫外部金流服務商 API (`EXTERNAL_REFUND_PROVIDER_CALLED=NO`)。
+  - 資料庫綱要零改動，無 Migration (`DB_SCHEMA_CHANGED=NO`)。
+  - 儲存庫介面與實作零改動 (`PAYMENT_REPOSITORY_CHANGED=NO`, `REFUND_REPOSITORY_CHANGED=NO`)。
+  - 顧客訂單紀錄、分頁、顧客取消、物流追蹤、庫存、Outbox 零改動。
+  - 未修改 README.md (`README_CHANGED=NO`)。
+- **驗證成果 (Validation)**：
+  - RED-FIRST TDD 證據驗證通過 (`APPLICATION_RED_FIRST=PASS`, `CUSTOMER_REFUND_ACCEPTANCE_RED_FIRST=PASS`)
+  - Domain UnitTests: 通過 168 項
+  - Application UnitTests: 通過 295 項 (新增 9 項退款投影、狀態對應、擁有權隔離與最佳化測試)
+  - Infrastructure UnitTests: 通過 212 項
+  - WebApi IntegrationTests 全套: 通過 347 項 (新增 7 項真實 MySQL 退款驗收、擁有權隔離與敏感欄位機械式斷言測試)
+  - Customer Web 前端: Lint 與 Next.js 最佳化生產組建通過
+  - Git Diff Check: 完全通過
+  - 來源指紋 (Source Fingerprint): `20734017592dea947b5c59b6c113846776e0ca5fe6603120fe1c612f83a2e991`
+  - 運行時狀態: `AUTHENTICATED_CUSTOMER_REFUND_API_ACCEPTANCE=PASS`，`AUTHENTICATED_CUSTOMER_REFUND_RUNTIME=NOT_OBSERVED`（遵循治理規範不偽造真實 Auth0 瀏覽器工作階段）。

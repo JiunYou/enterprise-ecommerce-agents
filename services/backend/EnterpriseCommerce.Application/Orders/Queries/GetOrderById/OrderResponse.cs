@@ -21,6 +21,13 @@ public sealed record ShipmentTrackingResponse(
     string TrackingNumber,
     DateTimeOffset ShippedAt);
 
+public sealed record CustomerRefundStatusResponse(
+    decimal Amount,
+    string Currency,
+    string Status,
+    DateTimeOffset? RequestedAt,
+    DateTimeOffset? CompletedAt);
+
 public sealed record OrderResponse(
     Guid Id,
     Guid CustomerId,
@@ -29,4 +36,8 @@ public sealed record OrderResponse(
     decimal TotalAmount,
     IReadOnlyCollection<OrderItemResponse> Items,
     ShippingAddressResponse? ShippingAddress = null,
-    ShipmentTrackingResponse? ShipmentTracking = null);
+    ShipmentTrackingResponse? ShipmentTracking = null,
+    IReadOnlyList<CustomerRefundStatusResponse>? Refunds = null)
+{
+    public IReadOnlyList<CustomerRefundStatusResponse> Refunds { get; init; } = Refunds ?? Array.Empty<CustomerRefundStatusResponse>();
+}

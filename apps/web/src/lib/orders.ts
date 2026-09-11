@@ -28,6 +28,14 @@ export interface ShipmentTracking {
   shippedAt: string;
 }
 
+export interface CustomerRefundStatus {
+  amount: number;
+  currency: string;
+  status: "Required" | "Processing" | "Succeeded" | "NeedsReview";
+  requestedAt?: string | null;
+  completedAt?: string | null;
+}
+
 export interface OrderDetail {
   id: string;
   customerId: string;
@@ -37,6 +45,7 @@ export interface OrderDetail {
   items: OrderItem[];
   shippingAddress?: ShippingAddress | null;
   shipmentTracking?: ShipmentTracking | null;
+  refunds?: CustomerRefundStatus[];
 }
 
 

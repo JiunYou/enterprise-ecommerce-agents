@@ -138,6 +138,18 @@ export default async function ProductDetailPage({
                   </div>
                 </div>
 
+                {/* 商品描述 (僅在非空時渲染) */}
+                {result.data.description && result.data.description.trim().length > 0 && (
+                  <div className="border-t border-stone-200/80 pt-6 dark:border-stone-800">
+                    <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+                      商品描述
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-600 break-words whitespace-pre-line dark:text-stone-300">
+                      {result.data.description.trim()}
+                    </p>
+                  </div>
+                )}
+
                 {/* 購買操作區塊 */}
                 <div className="pt-2">
                   <AddToCartForm

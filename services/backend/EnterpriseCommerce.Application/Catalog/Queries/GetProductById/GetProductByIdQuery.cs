@@ -5,7 +5,7 @@ using EnterpriseCommerce.Application.Common.CQRS;
 
 namespace EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 
-public sealed record GetProductByIdQuery(Guid ProductId, bool AllowInactive = false) : IQuery<ProductResponse>;
+public sealed record GetProductByIdQuery(Guid ProductId, bool AllowInactive = false) : IQuery<ProductDetailResponse>;
 
 public sealed record ProductResponse(
     Guid Id,
@@ -15,7 +15,16 @@ public sealed record ProductResponse(
     string Currency,
     bool IsActive);
 
-internal sealed class GetProductByIdQueryHandler : IQueryHandler<GetProductByIdQuery, ProductResponse>
+public sealed record ProductDetailResponse(
+    Guid Id,
+    string Name,
+    string Sku,
+    decimal Price,
+    string Currency,
+    bool IsActive,
+    string Description);
+
+internal sealed class GetProductByIdQueryHandler : IQueryHandler<GetProductByIdQuery, ProductDetailResponse>
 {
     private readonly IProductRepository _productRepository;
 
@@ -24,26 +33,27 @@ internal sealed class GetProductByIdQueryHandler : IQueryHandler<GetProductByIdQ
         _productRepository = productRepository;
     }
 
-    public async Task<Result<ProductResponse>> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
+    public async Task<Result<ProductDetailResponse>> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
         var product = await _productRepository.GetByIdAsync(request.ProductId, cancellationToken);
         if (product == null)
         {
-            return Result.Failure<ProductResponse>(ProductErrors.NotFound);
+            return Result.Failure<ProductDetailResponse>(ProductErrors.NotFound);
         }
 
         if (!product.IsActive && !request.AllowInactive)
         {
-            return Result.Failure<ProductResponse>(ProductErrors.NotFound);
+            return Result.Failure<ProductDetailResponse>(ProductErrors.NotFound);
         }
 
-        var response = new ProductResponse(
+        var response = new ProductDetailResponse(
             product.Id,
             product.Name,
             product.Sku,
             product.Price,
             product.Currency,
-            product.IsActive);
+            product.IsActive,
+            product.Description);
 
         return Result.Success(response);
     }

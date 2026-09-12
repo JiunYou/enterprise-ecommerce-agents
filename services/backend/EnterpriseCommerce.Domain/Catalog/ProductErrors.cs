@@ -32,4 +32,8 @@ public static class ProductErrors
     public static readonly Error InvalidName = new(
         "Product.InvalidName",
         "The product name is invalid.");
+
+    public static readonly Error InvalidDescription = new(
+        "Product.InvalidDescription",
+        "The product description is invalid.");
 }

@@ -9,6 +9,7 @@ public sealed class Product : AggregateRoot<Guid>
         Name = string.Empty;
         Sku = string.Empty;
         Currency = string.Empty;
+        Description = string.Empty;
     }
 
     private Product(Guid id, string name, string sku, decimal price, string currency, bool isActive) : base(id)
@@ -18,6 +19,7 @@ public sealed class Product : AggregateRoot<Guid>
         Price = price;
         Currency = currency;
         IsActive = isActive;
+        Description = string.Empty;
     }
 
     public string Name { get; private set; }
@@ -25,6 +27,7 @@ public sealed class Product : AggregateRoot<Guid>
     public decimal Price { get; private set; }
     public string Currency { get; private set; }
     public bool IsActive { get; private set; }
+    public string Description { get; private set; }
 
     public static Result<Product> Create(string name, string sku, decimal price, string currency)
     {
@@ -88,6 +91,24 @@ public sealed class Product : AggregateRoot<Guid>
         }
 
         Name = trimmedName;
+
+        return Result.Success();
+    }
+
+    public Result UpdateDescription(string description)
+    {
+        if (description is null)
+        {
+            return Result.Failure(ProductErrors.InvalidDescription);
+        }
+
+        var trimmedDescription = description.Trim();
+        if (trimmedDescription.Length > 2000)
+        {
+            return Result.Failure(ProductErrors.InvalidDescription);
+        }
+
+        Description = trimmedDescription;
 
         return Result.Success();
     }

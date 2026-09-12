@@ -235,4 +235,131 @@ public class ProductTests
         product.Name.Should().Be("New Inactive Name");
         product.IsActive.Should().BeFalse();
     }
+
+    [Fact]
+    public void Create_NewProduct_InitializesDescriptionToEmptyString()
+    {
+        // Act
+        var result = Product.Create("Test Product", "SKU-123", 100m, "TWD");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Description.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateDescription_WithValidDescription_SetsDescription()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateDescription("Product description");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Description.Should().Be("Product description");
+    }
+
+    [Fact]
+    public void UpdateDescription_WithSurroundingWhitespace_TrimsDescription()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateDescription("  Description  ");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Description.Should().Be("Description");
+    }
+
+    [Fact]
+    public void UpdateDescription_WithWhitespaceOrEmpty_ClearsDescriptionToEmptyString()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateDescription("Initial description");
+
+        // Act & Assert for empty string
+        var resultEmpty = product.UpdateDescription("");
+        resultEmpty.IsSuccess.Should().BeTrue();
+        product.Description.Should().Be(string.Empty);
+
+        // Act & Assert for whitespace
+        product.UpdateDescription("Another description");
+        var resultWhitespace = product.UpdateDescription("   ");
+        resultWhitespace.IsSuccess.Should().BeTrue();
+        product.Description.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateDescription_WithNull_ReturnsInvalidDescriptionAndPreservesPrevious()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateDescription("Existing description");
+
+        // Act
+        var result = product.UpdateDescription(null!);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidDescription);
+        product.Description.Should().Be("Existing description");
+    }
+
+    [Fact]
+    public void UpdateDescription_WithNormalizedLengthExceeding2000_ReturnsInvalidDescriptionAndPreservesPrevious()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateDescription("Existing description");
+        var longDescription = new string('A', 2001);
+
+        // Act
+        var result = product.UpdateDescription(longDescription);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidDescription);
+        product.Description.Should().Be("Existing description");
+    }
+
+    [Fact]
+    public void UpdateDescription_SuccessfulUpdate_PreservesAllInvariants()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        var idBefore = product.Id;
+
+        // Act
+        var result = product.UpdateDescription("Valid new description");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Id.Should().Be(idBefore);
+        product.Name.Should().Be("Test Product");
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+        product.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateDescription_InactiveProduct_SucceedsWithoutLifecycleChange()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.Deactivate();
+
+        // Act
+        var result = product.UpdateDescription("Description on inactive product");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Description.Should().Be("Description on inactive product");
+        product.IsActive.Should().BeFalse();
+    }
 }

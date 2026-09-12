@@ -4,6 +4,7 @@ using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductName;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductDescription;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
@@ -53,7 +54,7 @@ public class ProductsController : ApiControllerBase
 
     [HttpGet("{id:guid}", Name = nameof(GetProductById))]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProductDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProductById(Guid id, CancellationToken cancellationToken)
     {
@@ -136,6 +137,26 @@ public class ProductsController : ApiControllerBase
     public async Task<IActionResult> UpdateProductName(Guid id, [FromBody] UpdateProductNameRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateProductNameCommand(id, request.NewName);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    [HttpPut("{id:guid}/description")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateProductDescription(Guid id, [FromBody] UpdateProductDescriptionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateProductDescriptionCommand(id, request.Description);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

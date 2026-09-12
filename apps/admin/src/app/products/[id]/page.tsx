@@ -3,6 +3,7 @@ import { auth0 } from "@/lib/auth0";
 import { getAdminProductById, getAdminInventory } from "@/lib/products";
 import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
 import { UpdateProductNameForm } from "@/components/UpdateProductNameForm";
+import { UpdateProductDescriptionForm } from "@/components/UpdateProductDescriptionForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
 import { ReactivateProductButton } from "@/components/ReactivateProductButton";
 import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
@@ -276,6 +277,15 @@ export default async function AdminProductDetailPage({
                     {product.isActive ? "公開可見，可加入購物車" : "已隱藏下架，禁止加入購物車"}
                   </dd>
                 </div>
+
+                <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 p-3.5 sm:col-span-2 dark:border-zinc-800/70 dark:bg-zinc-800/40">
+                  <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    商品描述 (Description)
+                  </dt>
+                  <dd className="mt-1 text-sm text-zinc-900 break-words whitespace-pre-line dark:text-zinc-50">
+                    {product.description || "（未設定商品描述）"}
+                  </dd>
+                </div>
               </dl>
             </section>
 
@@ -379,6 +389,12 @@ export default async function AdminProductDetailPage({
             <UpdateProductNameForm
               productId={product.id}
               currentName={product.name}
+            />
+
+            {/* 編輯商品描述表單 */}
+            <UpdateProductDescriptionForm
+              productId={product.id}
+              currentDescription={product.description}
             />
 
             {/* 調整價格表單 */}

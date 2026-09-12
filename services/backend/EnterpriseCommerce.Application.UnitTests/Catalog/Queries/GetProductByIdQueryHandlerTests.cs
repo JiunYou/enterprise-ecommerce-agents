@@ -19,10 +19,11 @@ public class GetProductByIdQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithExistingActiveProduct_ReturnsSuccess()
+    public async Task Handle_WithExistingActiveProduct_ReturnsSuccessWithProductDetailResponseMappingDescription()
     {
         // Arrange
         var product = Product.Create("Test Product", "SKU-1", 100m, "TWD").Value;
+        product.UpdateDescription("A detailed test description");
         var query = new GetProductByIdQuery(product.Id, AllowInactive: false);
         
         _productRepositoryMock.Setup(repo => repo.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
@@ -34,9 +35,14 @@ public class GetProductByIdQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
+        result.Value.Should().BeOfType<ProductDetailResponse>();
         result.Value.Id.Should().Be(product.Id);
         result.Value.Name.Should().Be("Test Product");
+        result.Value.Sku.Should().Be("SKU-1");
         result.Value.Price.Should().Be(100m);
+        result.Value.Currency.Should().Be("TWD");
+        result.Value.IsActive.Should().BeTrue();
+        result.Value.Description.Should().Be("A detailed test description");
     }
 
     [Fact]
@@ -59,10 +65,11 @@ public class GetProductByIdQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithInactiveProduct_WhenAllowInactive_ReturnsSuccess()
+    public async Task Handle_WithInactiveProduct_WhenAllowInactive_ReturnsSuccessWithProductDetailResponseMappingDescription()
     {
         // Arrange
         var product = Product.Create("Deactivated Product", "SKU-DEACT", 100m, "TWD").Value;
+        product.UpdateDescription("Inactive product description");
         product.Deactivate();
         var query = new GetProductByIdQuery(product.Id, AllowInactive: true);
         
@@ -75,7 +82,14 @@ public class GetProductByIdQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
+        result.Value.Should().BeOfType<ProductDetailResponse>();
+        result.Value.Id.Should().Be(product.Id);
+        result.Value.Name.Should().Be("Deactivated Product");
+        result.Value.Sku.Should().Be("SKU-DEACT");
+        result.Value.Price.Should().Be(100m);
+        result.Value.Currency.Should().Be("TWD");
         result.Value.IsActive.Should().BeFalse();
+        result.Value.Description.Should().Be("Inactive product description");
     }
 
     [Fact]

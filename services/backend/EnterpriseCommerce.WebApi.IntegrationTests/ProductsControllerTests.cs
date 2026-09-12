@@ -6,9 +6,11 @@ using EnterpriseCommerce.Application.Catalog.Commands.DeactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductName;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductDescription;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
+using EnterpriseCommerce.Application.Common.Models;
 using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Primitives;
 using EnterpriseCommerce.WebApi.Contracts.Catalog;
@@ -202,10 +204,10 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange
         var productId = Guid.NewGuid();
-        var productResponse = new ProductResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true);
+        var productDetailResponse = new ProductDetailResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true, "Test Description");
 
         _senderMock.Setup(m => m.Send(It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success(productResponse));
+            .ReturnsAsync(Result.Success(productDetailResponse));
 
         var client = _factory.CreateClient();
 
@@ -214,9 +216,10 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var content = await response.Content.ReadFromJsonAsync<ProductResponse>();
+        var content = await response.Content.ReadFromJsonAsync<ProductDetailResponse>();
         content.Should().NotBeNull();
         content!.Id.Should().Be(productId);
+        content.Description.Should().Be("Test Description");
     }
 
     [Fact]
@@ -279,7 +282,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Failure<ProductResponse>(ProductErrors.NotFound));
+            .ReturnsAsync(Result.Failure<ProductDetailResponse>(ProductErrors.NotFound));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
@@ -657,7 +660,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange: 模擬商品經由 Reactivate 成為 Active 後，非 Admin 查詢得以成功取得
         var productId = Guid.NewGuid();
-        var reactivatedProductResponse = new ProductResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true);
+        var reactivatedProductResponse = new ProductDetailResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true, "Reactivated Description");
 
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
@@ -674,10 +677,11 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var content = await response.Content.ReadFromJsonAsync<ProductResponse>();
+        var content = await response.Content.ReadFromJsonAsync<ProductDetailResponse>();
         content.Should().NotBeNull();
         content!.Id.Should().Be(productId);
         content.IsActive.Should().BeTrue();
+        content.Description.Should().Be("Reactivated Description");
     }
 
     [Fact]
@@ -823,5 +827,199 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_Anonymous_ReturnsUnauthorized()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var request = new UpdateProductDescriptionRequest("Valid Description");
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Products/{productId}/description", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_AsCustomer_ReturnsForbidden()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var request = new UpdateProductDescriptionRequest("Valid Description");
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_AdminUser_Success_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var description = "Valid Description";
+        _senderMock.Setup(m => m.Send(It.Is<UpdateProductDescriptionCommand>(c => c.ProductId == productId && c.Description == description), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest(description);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_AdminUser_EmptyDescription_ReturnsOk()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.Is<UpdateProductDescriptionCommand>(c => c.ProductId == productId && c.Description == ""), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest("");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_InvalidPayloadNullDescription_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductDescriptionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidDescription));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest(null!);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_DescriptionTooLong_ReturnsBadRequest()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductDescriptionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidDescription));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest(new string('X', 2001));
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_NotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductDescriptionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest("Valid Description");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductDescription_ConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(It.IsAny<UpdateProductDescriptionCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var request = new UpdateProductDescriptionRequest("Valid Description");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/description");
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+        requestMessage.Content = JsonContent.Create(request);
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task GetProducts_PublicList_DoesNotExposeDescription()
+    {
+        // Arrange
+        var pagedList = PagedList<ProductResponse>.Create(
+            new List<ProductResponse>
+            {
+                new(Guid.NewGuid(), "List Product", "SKU-LIST-1", 100m, "TWD", true)
+            },
+            page: 1,
+            pageSize: 10,
+            totalCount: 1);
+
+        _senderMock.Setup(m => m.Send(It.IsAny<GetProductsQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(pagedList));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Products");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var rawJson = await response.Content.ReadAsStringAsync();
+        rawJson.Should().NotContainEquivalentOf("\"description\"");
     }
 }

@@ -10,6 +10,10 @@ export interface AdminProductSummary {
   isActive: boolean;
 }
 
+export interface AdminProductDetail extends AdminProductSummary {
+  description: string;
+}
+
 export interface AdminProductPageResponse {
   items: AdminProductSummary[];
   page: number;
@@ -32,7 +36,7 @@ export type GetAdminProductByIdResult =
   | { status: "forbidden" }
   | { status: "notFound" }
   | { status: "error"; message: string }
-  | { status: "success"; product: AdminProductSummary };
+  | { status: "success"; product: AdminProductDetail };
 
 export async function getAdminProducts(params: {
   page?: number;
@@ -143,7 +147,7 @@ export async function getAdminProductById(
       };
     }
 
-    const product: AdminProductSummary = await response.json();
+    const product: AdminProductDetail = await response.json();
     return { status: "success", product };
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unauthorized")) {

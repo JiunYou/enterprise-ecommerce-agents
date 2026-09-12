@@ -7,6 +7,10 @@ export interface Product {
   isActive: boolean;
 }
 
+export interface ProductDetail extends Product {
+  description: string;
+}
+
 export interface PagedList<T> {
   items: T[];
   page: number;
@@ -22,7 +26,7 @@ export type CatalogResult =
   | { success: false; error: string };
 
 export type ProductDetailResult =
-  | { success: true; data: Product }
+  | { success: true; data: ProductDetail }
   | { success: false; notFound: true }
   | { success: false; notFound: false; error: string };
 
@@ -142,7 +146,7 @@ export async function getProductById(id: string): Promise<ProductDetailResult> {
       };
     }
 
-    const data: Product = await response.json();
+    const data: ProductDetail = await response.json();
     return {
       success: true,
       data,

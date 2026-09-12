@@ -1384,3 +1384,35 @@
   - Git Diff Check: 完全通過 (`git diff --check` 無警告)
   - 12 檔案權威來源指紋 (Source Fingerprint): `5fecc56e0829673b10741b1e1efeab746a406d5a4cd0d1fdd986add537effbea`
   - 運行時狀態: `AUTHENTICATED_ADMIN_PRODUCT_NAME_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_NAME_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。
+
+### 2026-09-12 — PR #49 — feat: add product descriptions
+- **垂直切片 (Vertical Slice)**：
+  - Product Description v1 (`PRODUCT_DESCRIPTION_V1`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 新增選填之商品詳細描述（`Product.Description`），涵蓋領域模型、EF Core 遷移持久化、詳情讀取模型、管理員編輯與顧客端商品詳情展示之完整垂直路徑。
+  - **領域語意與不變量**：
+    - 商品描述在業務語意上為選填，在領域物件內部為非 null（預設值為 `string.Empty`）。
+    - 建立商品凍結：新建立商品預設描述為 `string.Empty`，未將描述加入建立商品輸入模型（`CREATE_PRODUCT_DESCRIPTION_INPUT_ADDED=NO`）。
+    - 更新描述（`UpdateDescription`）：輸入自動去除前後空白（`Trim()`）；長度上限 2000 個字元；空白或空字串輸入規範化為 `string.Empty`（作為清空描述之支援操作）；`null` 或超過 2000 字元回傳 `ProductErrors.InvalidDescription` 並保留既有描述。
+    - 支援雙狀態編輯：允許管理員針對已上架（Active）與已下架（Inactive）商品編輯描述，且操作不變更商品生命週期狀態與 Id/Name/Sku/Price/Currency 等既有屬性。
+  - **列表與詳情讀取模型分離 (Contract Separation)**：
+    - 公開商品列表與管理員商品列表保留輕量之 `ProductResponse`（`PUBLIC_PRODUCT_LIST_DESCRIPTION_EXPOSED=NO`, `ADMIN_PRODUCT_LIST_DESCRIPTION_EXPOSED=NO`）。
+    - 新增商品詳情專用回應合約 `ProductDetailResponse`（包含 `Description`），專門供單一商品查詢端點使用。
+  - **管理端點與權限**：
+    - 提供管理員專屬端點 `PUT /api/v1/products/{id:guid}/description`，限制為 `[Authorize(Roles = "Admin")]`。
+    - 支援樂觀並行控制，並行衝突回傳 409 Conflict。
+  - **使用者體驗 (UX)**：
+    - 管理後台商品詳情頁 (`apps/admin`)：新增 `UpdateProductDescriptionForm` 組件，使用 textarea，具備 2000 字元上限指引、字數計數、清空語意與 Pending/錯誤狀態。
+    - 顧客端商品詳情頁 (`apps/web`)：僅在商品描述非空（`description.trim().length > 0`）時渲染描述區塊，採用純 React 文字渲染與 `whitespace-pre-line` 保留換行，不引入 Markdown/富文本相依，空描述時完全不渲染佔位區塊。
+  - **資料庫遷移與相容性**：
+    - 產生單一向下相容遷移 `20260912011844_AddProductDescription`（上一基準為 `20260911140512_AddOrderShipmentTracking`，遷移總數為 12）。
+    - 既有歷史商品列平滑過渡，`Description` 欄位型別為 `varchar(2000) NOT NULL`，歷史資料自動補填為 `""`。
+- **驗證成果 (Validation)**：
+  - 嚴格落實 RED-FIRST TDD（`DOMAIN_RED_FIRST=PASS`, `APPLICATION_RED_FIRST=PASS`, `DETAIL_READ_MODEL_RED_FIRST=PASS`, `WEBAPI_RED_FIRST=PASS`, `MIGRATION_RED_FIRST=PASS`）。
+  - 後端測試通過規模：Domain=182, Application=315, Infrastructure=212, WebApi=370。
+  - 前端驗證：Admin 與 Customer 前端 `npm run lint` 與 `npm run build` 全數通過（0 warnings, 0 errors）。
+  - 遷移驗收測試：升級、降級與全新資料庫鏈條全數通過（`PRODUCT_DESCRIPTION_MIGRATION_UPGRADE=PASS`）。
+  - 真實 MySQL 驗收測試：完成 15 項真實資料庫持久化與邊界情境驗收（`PRODUCT_DESCRIPTION_MYSQL_ACCEPTANCE=PASS`）。
+  - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 12 個遷移、backend-api 啟動、存活探測 200 與商品查詢 API 200（`FRESH_DB_LATEST_MIGRATION=PASS`）。
+  - 權威來源指紋 (Source Fingerprint)：24 個來源檔案指紋為 `73b58f1c6c8ac82052015e3e60730e41802b742e5de3c678505454e8f662a0c7`。
+  - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_DESCRIPTION_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_DESCRIPTION_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_DESCRIPTION_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。

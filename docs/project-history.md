@@ -1416,3 +1416,43 @@
   - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 12 個遷移、backend-api 啟動、存活探測 200 與商品查詢 API 200（`FRESH_DB_LATEST_MIGRATION=PASS`）。
   - 權威來源指紋 (Source Fingerprint)：24 個來源檔案指紋為 `73b58f1c6c8ac82052015e3e60730e41802b742e5de3c678505454e8f662a0c7`。
   - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_DESCRIPTION_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_DESCRIPTION_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_DESCRIPTION_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。
+
+### 2026-09-12 — PR #50 — feat: add product image urls
+- **垂直切片 (Vertical Slice)**：
+  - Product Image URL v1 (`PRODUCT_IMAGE_URL_V1`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 新增商品單一選填之外部託管圖片網址（`Product.ImageUrl`），涵蓋領域模型、EF Core 遷移持久化、目錄與詳情讀取模型、管理員編輯與顧客端目錄及詳情安全直接展示之完整垂直路徑。
+  - **領域語意與不變量**：
+    - 商品圖片網址在業務語意上為選填，在領域物件內部為非 null（預設值為 `string.Empty`）。
+    - 建立商品凍結：新建立商品預設圖片網址為 `string.Empty`，未將圖片網址加入建立商品輸入模型（`CREATE_PRODUCT_IMAGE_URL_INPUT_ADDED=NO`）。
+    - 更新圖片網址（`UpdateImageUrl`）：輸入自動去除前後空白（`Trim()`）；長度上限 2048 個字元；空白或空字串輸入規範化為 `string.Empty`（作為清空圖片之支援操作）；必須為有效絕對 URI，通訊協定嚴格限制為 `https`，主機名稱非空，且嚴禁包含使用者帳號密碼資訊（UserInfo）；`null` 或不符規範回傳 `ProductErrors.InvalidImageUrl` 並保留既有網址。
+    - 支援雙狀態編輯：允許管理員針對已上架（Active）與已下架（Inactive）商品編輯圖片網址，且操作不變更商品生命週期狀態與既有屬性（Name/Sku/Price/Currency/Description/IsActive）。
+  - **嚴格安全性邊界與 SSRF 防護**：
+    - 後端嚴格不進行遠端圖片抓取（`BACKEND_REMOTE_IMAGE_FETCH=NO`、`IMAGE_URL_SSRF_SURFACE_ADDED=NO`），無任何 `HttpClient`、`HttpRequestMessage`、`WebRequest`、`Dns` 或 `Socket` 網路請求，驗證純屬語法校驗。
+    - 顧客前端採用瀏覽器原生 `<img>` 直接載入外部圖片（`CUSTOMER_EXTERNAL_IMAGE_RENDERING_SAFETY=PASS`），具備 `decoding="async"` 與 `referrerPolicy="no-referrer"`，目錄圖片支援 `loading="lazy"`，無伺服器端圖片代理，未全域放寬 Next.js remotePatterns，未全域停用 ESLint 規則，亦不使用 `dangerouslySetInnerHTML`。
+    - 明確排除項目：不實作檔案上傳、圖片儲存（S3/GCS/Blob/MinIO）、CDN、多圖片、畫廊或縮圖處理。
+  - **目錄與詳情讀取模型一致性 (Catalog Contracts)**：
+    - 公開商品列表與管理員商品列表（`ProductResponse`）及公開與管理員商品詳情（`ProductDetailResponse`）均擴展並一致返回 `ImageUrl`。
+    - 依 Sku 查詢端點保持機械一致性返回 `ImageUrl`。
+    - `ImageUrl` 嚴格非搜尋欄位、非排序欄位。
+  - **管理端點與權限**：
+    - 提供管理員專屬端點 `PUT /api/v1/products/{id:guid}/image-url`，限制為 `[Authorize(Roles = "Admin")]`。
+    - 支援樂觀並行控制，並行衝突回傳 409 Conflict。
+  - **使用者體驗 (UX)**：
+    - 管理後台商品詳情頁 (`apps/admin`)：新增 `UpdateProductImageUrlForm` 組件，具備 2048 字元與 HTTPS 規範提示、網址預填、清空支援、Pending/錯誤/成功狀態，並具備當前圖片預覽與中性佔位回退。
+    - 顧客端商品目錄與詳情頁 (`apps/web`)：當 `imageUrl` 存在且非空時渲染商品圖片並保持響應式比例；若為空則完整保留原有裝飾性首字母卡片佔位。
+    - 凍結現有購物車與結帳流程之圖片行為（`CART_IMAGE_BEHAVIOR_CHANGED=NO`、`CHECKOUT_IMAGE_BEHAVIOR_CHANGED=NO`）。
+  - **資料庫遷移與相容性**：
+    - 產生單一向下相容遷移 `20260912140159_AddProductImageUrl`（上一基準為 `20260912011844_AddProductDescription`，遷移總數為 13）。
+    - 既有歷史商品列平滑過渡，`ImageUrl` 欄位型別為 `varchar(2048) NOT NULL default ""`，無任何模型漂移。
+- **驗證成果 (Validation)**：
+  - 嚴格落實 RED-FIRST TDD（`DOMAIN_RED_FIRST=PASS`, `APPLICATION_RED_FIRST=PASS`, `CATALOG_READ_MODEL_RED_FIRST=PASS`, `WEBAPI_RED_FIRST=PASS`, `MIGRATION_RED_FIRST=PASS`）。
+  - 後端全量測試通過規模：Domain=199, Application=329, Infrastructure=212, WebApi=384。
+  - 前端驗證：Admin 與 Customer 前端 `npm run lint` 與 `npm run build` 全數通過（0 warnings, 0 errors）。
+  - 格式檢查：`git diff --check` 通過。
+  - 遷移驗收測試：升級、全新資料庫與降級鏈條全數通過（`PRODUCT_IMAGE_URL_MIGRATION_ACCEPTANCE=PASS`）。
+  - 真實 MySQL 驗收測試：完成 18 項真實資料庫持久化與邊界情境驗收（`PRODUCT_IMAGE_URL_MYSQL_ACCEPTANCE=PASS`）。
+  - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 13 個遷移、backend-api 啟動、存活探測 200 與商品查詢 API 200（`PRODUCT_IMAGE_URL_COMPOSE_BOOTSTRAP=PASS`）。
+  - 權威來源指紋 (Source Fingerprint)：28 個來源檔案指紋為 `48826626caab35f2e4df8f29f96a2ec2a8cc87fadc848ad4aa3ac456c2d12071`。
+  - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。
+

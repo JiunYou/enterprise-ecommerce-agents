@@ -1455,4 +1455,3 @@
   - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 13 個遷移、backend-api 啟動、存活探測 200 與商品查詢 API 200（`PRODUCT_IMAGE_URL_COMPOSE_BOOTSTRAP=PASS`）。
   - 權威來源指紋 (Source Fingerprint)：28 個來源檔案指紋為 `48826626caab35f2e4df8f29f96a2ec2a8cc87fadc848ad4aa3ac456c2d12071`。
   - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。
-

@@ -4,6 +4,7 @@ import { getAdminProductById, getAdminInventory } from "@/lib/products";
 import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
 import { UpdateProductNameForm } from "@/components/UpdateProductNameForm";
 import { UpdateProductDescriptionForm } from "@/components/UpdateProductDescriptionForm";
+import { UpdateProductImageUrlForm } from "@/components/UpdateProductImageUrlForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
 import { ReactivateProductButton } from "@/components/ReactivateProductButton";
 import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
@@ -286,6 +287,26 @@ export default async function AdminProductDetailPage({
                     {product.description || "（未設定商品描述）"}
                   </dd>
                 </div>
+
+                <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 p-3.5 sm:col-span-2 dark:border-zinc-800/70 dark:bg-zinc-800/40">
+                  <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    商品圖片網址 (Image URL)
+                  </dt>
+                  <dd className="mt-1 text-sm text-zinc-900 break-all dark:text-zinc-50">
+                    {product.imageUrl ? (
+                      <a
+                        href={product.imageUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="text-indigo-600 underline hover:text-indigo-500 dark:text-indigo-400"
+                      >
+                        {product.imageUrl}
+                      </a>
+                    ) : (
+                      "（未設定商品圖片網址）"
+                    )}
+                  </dd>
+                </div>
               </dl>
             </section>
 
@@ -395,6 +416,12 @@ export default async function AdminProductDetailPage({
             <UpdateProductDescriptionForm
               productId={product.id}
               currentDescription={product.description}
+            />
+
+            {/* 編輯商品圖片網址表單 */}
+            <UpdateProductImageUrlForm
+              productId={product.id}
+              currentImageUrl={product.imageUrl}
             />
 
             {/* 調整價格表單 */}

@@ -5,6 +5,7 @@ using EnterpriseCommerce.Application.Catalog.Commands.ReactivateProduct;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductName;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductDescription;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
@@ -197,6 +198,26 @@ public class ProductsController : ApiControllerBase
     public async Task<IActionResult> ReactivateProduct(Guid id, CancellationToken cancellationToken)
     {
         var command = new ReactivateProductCommand(id);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    [HttpPut("{id:guid}/image-url")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateProductImageUrl(Guid id, [FromBody] UpdateProductImageUrlRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateProductImageUrlCommand(id, request.ImageUrl);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

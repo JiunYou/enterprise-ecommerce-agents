@@ -36,4 +36,8 @@ public static class ProductErrors
     public static readonly Error InvalidDescription = new(
         "Product.InvalidDescription",
         "The product description is invalid.");
+
+    public static readonly Error InvalidImageUrl = new(
+        "Product.InvalidImageUrl",
+        "The product image URL is invalid.");
 }

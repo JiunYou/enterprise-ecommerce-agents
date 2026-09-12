@@ -46,7 +46,9 @@ public class GetProductsQueryHandlerTests
         result.Value.HasNextPage.Should().BeTrue();
         result.Value.Items.Should().HaveCount(2);
         result.Value.Items[0].Sku.Should().Be("SKU-1");
+        result.Value.Items[0].ImageUrl.Should().Be(string.Empty);
         result.Value.Items[1].Sku.Should().Be("SKU-2");
+        result.Value.Items[1].ImageUrl.Should().Be(string.Empty);
     }
 
     [Fact]

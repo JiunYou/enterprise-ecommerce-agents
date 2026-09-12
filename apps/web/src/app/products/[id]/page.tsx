@@ -107,14 +107,27 @@ export default async function ProductDetailPage({
           >
             {/* 展示性商品視覺區塊 (Product Visual Area) */}
             <div className="flex flex-col">
-              <div
-                aria-hidden="true"
-                className="relative flex aspect-square w-full items-center justify-center rounded-2xl border border-stone-200/90 bg-radial from-stone-50 to-stone-100/90 shadow-2xs dark:border-stone-800 dark:from-stone-900 dark:to-stone-850"
-              >
-                <span className="text-6xl font-bold tracking-widest text-stone-300 select-none dark:text-stone-700 sm:text-7xl lg:text-8xl">
-                  {result.data.name.trim().charAt(0).toUpperCase() || "P"}
-                </span>
-              </div>
+              {result.data.imageUrl && result.data.imageUrl.trim().length > 0 ? (
+                <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-stone-200/90 bg-stone-100 shadow-2xs dark:border-stone-800 dark:bg-stone-850">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Bounded external product image metadata rendering without server-side proxy */}
+                  <img
+                    src={result.data.imageUrl.trim()}
+                    alt={result.data.name}
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="relative flex aspect-square w-full items-center justify-center rounded-2xl border border-stone-200/90 bg-radial from-stone-50 to-stone-100/90 shadow-2xs dark:border-stone-800 dark:from-stone-900 dark:to-stone-850"
+                >
+                  <span className="text-6xl font-bold tracking-widest text-stone-300 select-none dark:text-stone-700 sm:text-7xl lg:text-8xl">
+                    {result.data.name.trim().charAt(0).toUpperCase() || "P"}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 商品資訊與購買操作面板 */}

@@ -8,6 +8,7 @@ export interface AdminProductSummary {
   price: number;
   currency: string;
   isActive: boolean;
+  imageUrl: string;
 }
 
 export interface AdminProductDetail extends AdminProductSummary {

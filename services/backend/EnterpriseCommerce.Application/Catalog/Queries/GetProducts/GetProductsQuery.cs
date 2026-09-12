@@ -69,7 +69,8 @@ internal sealed class GetProductsQueryHandler : IQueryHandler<GetProductsQuery, 
                 p.Sku,
                 p.Price,
                 p.Currency,
-                p.IsActive))
+                p.IsActive,
+                p.ImageUrl))
             .ToList();
 
         var pagedList = PagedList<ProductResponse>.Create(

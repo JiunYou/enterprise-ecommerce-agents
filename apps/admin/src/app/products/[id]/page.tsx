@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
 import { getAdminProductById, getAdminInventory } from "@/lib/products";
 import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
+import { UpdateProductNameForm } from "@/components/UpdateProductNameForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
 import { ReactivateProductButton } from "@/components/ReactivateProductButton";
 import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
@@ -373,6 +374,12 @@ export default async function AdminProductDetailPage({
                 availableQuantity={inventoryResult.inventory.availableQuantity}
               />
             )}
+
+            {/* 修改商品名稱表單 */}
+            <UpdateProductNameForm
+              productId={product.id}
+              currentName={product.name}
+            />
 
             {/* 調整價格表單 */}
             <UpdateProductPriceForm

@@ -204,7 +204,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange
         var productId = Guid.NewGuid();
-        var productDetailResponse = new ProductDetailResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true, "Test Description");
+        var productDetailResponse = new ProductDetailResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true, "Test Description", "https://example.com/single.jpg");
 
         _senderMock.Setup(m => m.Send(It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(productDetailResponse));
@@ -220,6 +220,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         content.Should().NotBeNull();
         content!.Id.Should().Be(productId);
         content.Description.Should().Be("Test Description");
+        content.ImageUrl.Should().Be("https://example.com/single.jpg");
     }
 
     [Fact]
@@ -227,7 +228,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange
         var sku = "SKU-TEST-123";
-        var productResponse = new ProductResponse(Guid.NewGuid(), "Sku Product", sku, 200m, "TWD", true);
+        var productResponse = new ProductResponse(Guid.NewGuid(), "Sku Product", sku, 200m, "TWD", true, "https://example.com/sku.jpg");
 
         _senderMock.Setup(m => m.Send(It.Is<GetProductBySkuQuery>(q => q.Sku == sku && !q.AllowInactive), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(productResponse));
@@ -660,7 +661,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange: 模擬商品經由 Reactivate 成為 Active 後，非 Admin 查詢得以成功取得
         var productId = Guid.NewGuid();
-        var reactivatedProductResponse = new ProductDetailResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true, "Reactivated Description");
+        var reactivatedProductResponse = new ProductDetailResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true, "Reactivated Description", "https://example.com/reactivated.jpg");
 
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
@@ -1003,7 +1004,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "List Product", "SKU-LIST-1", 100m, "TWD", true)
+                new(Guid.NewGuid(), "List Product", "SKU-LIST-1", 100m, "TWD", true, "https://example.com/list.jpg")
             },
             page: 1,
             pageSize: 10,
@@ -1021,5 +1022,197 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var rawJson = await response.Content.ReadAsStringAsync();
         rawJson.Should().NotContainEquivalentOf("\"description\"");
+        rawJson.Should().ContainEquivalentOf("\"imageUrl\":\"https://example.com/list.jpg\"");
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AnonymousUser_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{Guid.NewGuid()}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/image.jpg" })
+        };
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_NonAdminUser_ReturnsForbidden403()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{Guid.NewGuid()}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/image.jpg" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AdminUser_WithValidHttpsUrl_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(c =>
+                    c.ProductId == productId && c.ImageUrl == "https://example.com/image.jpg"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/image.jpg" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AdminUser_WithEmptyClear_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(c =>
+                    c.ProductId == productId && c.ImageUrl == ""),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData("http://example.com/image.jpg")]
+    [InlineData("ftp://example.com/image.jpg")]
+    [InlineData("/relative/path.jpg")]
+    public async Task UpdateProductImageUrl_AdminUser_WithInvalidUrlScheme_ReturnsBadRequest400(string invalidUrl)
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidImageUrl));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = invalidUrl })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AdminUser_WithTooLongUrl_ReturnsBadRequest400()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidImageUrl));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/" + new string('a', 2040) })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AdminUser_WhenProductNotFound_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/image.jpg" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductImageUrl_AdminUser_WhenConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl.UpdateProductImageUrlCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/image-url")
+        {
+            Content = JsonContent.Create(new { imageUrl = "https://example.com/image.jpg" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }

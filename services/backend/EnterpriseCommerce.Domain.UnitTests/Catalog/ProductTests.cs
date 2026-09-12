@@ -348,18 +348,186 @@ public class ProductTests
     }
 
     [Fact]
-    public void UpdateDescription_InactiveProduct_SucceedsWithoutLifecycleChange()
+    public void Create_NewProduct_InitializesEmptyImageUrl()
+    {
+        // Act
+        var result = Product.Create("Test Product", "SKU-123", 100m, "TWD");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ImageUrl.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateImageUrl_WithValidHttpsUri_SucceedsAndSetsImageUrl()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateImageUrl("https://example.com/images/product.jpg");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.ImageUrl.Should().Be("https://example.com/images/product.jpg");
+    }
+
+    [Fact]
+    public void UpdateImageUrl_WithSurroundingWhitespace_TrimsAndSucceeds()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateImageUrl("   https://example.com/image.png   ");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.ImageUrl.Should().Be("https://example.com/image.png");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void UpdateImageUrl_WithEmptyOrWhitespace_ClearsImageUrlToEmptyString(string emptyOrWhitespace)
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Act
+        var result = product.UpdateImageUrl(emptyOrWhitespace);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.ImageUrl.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateImageUrl_WithNull_ReturnsInvalidImageUrlAndPreservesExisting()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Act
+        var result = product.UpdateImageUrl(null!);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidImageUrl);
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Fact]
+    public void UpdateImageUrl_WithLengthExceeding2048_ReturnsInvalidImageUrlAndPreservesExisting()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+        var longUrl = "https://example.com/" + new string('a', 2040); // > 2048 chars
+
+        // Act
+        var result = product.UpdateImageUrl(longUrl);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidImageUrl);
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Theory]
+    [InlineData("http://example.com/image.jpg")]
+    [InlineData("ftp://example.com/image.jpg")]
+    [InlineData("file:///path/to/image.jpg")]
+    [InlineData("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")]
+    [InlineData("javascript:alert(1)")]
+    public void UpdateImageUrl_WithNonHttpsScheme_ReturnsInvalidImageUrlAndPreservesExisting(string invalidSchemeUrl)
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Act
+        var result = product.UpdateImageUrl(invalidSchemeUrl);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidImageUrl);
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Theory]
+    [InlineData("/relative/path.jpg")]
+    [InlineData("example.com/image.jpg")]
+    [InlineData("not a valid url")]
+    public void UpdateImageUrl_WithRelativeOrMalformedUri_ReturnsInvalidImageUrlAndPreservesExisting(string malformedUrl)
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Act
+        var result = product.UpdateImageUrl(malformedUrl);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidImageUrl);
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Fact]
+    public void UpdateImageUrl_WithUserInfoInUri_ReturnsInvalidImageUrlAndPreservesExisting()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Act
+        var result = product.UpdateImageUrl("https://user:pass@example.com/a.jpg");
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidImageUrl);
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Fact]
+    public void UpdateImageUrl_SuccessfulUpdate_PreservesAllOtherInvariants()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateDescription("Initial description");
+        var originalId = product.Id;
+
+        // Act
+        var result = product.UpdateImageUrl("https://example.com/image.jpg");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Id.Should().Be(originalId);
+        product.Name.Should().Be("Test Product");
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+        product.IsActive.Should().BeTrue();
+        product.Description.Should().Be("Initial description");
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+    }
+
+    [Fact]
+    public void UpdateImageUrl_InactiveProduct_SucceedsWithoutLifecycleChange()
     {
         // Arrange
         var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
         product.Deactivate();
 
         // Act
-        var result = product.UpdateDescription("Description on inactive product");
+        var result = product.UpdateImageUrl("https://example.com/inactive.jpg");
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        product.Description.Should().Be("Description on inactive product");
+        product.ImageUrl.Should().Be("https://example.com/inactive.jpg");
         product.IsActive.Should().BeFalse();
     }
 }

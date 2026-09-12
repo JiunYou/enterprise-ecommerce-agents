@@ -238,14 +238,28 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                       className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 rounded-lg"
                     >
                       {/* 展示性視覺區塊 (Product Visual Tile) */}
-                      <div
-                        aria-hidden="true"
-                        className="relative flex aspect-4/3 w-full items-center justify-center rounded-lg border border-stone-200/70 bg-radial from-stone-50 to-stone-100 text-stone-400 transition-colors group-hover:border-stone-300 dark:border-stone-800 dark:from-stone-900 dark:to-stone-850 dark:text-stone-600 dark:group-hover:border-stone-700"
-                      >
-                        <span className="text-2xl font-bold tracking-wider text-stone-400/80 select-none dark:text-stone-500/80">
-                          {initial}
-                        </span>
-                      </div>
+                      {product.imageUrl && product.imageUrl.trim().length > 0 ? (
+                        <div className="relative aspect-4/3 w-full overflow-hidden rounded-lg border border-stone-200/70 bg-stone-100 transition-colors group-hover:border-stone-300 dark:border-stone-800 dark:bg-stone-850 dark:group-hover:border-stone-700">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- Bounded external product image metadata rendering without server-side proxy */}
+                          <img
+                            src={product.imageUrl.trim()}
+                            alt={product.name}
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          className="relative flex aspect-4/3 w-full items-center justify-center rounded-lg border border-stone-200/70 bg-radial from-stone-50 to-stone-100 text-stone-400 transition-colors group-hover:border-stone-300 dark:border-stone-800 dark:from-stone-900 dark:to-stone-850 dark:text-stone-600 dark:group-hover:border-stone-700"
+                        >
+                          <span className="text-2xl font-bold tracking-wider text-stone-400/80 select-none dark:text-stone-500/80">
+                            {initial}
+                          </span>
+                        </div>
+                      )}
 
                       {/* 商品資訊與層次 */}
                       <div className="mt-3.5 flex flex-1 flex-col justify-between">

@@ -10,6 +10,7 @@ public sealed class Product : AggregateRoot<Guid>
         Sku = string.Empty;
         Currency = string.Empty;
         Description = string.Empty;
+        ImageUrl = string.Empty;
     }
 
     private Product(Guid id, string name, string sku, decimal price, string currency, bool isActive) : base(id)
@@ -20,6 +21,7 @@ public sealed class Product : AggregateRoot<Guid>
         Currency = currency;
         IsActive = isActive;
         Description = string.Empty;
+        ImageUrl = string.Empty;
     }
 
     public string Name { get; private set; }
@@ -28,6 +30,7 @@ public sealed class Product : AggregateRoot<Guid>
     public string Currency { get; private set; }
     public bool IsActive { get; private set; }
     public string Description { get; private set; }
+    public string ImageUrl { get; private set; }
 
     public static Result<Product> Create(string name, string sku, decimal price, string currency)
     {
@@ -109,6 +112,50 @@ public sealed class Product : AggregateRoot<Guid>
         }
 
         Description = trimmedDescription;
+
+        return Result.Success();
+    }
+
+    public Result UpdateImageUrl(string imageUrl)
+    {
+        if (imageUrl is null)
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        var trimmedImageUrl = imageUrl.Trim();
+        if (trimmedImageUrl.Length == 0)
+        {
+            ImageUrl = string.Empty;
+            return Result.Success();
+        }
+
+        if (trimmedImageUrl.Length > 2048)
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        if (!Uri.TryCreate(trimmedImageUrl, UriKind.Absolute, out var uri))
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        if (string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return Result.Failure(ProductErrors.InvalidImageUrl);
+        }
+
+        ImageUrl = trimmedImageUrl;
 
         return Result.Success();
     }

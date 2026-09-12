@@ -630,6 +630,122 @@ export async function updateProductDescriptionAction(
   }
 }
 
+export interface UpdateProductImageUrlResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function updateProductImageUrlAction(
+  productId: string,
+  imageUrl: string
+): Promise<UpdateProductImageUrlResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  if (typeof imageUrl !== "string") {
+    return { success: false, error: "圖片網址格式不正確。" };
+  }
+
+  const trimmedImageUrl = imageUrl.trim();
+
+  if (trimmedImageUrl.length > 2048) {
+    return { success: false, error: "圖片網址長度不可超過 2048 個字元。" };
+  }
+
+  if (trimmedImageUrl.length > 0) {
+    try {
+      const parsedUrl = new URL(trimmedImageUrl);
+      if (parsedUrl.protocol.toLowerCase() !== "https:") {
+        return { success: false, error: "圖片網址通訊協定僅允許 HTTPS。" };
+      }
+      if (!parsedUrl.hostname) {
+        return { success: false, error: "圖片網址必須包含有效的主機名稱。" };
+      }
+      if (parsedUrl.username || parsedUrl.password) {
+        return { success: false, error: "圖片網址不可包含使用者帳號密碼資訊。" };
+      }
+    } catch {
+      return { success: false, error: "圖片網址格式無效，必須為合法的 HTTPS 絕對網址。" };
+    }
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/image-url`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: trimmedImageUrl,
+        }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "圖片網址無效，請確認為正確的 HTTPS 絕對網址且長度不超過 2048 字元。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可編輯商品圖片網址。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "更新商品圖片網址失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "無法與後端伺服器通訊，請檢查網路連線後重試。",
+    };
+  }
+}
+
 export interface DeactivateProductResult {
   success: boolean;
   error?: string;

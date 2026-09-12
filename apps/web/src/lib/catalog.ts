@@ -5,6 +5,7 @@ export interface Product {
   price: number;
   currency: string;
   isActive: boolean;
+  imageUrl: string;
 }
 
 export interface ProductDetail extends Product {

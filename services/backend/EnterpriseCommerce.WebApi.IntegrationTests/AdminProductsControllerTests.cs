@@ -90,7 +90,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Admin Test Item", "SKU-ADMIN-1", 99m, "TWD", true)
+                new(Guid.NewGuid(), "Admin Test Item", "SKU-ADMIN-1", 99m, "TWD", true, "https://example.com/admin.jpg")
             },
             page: 1,
             pageSize: 10,
@@ -115,6 +115,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         content.Should().NotBeNull();
         content!.Items.Should().HaveCount(1);
         content.Items[0].Sku.Should().Be("SKU-ADMIN-1");
+        content.Items[0].ImageUrl.Should().Be("https://example.com/admin.jpg");
     }
 
     [Fact]
@@ -124,7 +125,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Inactive Product", "SKU-INACTIVE-1", 50m, "TWD", false)
+                new(Guid.NewGuid(), "Inactive Product", "SKU-INACTIVE-1", 50m, "TWD", false, "")
             },
             page: 1,
             pageSize: 10,
@@ -189,10 +190,9 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
     public async Task GetAdminProductById_NonAdminUser_ReturnsForbidden403()
     {
         // Arrange
-        var productId = Guid.NewGuid();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
-        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/admin/products/{productId}");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/admin/products/{Guid.NewGuid()}");
         requestMessage.Headers.Add("X-Test-Role", "Customer");
 
         // Act
@@ -207,7 +207,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
     {
         // Arrange
         var productId = Guid.NewGuid();
-        var productDetailResponse = new ProductDetailResponse(productId, "Inactive Product", "SKU-INACT", 200m, "TWD", false, "Admin inactive description");
+        var productDetailResponse = new ProductDetailResponse(productId, "Inactive Product", "SKU-INACT", 200m, "TWD", false, "Admin inactive description", "https://example.com/admin.jpg");
 
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && q.AllowInactive == true),
@@ -229,6 +229,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         content!.Id.Should().Be(productId);
         content.IsActive.Should().BeFalse();
         content.Description.Should().Be("Admin inactive description");
+        content.ImageUrl.Should().Be("https://example.com/admin.jpg");
         _senderMock.Verify(m => m.Send(
             It.Is<GetProductByIdQuery>(q => q.ProductId == productId && q.AllowInactive == true),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -241,7 +242,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Admin Item", "SKU-ADMIN-LIST-1", 50m, "TWD", true)
+                new(Guid.NewGuid(), "Admin Item", "SKU-ADMIN-LIST-1", 50m, "TWD", true, "https://example.com/img.jpg")
             },
             page: 1,
             pageSize: 10,

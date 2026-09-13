@@ -126,3 +126,42 @@ export async function removeWishlistItem(productId: string): Promise<WishlistMut
 
   return { success: false, status: response.status, error: "移除收藏失敗，請稍後再試" };
 }
+
+export interface WishlistItemStatus {
+  productId: string;
+  isWishlisted: boolean;
+}
+
+export type WishlistStatusFetchResult =
+  | { success: true; data: WishlistItemStatus }
+  | { success: false; unauthorized?: boolean; error?: string };
+
+/**
+ * 取得顧客針對特定商品的收藏狀態
+ */
+export async function getWishlistItemStatus(productId: string): Promise<WishlistStatusFetchResult> {
+  const session = await auth0.getSession();
+  if (!session) {
+    return { success: false, unauthorized: true, error: "請先登入後再查詢收藏狀態" };
+  }
+
+  const response = await authenticatedFetch(`/api/v1/wishlist/items/${productId}/status`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      return { success: false, unauthorized: true, error: "登入逾期，請重新登入" };
+    }
+    if (response.status === 403) {
+      return { success: false, error: "身分驗證失敗，無法存取收藏狀態" };
+    }
+    return { success: false, error: "無法取得收藏狀態，請稍後再試" };
+  }
+
+  const data = (await response.json()) as WishlistItemStatus;
+  return { success: true, data };
+}

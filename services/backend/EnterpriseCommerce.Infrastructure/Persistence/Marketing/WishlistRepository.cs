@@ -51,6 +51,18 @@ internal sealed class WishlistRepository : IWishlistRepository
         return (items, totalCount);
     }
 
+    public async Task<bool> ExistsAsync(
+        Guid customerId,
+        Guid productId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.WishlistItems
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.CustomerId == customerId && item.ProductId == productId,
+                cancellationToken);
+    }
+
     public void Add(WishlistItem item)
     {
         _dbContext.WishlistItems.Add(item);

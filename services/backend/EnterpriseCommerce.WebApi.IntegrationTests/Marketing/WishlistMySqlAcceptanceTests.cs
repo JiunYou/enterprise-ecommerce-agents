@@ -1,4 +1,5 @@
 using EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlist;
+using EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus;
 using EnterpriseCommerce.Domain.Catalog;
 using EnterpriseCommerce.Domain.Marketing;
 using EnterpriseCommerce.Infrastructure.Persistence;
@@ -207,5 +208,111 @@ public class WishlistMySqlAcceptanceTests : IAsyncLifetime
         page2!.TotalCount.Should().Be(3);
         page2.Items.Should().HaveCount(1);
         page2.Items[0].ProductId.Should().Be(p3.Id); // item3 (10:00)
+    }
+
+    [Fact]
+    public async Task Wishlist_Membership_Status_RealMySql_EndToEnd_Acceptance()
+    {
+        // 1. Create Customer A & 2. Create Customer B
+        var customerA = Guid.NewGuid();
+        var customerB = Guid.NewGuid();
+
+        // 3. Create Product X
+        var productX = Product.Create("Membership Test Product X", "SKU-MEMBERSHIP-X-" + Guid.NewGuid().ToString("N")[..8], 299m, "TWD").Value;
+
+        await using (var db = CreateFreshDbContext())
+        {
+            await db.Products.AddAsync(productX);
+            await db.SaveChangesAsync();
+        }
+
+        var clientA = _factory!.CreateClient();
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-a");
+        clientA.DefaultRequestHeaders.Add("X-Test-User-Id", customerA.ToString());
+
+        var clientB = _factory.CreateClient();
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-b");
+        clientB.DefaultRequestHeaders.Add("X-Test-User-Id", customerB.ToString());
+
+        // 4. Customer A adds Product X through existing Wishlist path
+        var addResponseA = await clientA.PostAsync($"/api/v1/wishlist/items/{productX.Id}", null);
+        addResponseA.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 5. Fresh DbContext confirms one WishlistItems row
+        await using (var db = CreateFreshDbContext())
+        {
+            var item = await db.WishlistItems.FirstOrDefaultAsync(w => w.CustomerId == customerA && w.ProductId == productX.Id);
+            item.Should().NotBeNull();
+            item!.CustomerId.Should().Be(customerA);
+            item.ProductId.Should().Be(productX.Id);
+
+            var totalRows = await db.WishlistItems.CountAsync(w => w.ProductId == productX.Id);
+            totalRows.Should().Be(1);
+        }
+
+        // 記錄呼叫 GET status 前的資料庫記錄狀態
+        int preGetWishlistCount;
+        int preGetProductCount;
+        await using (var db = CreateFreshDbContext())
+        {
+            preGetWishlistCount = await db.WishlistItems.CountAsync();
+            preGetProductCount = await db.Products.CountAsync();
+        }
+
+        // 6. Customer A status -> true
+        var statusResponseA = await clientA.GetAsync($"/api/v1/wishlist/items/{productX.Id}/status");
+        statusResponseA.StatusCode.Should().Be(HttpStatusCode.OK);
+        var statusA = await statusResponseA.Content.ReadFromJsonAsync<WishlistItemStatusResponse>();
+        statusA.Should().NotBeNull();
+        statusA!.ProductId.Should().Be(productX.Id);
+        statusA.IsWishlisted.Should().BeTrue();
+
+        // 7. Customer B status for Product X -> false
+        var statusResponseB = await clientB.GetAsync($"/api/v1/wishlist/items/{productX.Id}/status");
+        statusResponseB.StatusCode.Should().Be(HttpStatusCode.OK);
+        var statusB = await statusResponseB.Content.ReadFromJsonAsync<WishlistItemStatusResponse>();
+        statusB.Should().NotBeNull();
+        statusB!.ProductId.Should().Be(productX.Id);
+        statusB.IsWishlisted.Should().BeFalse();
+
+        // 8. Customer B must not receive information indicating another Customer owns the row
+        var rawBContent = await statusResponseB.Content.ReadAsStringAsync();
+        rawBContent.Should().NotContain(customerA.ToString());
+        rawBContent.Should().NotContain("CustomerId", because: "Response contract must not expose CustomerId");
+
+        // 12a. Verify no persistence mutation occurred from GET status requests themselves
+        await using (var db = CreateFreshDbContext())
+        {
+            var postGetWishlistCount = await db.WishlistItems.CountAsync();
+            var postGetProductCount = await db.Products.CountAsync();
+            postGetWishlistCount.Should().Be(preGetWishlistCount);
+            postGetProductCount.Should().Be(preGetProductCount);
+        }
+
+        // 9. Customer A removes Product X
+        var deleteResponseA = await clientA.DeleteAsync($"/api/v1/wishlist/items/{productX.Id}");
+        deleteResponseA.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 10. Fresh DbContext confirms row removed
+        await using (var db = CreateFreshDbContext())
+        {
+            var item = await db.WishlistItems.FirstOrDefaultAsync(w => w.CustomerId == customerA && w.ProductId == productX.Id);
+            item.Should().BeNull();
+        }
+
+        // 11. Customer A status -> false
+        var postRemoveStatusResponseA = await clientA.GetAsync($"/api/v1/wishlist/items/{productX.Id}/status");
+        postRemoveStatusResponseA.StatusCode.Should().Be(HttpStatusCode.OK);
+        var postRemoveStatusA = await postRemoveStatusResponseA.Content.ReadFromJsonAsync<WishlistItemStatusResponse>();
+        postRemoveStatusA.Should().NotBeNull();
+        postRemoveStatusA!.ProductId.Should().Be(productX.Id);
+        postRemoveStatusA.IsWishlisted.Should().BeFalse();
+
+        // 12b. Final verification: no persistence mutation occurred from GET status requests
+        await using (var db = CreateFreshDbContext())
+        {
+            var item = await db.WishlistItems.FirstOrDefaultAsync(w => w.CustomerId == customerA && w.ProductId == productX.Id);
+            item.Should().BeNull();
+        }
     }
 }

@@ -325,4 +325,118 @@ public class WishlistControllerTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     #endregion
+
+    #region Status Tests
+
+    [Fact]
+    public async Task GetItemStatus_Anonymous_Returns401Unauthorized()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        var productId = Guid.NewGuid();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/wishlist/items/{productId}/status");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetItemStatus_AuthenticatedWithoutCustomerId_Returns403Forbidden()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "test-token");
+        var productId = Guid.NewGuid();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/wishlist/items/{productId}/status");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetItemStatus_CustomerOwnsItem_Returns200OkWithTrue()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "test-token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var expectedResponse = new EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse(productId, true);
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.GetWishlistItemStatusQuery>(q => q.CustomerId == customerId && q.ProductId == productId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EnterpriseCommerce.Domain.Primitives.Result.Success(expectedResponse));
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/wishlist/items/{productId}/status");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productId);
+        content.IsWishlisted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetItemStatus_CustomerDoesNotOwnItem_Returns200OkWithFalse()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "test-token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var expectedResponse = new EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse(productId, false);
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.GetWishlistItemStatusQuery>(q => q.CustomerId == customerId && q.ProductId == productId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EnterpriseCommerce.Domain.Primitives.Result.Success(expectedResponse));
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/wishlist/items/{productId}/status");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productId);
+        content.IsWishlisted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetItemStatus_CustomerBQueryingCustomerASavedProduct_Returns200OkWithFalse()
+    {
+        // Arrange
+        var customerB = Guid.NewGuid();
+        var productX = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "test-token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerB.ToString());
+
+        var expectedResponse = new EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse(productX, false);
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.GetWishlistItemStatusQuery>(q => q.CustomerId == customerB && q.ProductId == productX), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EnterpriseCommerce.Domain.Primitives.Result.Success(expectedResponse));
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/wishlist/items/{productX}/status");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<EnterpriseCommerce.Application.Marketing.Wishlist.Queries.GetWishlistItemStatus.WishlistItemStatusResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productX);
+        content.IsWishlisted.Should().BeFalse();
+    }
+
+    #endregion
 }

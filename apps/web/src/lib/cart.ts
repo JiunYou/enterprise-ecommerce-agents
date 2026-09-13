@@ -10,6 +10,7 @@ export interface CartItem {
   quantity: number;
   totalPrice: number;
   productName?: string;
+  productImageUrl?: string;
 }
 
 export interface Cart {
@@ -59,7 +60,7 @@ export async function getCart(): Promise<GetCartResult> {
 
     const data: Cart = await response.json();
 
-    // 依據第 16 節，補齊商品名稱
+    // 依據第 16 節，補齊商品名稱與商品圖片
     const enrichedItems = await Promise.all(
       data.items.map(async (item) => {
         try {
@@ -68,10 +69,11 @@ export async function getCart(): Promise<GetCartResult> {
             return {
               ...item,
               productName: productDetail.data.name,
+              productImageUrl: productDetail.data.imageUrl,
             };
           }
         } catch {
-          // 降級回傳不含名稱的 item
+          // 降級回傳不含名稱與圖片的 item
         }
         return item;
       })

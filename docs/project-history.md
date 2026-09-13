@@ -1455,3 +1455,38 @@
   - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 13 個遷移、backend-api 啟動、存活探測 200 與商品查詢 API 200（`PRODUCT_IMAGE_URL_COMPOSE_BOOTSTRAP=PASS`）。
   - 權威來源指紋 (Source Fingerprint)：28 個來源檔案指紋為 `48826626caab35f2e4df8f29f96a2ec2a8cc87fadc848ad4aa3ac456c2d12071`。
   - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_IMAGE_URL_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_IMAGE_URL_RUNTIME=NOT_OBSERVED`（未觀察到真實 Auth0 瀏覽器工作階段，遵循治理規範不偽造記錄）。
+
+### 2026-09-13 — PR #51 — feat: show product images in cart and checkout
+- **垂直切片 (Vertical Slice)**：
+  - Customer Cart + Checkout Product Image v1 (`CUSTOMER_CART_CHECKOUT_PRODUCT_IMAGE_V1`)
+- **交付價值與功能合約 (Delivered & Contract)**：
+  - 承接 PR #50 交付之商品圖片網址能力，於顧客端購物車（Customer Cart）與結帳訂單審查（Customer Checkout Order Review）安全展示商品圖片。
+  - **資料豐富化路徑與查詢複用**：
+    - 擴充顧客端前端 `CartItem` 型別，增加選填 `productImageUrl?: string`。
+    - 於 `getCart()` 既有之逐項豐富化流程中，直接複用單次 `getProductById(item.productId)` 查詢結果回傳之 `productDetail.data.imageUrl`。
+    - 嚴禁為取得圖片網址發起第二個商品 API 請求（`ADDITIONAL_PRODUCT_FETCH_PER_CART_ITEM=NO`）。
+    - 保持優雅降級機制：當商品詳細資料查詢失敗時，回傳原始品項，購物車讀取主流程不因圖片豐富化失敗而中斷（`CART_ENRICHMENT_FAILURE_DEGRADES_GRACEFULLY=YES`）。
+    - 依架構規範不在此切片變動 N+1 查詢模式（`CART_ENRICHMENT_QUERY_PATTERN_CHANGED=NO`）。
+  - **購物車與結帳呈現體驗 (UX)**：
+    - 購物車品項列表 (`CartItemList`)：當 `item.productImageUrl` 非空時，於既有 14x14 視覺區塊渲染原生 `<img>`，套用 `object-cover`、`alt`（以商品名稱為準）、`loading="lazy"`、`decoding="async"` 與 `referrerPolicy="no-referrer"`；若為空或未定義則保留既有文字縮寫磚（monogram fallback）。
+    - 結帳訂單審查 (`CheckoutReview`)：當 `item.productImageUrl` 存在時，於既有 12x12 視覺區塊渲染原生 `<img>`；若無則保留既有文字縮寫磚。
+    - 完整凍結購物車數量調整、品項刪除、價格計算、總計、結帳行動呼籲、收件地址表單與訂單送出行為。
+  - **嚴格前端安全邊界**：
+    - 採用瀏覽器直連載入模式（`BROWSER_DIRECT_EXTERNAL_IMAGE_LOADING=YES`）。
+    - 不引入 Next.js 伺服端圖片代理（`SERVER_SIDE_IMAGE_PROXY_ADDED=NO`）。
+    - 未變更 Next.js 全域 remotePatterns 設定（`NEXT_IMAGE_GLOBAL_CONFIG_CHANGED=NO`）。
+    - 未修改全域 ESLint 設定，僅於元件內採用與 Catalog / Detail 一致的窄域局部 `@next/next/no-img-element` 抑制註解（`GLOBAL_ESLINT_CONFIG_CHANGED=NO`）。
+    - 嚴禁使用 `dangerouslySetInnerHTML`（`DANGEROUS_HTML_RENDERING_ADDED=NO`）。
+  - **全系統嚴格凍結**：
+    - 後端零修改（`BACKEND_CHANGED=NO`、`DB_SCHEMA_CHANGED=NO`、`NEW_MIGRATION_CREATED=NO`）。
+    - 購物車後端契約與業務行為零修改（`CART_BACKEND_CONTRACT_CHANGED=NO`、`CART_BUSINESS_BEHAVIOR_CHANGED=NO`、`CART_MUTATION_BEHAVIOR_CHANGED=NO`）。
+    - 結帳、訂單、庫存預留與金流流程零修改（`CHECKOUT_BUSINESS_BEHAVIOR_CHANGED=NO`、`ORDER_DOMAIN_CHANGED=NO`、`INVENTORY_BEHAVIOR_CHANGED=NO`、`PAYMENT_BEHAVIOR_CHANGED=NO`）。
+    - 授權模型維持不變（`AUTHORIZATION_MODEL_CHANGED=NO`）。
+    - README.md 未修改（`README_CHANGED=NO`）。
+- **驗證成果 (Validation)**：
+  - 前端靜態分析：`npm --prefix apps/web run lint` 通過（0 warnings, 0 errors）。
+  - 前端產品建置：`npm --prefix apps/web run build` 通過。
+  - 格式檢查：`git diff --check` 通過。
+  - 響應式與無障礙審查：行動端（375px）、平板（768px）與桌面端（1280px）視覺區塊固定無溢出，語意化 `alt` 標註齊全，縮寫磚保持 `aria-hidden="true"`（`CART_IMAGE_RESPONSIVE_AUDIT=PASS`、`CHECKOUT_IMAGE_RESPONSIVE_AUDIT=PASS`、`IMAGE_ACCESSIBILITY_AUDIT=PASS`）。
+  - 權威凍結原始碼指紋：3 個功能檔案指紋為 `5d29ece396293fe13c13c5af42bede22e690b845f190d3f0a79305ead68afacb`。
+  - 運行時狀態：`AUTHENTICATED_CART_IMAGE_RUNTIME=NOT_OBSERVED`、`AUTHENTICATED_CHECKOUT_IMAGE_RUNTIME=NOT_OBSERVED`（未具備自然合法之 Auth0 會話，遵循規範不偽造資料）。

@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerIdentityStore, CustomerIdentityStore>();
         services.AddScoped<IAdminOrderCancellationStore, AdminOrderCancellationStore>();
         services.AddScoped<EnterpriseCommerce.Application.Marketing.Wishlist.IWishlistRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.WishlistRepository>();
+        services.AddScoped<EnterpriseCommerce.Application.Marketing.Reviews.IProductReviewRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.ProductReviewRepository>();
 
         services.Configure<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentOptions>(options =>
         {

@@ -26,6 +26,7 @@ public sealed class EnterpriseCommerceDbContext : DbContext, IApplicationUnitOfW
     public DbSet<CustomerIdentity> CustomerIdentities { get; set; } = null!;
     public DbSet<AdminOrderCancellation> AdminOrderCancellations { get; set; } = null!;
     public DbSet<EnterpriseCommerce.Domain.Marketing.WishlistItem> WishlistItems { get; set; } = null!;
+    public DbSet<EnterpriseCommerce.Domain.Marketing.ProductReview> ProductReviews { get; set; } = null!;
 
     public EnterpriseCommerceDbContext(DbContextOptions<EnterpriseCommerceDbContext> options)
         : base(options)

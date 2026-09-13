@@ -18,6 +18,9 @@ using EnterpriseCommerce.Domain.Primitives;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using EnterpriseCommerce.Application.Marketing.Reviews.Commands.CreateProductReview;
+using EnterpriseCommerce.Application.Marketing.Reviews.Queries.GetProductReviews;
+using EnterpriseCommerce.WebApi.Contracts.Marketing;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EnterpriseCommerce.WebApi.Controllers.v1;
@@ -289,6 +292,56 @@ public class ProductsController : ApiControllerBase
     public async Task<IActionResult> UpdateProductCategory(Guid id, [FromBody] UpdateProductCategoryRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateProductCategoryCommand(id, request.Category);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    [HttpGet("{id:guid}/reviews")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ProductReviewsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReviews(
+        Guid id,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetProductReviewsQuery(id, page, pageSize);
+        var result = await Sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/reviews")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CreateReview(
+        Guid id,
+        [FromBody] CreateProductReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new CreateProductReviewCommand(customerId, id, request.Rating, request.Comment);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

@@ -1611,3 +1611,35 @@
     - 內容指紋 (12 Content Paths)：`6b744b3e729661d54da8e797fe5bb4c20a4e48e3c9277bff40f853e7546d6f43`
     - 範疇指紋 (13 Scope Paths，含 1 筆刪除 `AddToWishlistButton.tsx`)：`8959928c153b32929d53f873bb722703b2fff57bafa02c5e0fa2bf597e17645f`
   - 運行時狀態：`AUTHENTICATED_WISHLIST_MEMBERSHIP_API_ACCEPTANCE=PASS`，`AUTHENTICATED_WISHLIST_MEMBERSHIP_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。
+
+### 2026-09-13 — PR #56 — feat: add customer product reviews
+- **垂直切片 (Vertical Slice)**：
+  - Customer Product Review v1 (`CUSTOMER_PRODUCT_REVIEW_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **Marketing 領域商品評論切片**：於現有 Marketing Context 實作顧客商品評論功能，與 Wishlist 並列於模組化單體架構中；無新微服務、無新 DbContext、無獨立資料庫或 RabbitMQ 整合。
+  - **領域與資料表模型**：採用最小有用實體 `ProductReview : Entity<Guid>`，持久化對應單一資料表 `ProductReviews`（欄位：`Id`, `CustomerId`, `ProductId`, `Rating`, `Comment`, `CreatedAt`）；無 Domain Events，無 Outbox 機制。
+  - **評分與評論內容規範**：評分限制為 `1..5` 星；評論經 `Trim()` 且規格化後不可為空，長度上限 2000 字元，保留內部換行，並以純文字安全儲存（`REVIEW_COMMENT_FORMAT=PLAIN_TEXT`）。
+  - **商品活躍度校驗邊界**：僅允許對目前處於 Active 狀態之公開商品新增評論或公開讀取評論；缺失或下架商品一律回傳 404 NotFound，絕不洩漏下架商品之存在。
+  - **重複防護與唯一性約束**：單一顧客對單一商品至多發表一筆評論；資料庫層級建立 `UNIQUE(CustomerId, ProductId)` 唯一性索引作為最終完整性防線；應用層循序重複提交直接回傳 `Review.AlreadyExists`（HTTP 409 Conflict），資料表實體筆數嚴格維持一筆（`REVIEW_DUPLICATE_ROWS_ALLOWED=NO`）。
+  - **跨 Context 解耦（無實體外鍵）**：`ProductReviews` 資料表不對 Products、CustomerIdentities 或 Orders 建立實體外鍵，各領域生命週期嚴格解耦（`REVIEW_PRODUCT_FOREIGN_KEY_ADDED=NO`, `REVIEW_CUSTOMER_FOREIGN_KEY_ADDED=NO`, `REVIEW_ORDER_FOREIGN_KEY_ADDED=NO`）。
+  - **顧客隱私安全邊界**：
+    - `POST /api/v1/products/{id:guid}/reviews` 採 `[Authorize]` 認證，`CustomerId` 嚴格僅由伺服端 claims 提取（`ApiControllerBase.TryGetCustomerId`），禁止客戶端代入（`REVIEW_CUSTOMER_ID_CLIENT_SUPPLIED=NO`）。
+    - 公開回應契約僅包含 `rating`, `comment`, `createdAt`，嚴格排除 `customerId`、內部 `id`、顧客姓名、Email 與外部 IdP 標識（`PUBLIC_REVIEW_CUSTOMER_ID_EXPOSED=NO`, `PUBLIC_REVIEW_INTERNAL_ID_EXPOSED=NO`）。
+  - **純文字安全防護 (XSS Boundary)**：前端採用 React 原生文字節點渲染，嚴格禁止 `dangerouslySetInnerHTML`、Markdown 轉譯或 raw HTML 注入，惡意標籤內容（如 `<script>alert(1)</script>`）一律作為純文字安全顯示（`REVIEW_RAW_HTML_RENDERING_ADDED=NO`）。
+  - **公開分頁與確定性排序**：
+    - `GET /api/v1/products/{id:guid}/reviews` 為公開匿名端點，預設 `page=1`, `pageSize=10`，上限 50 筆；排序採 `CreatedAt DESC, Id DESC` 確定性倒序。
+    - 前端採用獨立 `reviewPage` 查詢參數，避免與目錄頁面之 `page` 衝突。
+  - **商品詳情頁容錯降級與使用者體驗 (`apps/web`)**：
+    - 評論清單獨立於商品核心資訊載入，若評論 API 故障或請求失敗，商品詳情頁維持正常渲染並中性顯示「評論暫時無法載入」（`REVIEW_FAILURE_BREAKS_PRODUCT_DETAIL=NO`）。
+    - 未登入顧客可公開閱讀評論，評論表單區域呈現「登入後撰寫評論」並保留 `returnTo`；已登入顧客呈現評分（1..5）與評論輸入框（上限 2000 字）；遇 409 衝突呈現友善提示「你已評論過此商品」。
+  - **刻意排除範疇 (Explicitly Out of Scope)**：無評論編輯／刪除、無後台審核 (Admin Moderation)、無購買資格驗證 (Verified Purchase)、無商品平均評分／評分統計摘要、無目錄卡片評分整合、無折價券／促銷規則耦合。
+  - **資料庫遷移**：產生第 16 個遷移 `20260913101054_AddProductReviews`（前一基準為 `20260913051257_AddWishlistItems`），Up 僅建立 `ProductReviews` 與唯一索引，Down 僅刪除該表，無無關架構漂移。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`REVIEW_DOMAIN_RED_FIRST=PASS`, `REVIEW_CREATE_RED_FIRST=PASS`, `REVIEW_QUERY_RED_FIRST=PASS`, `REVIEW_WEBAPI_RED_FIRST=PASS`, `REVIEW_MIGRATION_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=229, Application=378, Infrastructure=212, WebApi=438（全數通過）。
+  - 遷移與真實 MySQL 驗收：`ProductReviewMigrationAcceptanceTests` 與 `ProductReviewMySqlAcceptanceTests`（20 項情境驗收點）全數通過。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 編排鏈條驗收：真實 Docker Compose 啟動全新 MySQL，`db-migrate` 成功套用全部 16 個遷移（exit 0），`ProductReviews` 唯一索引驗證存在，`backend-api` 存活探測回傳 200 OK（`PRODUCT_REVIEW_COMPOSE_BOOTSTRAP=PASS`）。
+  - 靜態響應式與無障礙：審查涵蓋 375px/768px/1280px，具備完整 ARIA 標籤與鍵盤導航狀態（`REVIEW_ACCESSIBILITY_AUDIT=PASS`）。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：28 個來源檔案指紋為 `1f349e175420e0ca8b20bc6cdf4c3f29ba32c0f4262cde655e68b6615ad556f6`。
+  - 運行時狀態：`AUTHENTICATED_PRODUCT_REVIEW_API_ACCEPTANCE=PASS`, `PUBLIC_PRODUCT_REVIEW_API_ACCEPTANCE=PASS`, `AUTHENTICATED_PRODUCT_REVIEW_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。

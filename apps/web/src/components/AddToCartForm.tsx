@@ -6,6 +6,7 @@ import Link from "next/link";
 interface AddToCartFormProps {
   productId: string;
   isLoggedIn: boolean;
+  availableQuantity?: number;
   onAddToCart: (
     productId: string,
     quantity: number
@@ -15,8 +16,14 @@ interface AddToCartFormProps {
 export function AddToCartForm({
   productId,
   isLoggedIn,
+  availableQuantity,
   onAddToCart,
 }: AddToCartFormProps) {
+  // 決定有效數量上限：若已知庫存且大於 0 則取 min(999, availableQuantity)，否則為 999
+  const effectiveMax = typeof availableQuantity === "number" && availableQuantity > 0
+    ? Math.min(999, availableQuantity)
+    : 999;
+
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [statusMessage, setStatusMessage] = useState<{
@@ -24,6 +31,46 @@ export function AddToCartForm({
     text: string;
   } | null>(null);
 
+  // 1. 已知缺貨優先於登入提示 (Section 22: Out-of-stock presentation takes precedence over login CTA)
+  if (availableQuantity === 0) {
+    return (
+      <div className="rounded-xl border border-stone-200/90 bg-stone-100/60 p-5 dark:border-stone-800 dark:bg-stone-900/50 sm:p-6">
+        <p className="text-sm font-medium text-stone-700 dark:text-stone-300">
+          此商品目前缺貨中，暫時無法購買。
+        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:w-auto">
+            <label
+              htmlFor="quantity-disabled"
+              className="block text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500"
+            >
+              數量
+            </label>
+            <div className="mt-1.5 flex items-center">
+              <input
+                type="number"
+                id="quantity-disabled"
+                name="quantity"
+                value={0}
+                disabled
+                className="h-11 w-full rounded-lg border border-stone-200 bg-stone-100 px-3 text-center text-sm font-semibold text-stone-400 shadow-2xs cursor-not-allowed dark:border-stone-800 dark:bg-stone-850 dark:text-stone-500 sm:w-28"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled
+            className="h-11 inline-flex w-full items-center justify-center rounded-lg bg-stone-300 px-6 text-sm font-medium text-stone-500 shadow-xs cursor-not-allowed dark:bg-stone-800 dark:text-stone-500 sm:flex-1"
+          >
+            目前缺貨
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. 未登入狀態處理 (Section 22: availableQuantity > 0 或 unknown 時提示登入)
   if (!isLoggedIn) {
     return (
       <div className="rounded-xl border border-stone-200/90 bg-stone-100/60 p-5 dark:border-stone-800 dark:bg-stone-900/50 sm:p-6">
@@ -46,9 +93,12 @@ export function AddToCartForm({
     e.preventDefault();
     if (quantity <= 0) return;
 
+    // 將購買數量限制在 1 至 effectiveMax 之間
+    const finalQuantity = Math.max(1, Math.min(effectiveMax, quantity));
+
     setStatusMessage(null);
     startTransition(async () => {
-      const res = await onAddToCart(productId, quantity);
+      const res = await onAddToCart(productId, finalQuantity);
       if (res.success) {
         setStatusMessage({
           type: "success",
@@ -79,11 +129,17 @@ export function AddToCartForm({
               id="quantity"
               name="quantity"
               min="1"
-              max="999"
+              max={effectiveMax}
               value={quantity}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
-                setQuantity(isNaN(val) || val < 1 ? 1 : val);
+                if (isNaN(val) || val < 1) {
+                  setQuantity(1);
+                } else if (val > effectiveMax) {
+                  setQuantity(effectiveMax);
+                } else {
+                  setQuantity(val);
+                }
               }}
               className="h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-center text-sm font-semibold text-stone-900 shadow-2xs transition focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-400/30 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400 dark:focus:ring-stone-600/30 sm:w-28"
               disabled={isPending}

@@ -13,6 +13,7 @@ using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductCategories;
 using EnterpriseCommerce.Application.Common.Models;
 using EnterpriseCommerce.WebApi.Contracts.Catalog;
+using EnterpriseCommerce.Application.Inventory.Queries.GetInventoryByProductId;
 using EnterpriseCommerce.Domain.Primitives;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -72,6 +73,37 @@ public class ProductsController : ApiControllerBase
         }
 
         return Ok(result.Value);
+    }
+
+    [HttpGet("{id:guid}/availability", Name = nameof(GetProductAvailability))]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ProductAvailabilityResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProductAvailability(Guid id, CancellationToken cancellationToken)
+    {
+        // 1. 公開可見性驗證：非 Admin 只能查詢已上架商品 (AllowInactive: false)，若商品未上架或不存在則返回 404
+        var productQuery = new GetProductByIdQuery(id, AllowInactive: false);
+        var productResult = await Sender.Send(productQuery, cancellationToken);
+        if (productResult.IsFailure)
+        {
+            return HandleFailure(productResult);
+        }
+
+        // 2. 查詢權威庫存
+        var inventoryQuery = new GetInventoryByProductIdQuery(id);
+        var inventoryResult = await Sender.Send(inventoryQuery, cancellationToken);
+        if (inventoryResult.IsFailure)
+        {
+            return HandleFailure(inventoryResult);
+        }
+
+        // 3. 封裝為公開 DTO，絕不洩漏保留數量與內部識別碼
+        var response = new ProductAvailabilityResponse(
+            inventoryResult.Value.ProductId,
+            inventoryResult.Value.AvailableQuantity,
+            inventoryResult.Value.AvailableQuantity > 0);
+
+        return Ok(response);
     }
 
     [HttpGet("sku/{sku}", Name = nameof(GetProductBySku))]

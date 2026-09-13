@@ -22,6 +22,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using EnterpriseCommerce.Application.Inventory.Queries.GetInventoryByProductId;
+using EnterpriseCommerce.Domain.Inventory;
 
 namespace EnterpriseCommerce.WebApi.IntegrationTests;
 
@@ -1415,5 +1417,171 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var content = await response.Content.ReadFromJsonAsync<List<string>>();
         content.Should().Equal("Books", "Electronics");
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_ActiveProductWithStock_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var product = new ProductDetailResponse(
+            productId, "Test Product", "SKU-AVAIL-1", 100m, "TWD", true, "Description", "https://example.com/img.jpg", "Electronics");
+        var inventory = new InventoryResponse(productId, 12, 3);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(product));
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(inventory));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ProductAvailabilityResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productId);
+        content.AvailableQuantity.Should().Be(12);
+        content.InStock.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_ZeroStock_ReturnsOk200WithInStockFalse()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var product = new ProductDetailResponse(
+            productId, "Zero Stock Product", "SKU-ZERO-1", 50m, "TWD", true, "Description", "", "");
+        var inventory = new InventoryResponse(productId, 0, 2);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(product));
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(inventory));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ProductAvailabilityResponse>();
+        content.Should().NotBeNull();
+        content!.ProductId.Should().Be(productId);
+        content.AvailableQuantity.Should().Be(0);
+        content.InStock.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_InactiveProduct_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<ProductDetailResponse>(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_MissingProduct_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<ProductDetailResponse>(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_ActiveProductMissingInventory_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var product = new ProductDetailResponse(
+            productId, "No Inventory Product", "SKU-NO-INV", 80m, "TWD", true, "", "", "");
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(product));
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<InventoryResponse>(InventoryErrors.NotFound));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetProductAvailability_InformationExposure_DoesNotContainReservedOrInternalFields()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var product = new ProductDetailResponse(
+            productId, "Exposure Audit Product", "SKU-EXPOSURE", 120m, "TWD", true, "", "", "");
+        var inventory = new InventoryResponse(productId, 15, 8);
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(product));
+
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetInventoryByProductIdQuery>(q => q.ProductId == productId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(inventory));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/Products/{productId}/availability");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var rawJson = await response.Content.ReadAsStringAsync();
+        rawJson.ToLowerInvariant().Should().NotContain("reservedquantity");
+        rawJson.ToLowerInvariant().Should().NotContain("reservations");
+        rawJson.ToLowerInvariant().Should().NotContain("orderreference");
+        rawJson.ToLowerInvariant().Should().NotContain("inventoryid");
     }
 }

@@ -10,7 +10,8 @@ public sealed record ProductReviewsResponse(
     IReadOnlyList<ProductReviewItemResponse> Items,
     int Page,
     int PageSize,
-    int TotalCount);
+    int TotalCount,
+    double? AverageRating = null);
 
 /// <summary>
 /// 單筆商品評論公開回應 DTO（絕不洩漏 CustomerId 或內部 Review Id）

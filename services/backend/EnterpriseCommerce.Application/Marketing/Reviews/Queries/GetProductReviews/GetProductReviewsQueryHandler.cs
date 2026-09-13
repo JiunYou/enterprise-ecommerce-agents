@@ -39,7 +39,7 @@ public sealed class GetProductReviewsQueryHandler : IQueryHandler<GetProductRevi
         var pageSize = request.PageSize < 1 ? 10 : Math.Min(request.PageSize, 50);
 
         // 3. 執行倉儲分頁查詢
-        var (items, totalCount) = await _productReviewRepository.GetPagedByProductAsync(
+        var (items, totalCount, averageRating) = await _productReviewRepository.GetPagedByProductAsync(
             request.ProductId,
             page,
             pageSize,
@@ -50,6 +50,6 @@ public sealed class GetProductReviewsQueryHandler : IQueryHandler<GetProductRevi
             .Select(r => new ProductReviewItemResponse(r.Rating, r.Comment, r.CreatedAt))
             .ToList();
 
-        return Result.Success(new ProductReviewsResponse(responseItems, page, pageSize, totalCount));
+        return Result.Success(new ProductReviewsResponse(responseItems, page, pageSize, totalCount, averageRating));
     }
 }

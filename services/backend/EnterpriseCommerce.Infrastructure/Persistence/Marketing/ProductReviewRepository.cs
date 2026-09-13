@@ -35,7 +35,7 @@ internal sealed class ProductReviewRepository : IProductReviewRepository
         _dbContext.ProductReviews.Add(review);
     }
 
-    public async Task<(IReadOnlyList<ProductReview> Items, int TotalCount)> GetPagedByProductAsync(
+    public async Task<(IReadOnlyList<ProductReview> Items, int TotalCount, double? AverageRating)> GetPagedByProductAsync(
         Guid productId,
         int page,
         int pageSize,
@@ -47,6 +47,10 @@ internal sealed class ProductReviewRepository : IProductReviewRepository
 
         var totalCount = await query.CountAsync(cancellationToken);
 
+        double? averageRating = totalCount > 0
+            ? await query.AverageAsync(r => (double)r.Rating, cancellationToken)
+            : null;
+
         var items = await query
             .OrderByDescending(r => r.CreatedAt)
             .ThenByDescending(r => r.Id)
@@ -54,6 +58,6 @@ internal sealed class ProductReviewRepository : IProductReviewRepository
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
+        return (items, totalCount, averageRating);
     }
 }

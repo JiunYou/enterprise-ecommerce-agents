@@ -26,9 +26,17 @@ export function ProductReviewsSection({
           <h2 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-50 sm:text-2xl">
             顧客評論
           </h2>
-          <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-            顧客的心得回饋
-          </p>
+          {reviewsResult && reviewsResult.success ? (
+            <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+              {reviewsResult.data.averageRating !== null
+                ? `平均評分 ${reviewsResult.data.averageRating.toFixed(1)} / 5 · ${reviewsResult.data.totalCount} 則評論`
+                : "目前尚無評分"}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+              顧客的心得回饋
+            </p>
+          )}
         </div>
 
         {/* 未登入狀態引導登入按鈕 */}

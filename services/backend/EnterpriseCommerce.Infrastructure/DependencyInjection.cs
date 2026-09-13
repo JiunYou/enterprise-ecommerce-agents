@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<EnterpriseCommerce.Application.Payments.IPaymentWebhookReceiptRepository, PaymentWebhookReceiptRepository>();
         services.AddScoped<ICustomerIdentityStore, CustomerIdentityStore>();
         services.AddScoped<IAdminOrderCancellationStore, AdminOrderCancellationStore>();
+        services.AddScoped<EnterpriseCommerce.Application.Marketing.Wishlist.IWishlistRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.WishlistRepository>();
 
         services.Configure<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentOptions>(options =>
         {

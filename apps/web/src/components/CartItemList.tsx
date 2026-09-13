@@ -97,14 +97,28 @@ export function CartItemList({
                   key={item.productId}
                   className="flex flex-col gap-4 p-5 sm:p-6 md:flex-row md:items-center md:justify-between"
                 >
-                  {/* 左側：裝飾圖塊 + 商品名稱與單價 */}
+                  {/* 左側：商品圖片/裝飾圖塊 + 商品名稱與單價 */}
                   <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div
-                      aria-hidden="true"
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 text-sm font-bold tracking-wider text-stone-600 select-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
-                    >
-                      {getProductMonogram(item.productName)}
-                    </div>
+                    {item.productImageUrl && item.productImageUrl.trim().length > 0 ? (
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100 dark:border-stone-700 dark:bg-stone-800">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Bounded external product image metadata rendering without server-side proxy */}
+                        <img
+                          src={item.productImageUrl.trim()}
+                          alt={item.productName || "商品"}
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 text-sm font-bold tracking-wider text-stone-600 select-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
+                      >
+                        {getProductMonogram(item.productName)}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/products/${encodeURIComponent(item.productId)}`}

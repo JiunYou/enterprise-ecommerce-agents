@@ -376,13 +376,27 @@ export function CheckoutReview({
                   key={item.productId}
                   className="flex items-start gap-4 p-5 sm:p-6"
                 >
-                  {/* 裝飾性商品縮寫磚 */}
-                  <div
-                    aria-hidden="true"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 text-xs font-bold tracking-wider text-stone-600 select-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
-                  >
-                    {getProductMonogram(item.productName)}
-                  </div>
+                  {/* 商品圖片 / 裝飾性商品縮寫磚 */}
+                  {item.productImageUrl && item.productImageUrl.trim().length > 0 ? (
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100 dark:border-stone-700 dark:bg-stone-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Bounded external product image metadata rendering without server-side proxy */}
+                      <img
+                        src={item.productImageUrl.trim()}
+                        alt={item.productName || "商品"}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 text-xs font-bold tracking-wider text-stone-600 select-none dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300"
+                    >
+                      {getProductMonogram(item.productName)}
+                    </div>
+                  )}
 
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-semibold text-stone-900 break-words dark:text-stone-100">

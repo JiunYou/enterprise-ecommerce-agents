@@ -1552,3 +1552,33 @@
   - 格式與無障礙審查：`git diff --check` 通過，響應式（375px/768px/1280px）與 Native disabled / 輔助文本審查通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：7 個來源檔案指紋為 `c835ca60c35bb2a77c84772abe5afb1ae790c202e82fce9b5d4dc2b70e436de7`。
   - 運行時狀態：`CUSTOMER_PRODUCT_AVAILABILITY_RUNTIME=NOT_OBSERVED`（未具備自然合法瀏覽器會話，遵循規範不偽造資料）。
+
+### 2026-09-13 — PR #54 — feat: add customer wishlist
+- **垂直切片 (Vertical Slice)**：
+  - Customer Wishlist v1 (`CUSTOMER_WISHLIST_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **Marketing 領域首個實作切片**：聚焦顧客收藏清單（Wishlist v1），不引入額外之行銷範疇（嚴格排除折價券、促銷規則、商品評論或忠誠點數）。
+  - **領域與資料表模型**：採用最小有用模型 `WishlistItem : Entity<Guid>`，持久化對應單一資料表 `WishlistItems`（欄位：`Id`, `CustomerId`, `ProductId`, `AddedAt`）；無獨立 Wishlist 聚合根／資料表，無 Domain Events，無 Outbox 機制。
+  - **顧客隱私與所有權邊界**：端點全面採用 `[Authorize]` 授權，`CustomerId` 嚴格來自認證 Claims 提取（`ApiControllerBase.TryGetCustomerId`），客戶端禁止於路由、查詢字串、請求本文或客製標頭傳遞；API 回應僅暴露 `ProductId` 與 `AddedAt`，嚴禁洩露內部主鍵與 `CustomerId`。
+  - **重複防護與完整性合約**：資料庫層級建立 `UNIQUE(CustomerId, ProductId)` 唯一性索引作為最終防線；循序重複加入直接由應用層返回領域衝突 `Wishlist.AlreadyExists`（HTTP 409 Conflict），嚴格禁止產生重複收藏紀錄。
+  - **跨 Context 解耦（無實體外鍵）**：`WishlistItems` 資料表不對 Products 與 Customers 建立實體外鍵，Catalog 擁有商品生命週期，Identity 擁有顧客映射，避免跨 Context 實體耦合。
+  - **API 端點設計**：
+    - `GET /api/v1/wishlist?page=1&pageSize=25`（支援確定性分頁排序：`AddedAt DESC, Id DESC`，上限 100 筆，總筆數精確計算）。
+    - `POST /api/v1/wishlist/items/{productId:guid}`（驗證商品存在且為 Active，下架或缺失一律回傳 404，不洩露下架狀態）。
+    - `DELETE /api/v1/wishlist/items/{productId:guid}`（僅刪除屬於當前認證顧客之收藏項目，查無項目或跨顧客回傳 404）。
+  - **跨顧客存取隔離**：經真實整合與 MySQL 驗證，顧客 B 無法於清單中看見顧客 A 之收藏，亦無法透過 DELETE 移除顧客 A 之收藏項目，顧客 A 收藏持續完好（`WISHLIST_CROSS_CUSTOMER_ISOLATION=PASS`）。
+  - **顧客前端整合體驗 (`apps/web`)**：
+    - 商品詳情頁：未登入呈現「登入後收藏」（導向登入並保留 `returnTo=/products/[id]`），已登入呈現「加入收藏」；重複加入時友善顯示「此商品已在收藏清單」。
+    - 收藏清單頁 (`/wishlist`)：未登入提供友善 CTA 引導；支援分頁導覽；採用 Basic Bounded N+1 Enrichment 模式（透過既有 Catalog `getProductById` 逐項補齊商品名稱、價格與圖片）。
+    - 下架商品優雅降級：若已收藏之商品後續轉為下架或無法讀取，前端中性渲染「商品目前無法瀏覽」卡片（不顯示過期快照），並持續提供「移除收藏」按鈕。
+  - **資料庫遷移**：產生第 15 個遷移 `20260913051257_AddWishlistItems`（前一基準為 `20260913012238_AddProductCategory`），Up 僅建立資料表與唯一索引，Down 僅刪除資料表，無架構飄移。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`WISHLIST_DOMAIN_RED_FIRST=PASS`, `WISHLIST_ADD_RED_FIRST=PASS`, `WISHLIST_REMOVE_RED_FIRST=PASS`, `WISHLIST_QUERY_RED_FIRST=PASS`, `WISHLIST_WEBAPI_RED_FIRST=PASS`, `WISHLIST_MIGRATION_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=210, Application=355, Infrastructure=212, WebApi=421（全數通過）。
+  - 遷移與真實 MySQL 驗收：`WishlistMigrationAcceptanceTests` 與 `WishlistMySqlAcceptanceTests`（20 項驗收點）全數通過。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 編排鏈條驗收：真實 Docker Compose 啟動全新 MySQL，`db-migrate` 成功套用全部 15 個遷移（exit 0），`WishlistItems` 資料表驗證存在，`backend-api` 存活探測回傳 200 OK（`WISHLIST_COMPOSE_BOOTSTRAP=PASS`）。
+  - 靜態響應式與無障礙：審查涵蓋 375px/768px/1280px，具備完整 ARIA 標籤與鍵盤導航狀態（`WISHLIST_ACCESSIBILITY_AUDIT=PASS`）。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：32 個來源檔案指紋為 `5dd2cd6f3ffc30280c711c0caa74c06125a4608e9cd5904ffc9abfbbae1a2c8f`。
+  - 運行時狀態：`AUTHENTICATED_WISHLIST_API_ACCEPTANCE=PASS`，`AUTHENTICATED_WISHLIST_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。
+

@@ -1490,4 +1490,3 @@
   - 響應式與無障礙審查：行動端（375px）、平板（768px）與桌面端（1280px）視覺區塊固定無溢出，語意化 `alt` 標註齊全，縮寫磚保持 `aria-hidden="true"`（`CART_IMAGE_RESPONSIVE_AUDIT=PASS`、`CHECKOUT_IMAGE_RESPONSIVE_AUDIT=PASS`、`IMAGE_ACCESSIBILITY_AUDIT=PASS`）。
   - 權威凍結原始碼指紋：3 個功能檔案指紋為 `5d29ece396293fe13c13c5af42bede22e690b845f190d3f0a79305ead68afacb`。
   - 運行時狀態：`AUTHENTICATED_CART_IMAGE_RUNTIME=NOT_OBSERVED`、`AUTHENTICATED_CHECKOUT_IMAGE_RUNTIME=NOT_OBSERVED`（未具備自然合法之 Auth0 會話，遵循規範不偽造資料）。
-

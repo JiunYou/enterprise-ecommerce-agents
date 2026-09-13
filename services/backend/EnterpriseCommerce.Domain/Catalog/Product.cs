@@ -11,6 +11,7 @@ public sealed class Product : AggregateRoot<Guid>
         Currency = string.Empty;
         Description = string.Empty;
         ImageUrl = string.Empty;
+        Category = string.Empty;
     }
 
     private Product(Guid id, string name, string sku, decimal price, string currency, bool isActive) : base(id)
@@ -22,6 +23,7 @@ public sealed class Product : AggregateRoot<Guid>
         IsActive = isActive;
         Description = string.Empty;
         ImageUrl = string.Empty;
+        Category = string.Empty;
     }
 
     public string Name { get; private set; }
@@ -31,6 +33,7 @@ public sealed class Product : AggregateRoot<Guid>
     public bool IsActive { get; private set; }
     public string Description { get; private set; }
     public string ImageUrl { get; private set; }
+    public string Category { get; private set; }
 
     public static Result<Product> Create(string name, string sku, decimal price, string currency)
     {
@@ -156,6 +159,24 @@ public sealed class Product : AggregateRoot<Guid>
         }
 
         ImageUrl = trimmedImageUrl;
+
+        return Result.Success();
+    }
+
+    public Result UpdateCategory(string category)
+    {
+        if (category is null)
+        {
+            return Result.Failure(ProductErrors.InvalidCategory);
+        }
+
+        var trimmedCategory = category.Trim();
+        if (trimmedCategory.Length > 100)
+        {
+            return Result.Failure(ProductErrors.InvalidCategory);
+        }
+
+        Category = trimmedCategory;
 
         return Result.Success();
     }

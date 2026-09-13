@@ -36,10 +36,11 @@ public class AdminProductsController : ApiControllerBase
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortOrder = null,
+        [FromQuery] string? category = null,
         CancellationToken cancellationToken = default)
     {
         // Admin 端點直接傳入管理員請求之 onlyActive 參數（支援查閱未上架/停用商品），不重複實作商品查詢邏輯
-        var query = new GetProductsQuery(page, pageSize, onlyActive, searchTerm, sortBy, sortOrder);
+        var query = new GetProductsQuery(page, pageSize, onlyActive, searchTerm, sortBy, sortOrder, category);
         var result = await Sender.Send(query, cancellationToken);
 
         if (result.IsFailure)

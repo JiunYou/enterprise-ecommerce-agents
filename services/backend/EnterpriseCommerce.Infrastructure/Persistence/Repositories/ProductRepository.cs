@@ -32,6 +32,7 @@ internal sealed class ProductRepository : IProductRepository
         string? searchTerm = null,
         string? sortBy = null,
         string? sortOrder = null,
+        string? category = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<Product> query = _dbContext.Products.AsNoTracking();
@@ -45,6 +46,12 @@ internal sealed class ProductRepository : IProductRepository
         {
             var trimmedSearch = searchTerm.Trim();
             query = query.Where(p => p.Name.Contains(trimmedSearch) || p.Sku.Contains(trimmedSearch));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var trimmedCategory = category.Trim();
+            query = query.Where(p => p.Category == trimmedCategory);
         }
 
         int totalCount = await query.CountAsync(cancellationToken);
@@ -64,6 +71,17 @@ internal sealed class ProductRepository : IProductRepository
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);
+    }
+
+    public async Task<IReadOnlyList<string>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Products
+            .AsNoTracking()
+            .Where(p => p.IsActive && p.Category != string.Empty)
+            .Select(p => p.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync(cancellationToken);
     }
 
     public void Add(Product product)

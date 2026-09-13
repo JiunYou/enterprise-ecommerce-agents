@@ -25,6 +25,7 @@ public class GetProductByIdQueryHandlerTests
         var product = Product.Create("Test Product", "SKU-1", 100m, "TWD").Value;
         product.UpdateDescription("A detailed test description");
         product.UpdateImageUrl("https://example.com/image.jpg");
+        product.UpdateCategory("Electronics");
         var query = new GetProductByIdQuery(product.Id, AllowInactive: false);
         
         _productRepositoryMock.Setup(repo => repo.GetByIdAsync(product.Id, It.IsAny<CancellationToken>()))
@@ -45,6 +46,7 @@ public class GetProductByIdQueryHandlerTests
         result.Value.IsActive.Should().BeTrue();
         result.Value.Description.Should().Be("A detailed test description");
         result.Value.ImageUrl.Should().Be("https://example.com/image.jpg");
+        result.Value.Category.Should().Be("Electronics");
     }
 
     [Fact]

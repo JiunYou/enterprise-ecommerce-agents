@@ -138,9 +138,19 @@ export default async function ProductDetailPage({
                   <h1 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-50 sm:text-3xl lg:text-4xl">
                     {result.data.name}
                   </h1>
-                  <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
-                    SKU: <span className="font-mono text-stone-700 dark:text-stone-300">{result.data.sku}</span>
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-stone-500 dark:text-stone-400">
+                    <p>
+                      SKU: <span className="font-mono text-stone-700 dark:text-stone-300">{result.data.sku}</span>
+                    </p>
+                    {result.data.category && result.data.category.trim().length > 0 && (
+                      <>
+                        <span aria-hidden="true" className="text-stone-300 dark:text-stone-700">·</span>
+                        <p>
+                          分類：<span className="font-medium text-stone-700 dark:text-stone-300">{result.data.category.trim()}</span>
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* 價格資訊 */}

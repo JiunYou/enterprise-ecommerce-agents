@@ -50,7 +50,8 @@ internal sealed class GetProductBySkuQueryHandler : IQueryHandler<GetProductBySk
             product.Price,
             product.Currency,
             product.IsActive,
-            product.ImageUrl);
+            product.ImageUrl,
+            product.Category);
 
         return Result.Success(response);
     }

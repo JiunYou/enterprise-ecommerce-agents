@@ -40,4 +40,8 @@ public static class ProductErrors
     public static readonly Error InvalidImageUrl = new(
         "Product.InvalidImageUrl",
         "The product image URL is invalid.");
+
+    public static readonly Error InvalidCategory = new(
+        "Product.InvalidCategory",
+        "The product category is invalid.");
 }

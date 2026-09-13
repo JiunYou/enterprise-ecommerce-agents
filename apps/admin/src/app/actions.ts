@@ -746,6 +746,105 @@ export async function updateProductImageUrlAction(
   }
 }
 
+export interface UpdateProductCategoryResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function updateProductCategoryAction(
+  productId: string,
+  category: string
+): Promise<UpdateProductCategoryResult> {
+  if (!productId || typeof productId !== "string" || productId.trim() === "") {
+    return { success: false, error: "無效的商品編號。" };
+  }
+
+  if (typeof category !== "string") {
+    return { success: false, error: "商品分類格式不正確。" };
+  }
+
+  const trimmedCategory = category.trim();
+
+  if (trimmedCategory.length > 100) {
+    return { success: false, error: "商品分類長度不可超過 100 個字元。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/products/${encodeURIComponent(productId.trim())}/category`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          category: trimmedCategory,
+        }),
+      }
+    );
+
+    if (response.status === 200) {
+      revalidatePath("/products");
+      revalidatePath(`/products/${encodeURIComponent(productId.trim())}`);
+      return { success: true };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || "商品分類無效，長度不可超過 100 個字元。",
+      };
+    }
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        error: "權限不足，僅系統管理員（Admin）可編輯商品分類。",
+      };
+    }
+
+    if (response.status === 404) {
+      revalidatePath("/products");
+      return {
+        success: false,
+        error: "指定的商品已不存在。",
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        error: "商品已被其他操作修改，請重新整理後確認最新狀態。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "更新商品分類失敗，請稍後重試。",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return {
+        success: false,
+        error: "未授權或登入已逾期，請重新登入。",
+      };
+    }
+
+    return {
+      success: false,
+      error: "無法與後端伺服器通訊，請檢查網路連線後重試。",
+    };
+  }
+}
+
 export interface DeactivateProductResult {
   success: boolean;
   error?: string;

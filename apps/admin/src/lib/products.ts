@@ -9,6 +9,7 @@ export interface AdminProductSummary {
   currency: string;
   isActive: boolean;
   imageUrl: string;
+  category: string;
 }
 
 export interface AdminProductDetail extends AdminProductSummary {
@@ -46,6 +47,7 @@ export async function getAdminProducts(params: {
   searchTerm?: string;
   sortBy?: string;
   sortOrder?: string;
+  category?: string;
 }): Promise<GetAdminProductsResult> {
   try {
     const searchParams = new URLSearchParams();
@@ -72,6 +74,10 @@ export async function getAdminProducts(params: {
 
     if (params.sortOrder && params.sortOrder.trim() !== "") {
       searchParams.set("sortOrder", params.sortOrder.trim().toLowerCase());
+    }
+
+    if (params.category && params.category.trim() !== "") {
+      searchParams.set("category", params.category.trim());
     }
 
     const endpoint = `/api/v1/admin/products${

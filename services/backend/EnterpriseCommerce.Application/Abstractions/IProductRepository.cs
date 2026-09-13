@@ -13,7 +13,9 @@ public interface IProductRepository
         string? searchTerm = null,
         string? sortBy = null,
         string? sortOrder = null,
+        string? category = null,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default);
     void Add(Product product);
     void Update(Product product);
 }

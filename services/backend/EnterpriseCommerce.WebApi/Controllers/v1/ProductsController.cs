@@ -6,9 +6,11 @@ using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductPrice;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductName;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductDescription;
 using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductImageUrl;
+using EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductById;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProductBySku;
 using EnterpriseCommerce.Application.Catalog.Queries.GetProducts;
+using EnterpriseCommerce.Application.Catalog.Queries.GetProductCategories;
 using EnterpriseCommerce.Application.Common.Models;
 using EnterpriseCommerce.WebApi.Contracts.Catalog;
 using EnterpriseCommerce.Domain.Primitives;
@@ -37,12 +39,13 @@ public class ProductsController : ApiControllerBase
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortOrder = null,
+        [FromQuery] string? category = null,
         CancellationToken cancellationToken = default)
     {
         // 安全邊界：非 Admin 使用者強制僅能查閱已上架 (IsActive == true) 的商品
         bool? effectiveOnlyActive = User.IsInRole("Admin") ? onlyActive : true;
 
-        var query = new GetProductsQuery(page, pageSize, effectiveOnlyActive, searchTerm, sortBy, sortOrder);
+        var query = new GetProductsQuery(page, pageSize, effectiveOnlyActive, searchTerm, sortBy, sortOrder, category);
         var result = await Sender.Send(query, cancellationToken);
 
         if (result.IsFailure)
@@ -218,6 +221,42 @@ public class ProductsController : ApiControllerBase
     public async Task<IActionResult> UpdateProductImageUrl(Guid id, [FromBody] UpdateProductImageUrlRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateProductImageUrlCommand(id, request.ImageUrl);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok();
+    }
+
+    [HttpGet("categories")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IReadOnlyList<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetProductCategories(CancellationToken cancellationToken)
+    {
+        var query = new GetProductCategoriesQuery();
+        var result = await Sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [HttpPut("{id:guid}/category")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateProductCategory(Guid id, [FromBody] UpdateProductCategoryRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateProductCategoryCommand(id, request.Category);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

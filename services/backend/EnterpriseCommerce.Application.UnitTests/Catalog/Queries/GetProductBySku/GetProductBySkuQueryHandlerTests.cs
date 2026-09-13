@@ -36,6 +36,7 @@ public class GetProductBySkuQueryHandlerTests
         result.Value.Should().NotBeNull();
         result.Value.Sku.Should().Be("SKU-100");
         result.Value.ImageUrl.Should().Be(string.Empty);
+        result.Value.Category.Should().Be(string.Empty);
     }
 
     [Fact]

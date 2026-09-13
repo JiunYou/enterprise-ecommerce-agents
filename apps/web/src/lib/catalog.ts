@@ -6,6 +6,7 @@ export interface Product {
   currency: string;
   isActive: boolean;
   imageUrl: string;
+  category: string;
 }
 
 export interface ProductDetail extends Product {
@@ -37,6 +38,7 @@ export interface GetProductsParams {
   searchTerm?: string;
   sortBy?: "name" | "price";
   sortOrder?: "asc" | "desc";
+  category?: string;
 }
 
 export async function getProducts(
@@ -72,6 +74,10 @@ export async function getProducts(
 
   if (params.sortOrder) {
     url.searchParams.set("sortOrder", params.sortOrder);
+  }
+
+  if (params.category && params.category.trim().length > 0) {
+    url.searchParams.set("category", params.category.trim());
   }
 
   try {
@@ -158,5 +164,34 @@ export async function getProductById(id: string): Promise<ProductDetailResult> {
       notFound: false,
       error: "目前無法連線至商品服務，請確認後端服務是否已啟動。",
     };
+  }
+}
+
+export async function getProductCategories(): Promise<string[]> {
+  const baseUrl = process.env.API_BASE_URL || "http://localhost:5110";
+
+  let url: URL;
+  try {
+    url = new URL("/api/v1/products/categories", baseUrl);
+  } catch {
+    return [];
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data: string[] = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
 }

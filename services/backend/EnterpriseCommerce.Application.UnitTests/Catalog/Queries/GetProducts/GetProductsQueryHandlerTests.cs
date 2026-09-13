@@ -29,7 +29,7 @@ public class GetProductsQueryHandlerTests
         var query = new GetProductsQuery(Page: 2, PageSize: 2, OnlyActive: true, SearchTerm: "Product", SortBy: "price", SortOrder: "desc");
 
         _productRepositoryMock
-            .Setup(repo => repo.GetPagedAsync(2, 2, true, "Product", "price", "desc", It.IsAny<CancellationToken>()))
+            .Setup(repo => repo.GetPagedAsync(2, 2, true, "Product", "price", "desc", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync((products, totalCount));
 
         // Act
@@ -47,8 +47,10 @@ public class GetProductsQueryHandlerTests
         result.Value.Items.Should().HaveCount(2);
         result.Value.Items[0].Sku.Should().Be("SKU-1");
         result.Value.Items[0].ImageUrl.Should().Be(string.Empty);
+        result.Value.Items[0].Category.Should().Be(string.Empty);
         result.Value.Items[1].Sku.Should().Be("SKU-2");
         result.Value.Items[1].ImageUrl.Should().Be(string.Empty);
+        result.Value.Items[1].Category.Should().Be(string.Empty);
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public class GetProductsQueryHandlerTests
         var query = new GetProductsQuery(Page: 1, PageSize: 10, OnlyActive: true);
 
         _productRepositoryMock
-            .Setup(repo => repo.GetPagedAsync(1, 10, true, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(repo => repo.GetPagedAsync(1, 10, true, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync((products, totalCount));
 
         // Act
@@ -75,5 +77,23 @@ public class GetProductsQueryHandlerTests
         result.Value.TotalPages.Should().Be(0);
         result.Value.HasPreviousPage.Should().BeFalse();
         result.Value.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_WithCategoryFilter_ForwardsCategoryToRepository()
+    {
+        // Arrange
+        var query = new GetProductsQuery(Category: "Electronics");
+
+        _productRepositoryMock
+            .Setup(repo => repo.GetPagedAsync(1, 10, true, null, null, null, "Electronics", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<Product>(), 0));
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _productRepositoryMock.Verify(repo => repo.GetPagedAsync(1, 10, true, null, null, null, "Electronics", It.IsAny<CancellationToken>()), Times.Once);
     }
 }

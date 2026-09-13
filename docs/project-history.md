@@ -1643,3 +1643,16 @@
   - 靜態響應式與無障礙：審查涵蓋 375px/768px/1280px，具備完整 ARIA 標籤與鍵盤導航狀態（`REVIEW_ACCESSIBILITY_AUDIT=PASS`）。
   - 權威凍結原始碼指紋 (Source Fingerprint)：28 個來源檔案指紋為 `1f349e175420e0ca8b20bc6cdf4c3f29ba32c0f4262cde655e68b6615ad556f6`。
   - 運行時狀態：`AUTHENTICATED_PRODUCT_REVIEW_API_ACCEPTANCE=PASS`, `PUBLIC_PRODUCT_REVIEW_API_ACCEPTANCE=PASS`, `AUTHENTICATED_PRODUCT_REVIEW_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。
+
+### 2026-09-13 — PR #57 — fix: correct product review trust copy
+- **垂直切片修復 (Remediation)**：
+  - Customer Product Review Trust Copy Remediation v1 (`CUSTOMER_PRODUCT_REVIEW_TRUST_COPY_REMEDIATION_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **客觀事實文案修正**：修正顧客端商品詳情頁評論區塊副標題，將未具備購買驗證支持之「真實購買顧客的心得回饋」調整為中性且符合實際商業規則之「顧客的心得回饋」。
+  - **商業範疇絕對凍結**：本切片未實作購買資格驗證 (Verified Purchase)，無 Order 歷史查詢或耦合，亦不變動顧客發表評論或公開查詢之任何既有行為（`REVIEW_FUNCTIONAL_BEHAVIOR_CHANGED=NO`, `REVIEW_PURCHASE_VERIFICATION_ADDED=NO`, `ORDER_REVIEW_COUPLING_ADDED=NO`）。
+  - **後端與資料庫零變動**：零後端程式碼變更、零 API 契約變更、零資料庫架構變更或遷移（最新遷移維持 `20260913101054_AddProductReviews`，總遷移數維持 16）。
+- **驗證成果 (Validation)**：
+  - 靜態文案審查：舊文案完全移除 (`UNSUPPORTED_VERIFIED_PURCHASE_COPY_REMAINS=NO`)，新文案精確呈現 (`REPLACEMENT_COPY_PRESENT=YES`)。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 格式與無障礙審查：`git diff --check` 通過，無語意破壞或響應式溢出。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：單一功能來源檔案 `apps/web/src/components/ProductReviewsSection.tsx` 指紋為 `d5f77e31108df1b87db1f60bc2d6b08930d6985fa52c048d17ceff57002eb77a`。

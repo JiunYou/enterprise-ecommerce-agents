@@ -27,7 +27,7 @@ export function ProductReviewsSection({
             顧客評論
           </h2>
           <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-            真實購買顧客的心得回饋
+            顧客的心得回饋
           </p>
         </div>
 

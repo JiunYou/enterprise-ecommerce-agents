@@ -19,6 +19,11 @@ public interface IWishlistRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    Task<bool> ExistsAsync(
+        Guid customerId,
+        Guid productId,
+        CancellationToken cancellationToken = default);
+
     void Add(WishlistItem item);
 
     void Remove(WishlistItem item);

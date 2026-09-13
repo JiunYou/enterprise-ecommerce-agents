@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { getProductById, getProductAvailability, ProductAvailabilityResult } from "@/lib/catalog";
+import { getWishlistItemStatus } from "@/lib/wishlist";
 import { formatPrice } from "@/lib/format";
 import { auth0 } from "@/lib/auth0";
 import { addItemToCart } from "@/lib/cart";
 import { AddToCartForm } from "@/components/AddToCartForm";
-import { AddToWishlistButton } from "@/components/AddToWishlistButton";
+import { WishlistToggleButton } from "@/components/WishlistToggleButton";
 import { CustomerHeader } from "@/components/CustomerHeader";
 
 interface ProductDetailPageProps {
@@ -29,6 +30,19 @@ export default async function ProductDetailPage({
       availabilityResult = await getProductAvailability(result.data.id);
     } catch {
       availabilityResult = { success: false, error: "取得庫存失敗" };
+    }
+  }
+
+  // 僅在顧客已登入且商品成功載入時查詢收藏狀態；失敗時安全降級不中斷頁面 (Section 17, 18)
+  let initialIsWishlisted = false;
+  if (result.success && isLoggedIn) {
+    try {
+      const statusResult = await getWishlistItemStatus(result.data.id);
+      if (statusResult.success) {
+        initialIsWishlisted = statusResult.data.isWishlisted;
+      }
+    } catch {
+      initialIsWishlisted = false;
     }
   }
 
@@ -222,9 +236,10 @@ export default async function ProductDetailPage({
                     availableQuantity={availabilityResult?.success ? availabilityResult.data.availableQuantity : undefined}
                     onAddToCart={handleAddToCart}
                   />
-                  <AddToWishlistButton
+                  <WishlistToggleButton
                     productId={result.data.id}
                     isLoggedIn={isLoggedIn}
+                    initialIsWishlisted={initialIsWishlisted}
                   />
                 </div>
               </div>

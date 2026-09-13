@@ -13,7 +13,8 @@ public sealed record GetProductsQuery(
     bool? OnlyActive = true,
     string? SearchTerm = null,
     string? SortBy = null,
-    string? SortOrder = null) : IQuery<PagedList<ProductResponse>>;
+    string? SortOrder = null,
+    string? Category = null) : IQuery<PagedList<ProductResponse>>;
 
 public sealed class GetProductsQueryValidator : AbstractValidator<GetProductsQuery>
 {
@@ -60,6 +61,7 @@ internal sealed class GetProductsQueryHandler : IQueryHandler<GetProductsQuery, 
             request.SearchTerm,
             request.SortBy,
             request.SortOrder,
+            request.Category,
             cancellationToken);
 
         var productResponses = products
@@ -70,7 +72,8 @@ internal sealed class GetProductsQueryHandler : IQueryHandler<GetProductsQuery, 
                 p.Price,
                 p.Currency,
                 p.IsActive,
-                p.ImageUrl))
+                p.ImageUrl,
+                p.Category))
             .ToList();
 
         var pagedList = PagedList<ProductResponse>.Create(

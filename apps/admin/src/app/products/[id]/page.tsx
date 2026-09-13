@@ -5,6 +5,7 @@ import { UpdateProductPriceForm } from "@/components/UpdateProductPriceForm";
 import { UpdateProductNameForm } from "@/components/UpdateProductNameForm";
 import { UpdateProductDescriptionForm } from "@/components/UpdateProductDescriptionForm";
 import { UpdateProductImageUrlForm } from "@/components/UpdateProductImageUrlForm";
+import { UpdateProductCategoryForm } from "@/components/UpdateProductCategoryForm";
 import { DeactivateProductButton } from "@/components/DeactivateProductButton";
 import { ReactivateProductButton } from "@/components/ReactivateProductButton";
 import { AdjustInventoryStockForm } from "@/components/AdjustInventoryStockForm";
@@ -307,6 +308,15 @@ export default async function AdminProductDetailPage({
                     )}
                   </dd>
                 </div>
+
+                <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 p-3.5 sm:col-span-2 dark:border-zinc-800/70 dark:bg-zinc-800/40">
+                  <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    商品分類 (Category)
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium text-zinc-900 break-words dark:text-zinc-50">
+                    {product.category || "（未設定商品分類）"}
+                  </dd>
+                </div>
               </dl>
             </section>
 
@@ -422,6 +432,12 @@ export default async function AdminProductDetailPage({
             <UpdateProductImageUrlForm
               productId={product.id}
               currentImageUrl={product.imageUrl}
+            />
+
+            {/* 編輯商品分類表單 */}
+            <UpdateProductCategoryForm
+              productId={product.id}
+              currentCategory={product.category}
             />
 
             {/* 調整價格表單 */}

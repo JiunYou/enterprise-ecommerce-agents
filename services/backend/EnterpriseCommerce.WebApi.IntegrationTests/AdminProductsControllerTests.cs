@@ -90,7 +90,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Admin Test Item", "SKU-ADMIN-1", 99m, "TWD", true, "https://example.com/admin.jpg")
+                new(Guid.NewGuid(), "Admin Test Item", "SKU-ADMIN-1", 99m, "TWD", true, "https://example.com/admin.jpg", "")
             },
             page: 1,
             pageSize: 10,
@@ -125,7 +125,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Inactive Product", "SKU-INACTIVE-1", 50m, "TWD", false, "")
+                new(Guid.NewGuid(), "Inactive Product", "SKU-INACTIVE-1", 50m, "TWD", false, "", "")
             },
             page: 1,
             pageSize: 10,
@@ -207,7 +207,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
     {
         // Arrange
         var productId = Guid.NewGuid();
-        var productDetailResponse = new ProductDetailResponse(productId, "Inactive Product", "SKU-INACT", 200m, "TWD", false, "Admin inactive description", "https://example.com/admin.jpg");
+        var productDetailResponse = new ProductDetailResponse(productId, "Inactive Product", "SKU-INACT", 200m, "TWD", false, "Admin inactive description", "https://example.com/admin.jpg", "");
 
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && q.AllowInactive == true),
@@ -242,7 +242,7 @@ public class AdminProductsControllerTests : IClassFixture<WebApplicationFactory<
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "Admin Item", "SKU-ADMIN-LIST-1", 50m, "TWD", true, "https://example.com/img.jpg")
+                new(Guid.NewGuid(), "Admin Item", "SKU-ADMIN-LIST-1", 50m, "TWD", true, "https://example.com/img.jpg", "")
             },
             page: 1,
             pageSize: 10,

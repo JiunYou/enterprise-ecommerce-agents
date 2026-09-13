@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getProducts } from "@/lib/catalog";
+import { getProducts, getProductCategories } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { CustomerHeader } from "@/components/CustomerHeader";
 
@@ -9,6 +9,7 @@ interface PageProps {
     q?: string | string[];
     searchTerm?: string | string[];
     sort?: string | string[];
+    category?: string | string[];
   }>;
 }
 
@@ -24,6 +25,12 @@ export default async function CatalogPage({ searchParams }: PageProps) {
       ? resolvedParams.searchTerm
       : "";
   const searchTerm = rawSearch.trim();
+
+  const rawCategory =
+    typeof resolvedParams.category === "string"
+      ? resolvedParams.category.trim()
+      : "";
+  const category = rawCategory || undefined;
 
   const rawSort =
     typeof resolvedParams.sort === "string" ? resolvedParams.sort.trim() : "";
@@ -57,18 +64,25 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const pageSize = 12;
 
-  const result = await getProducts({
-    page,
-    pageSize,
-    searchTerm: searchTerm || undefined,
-    sortBy,
-    sortOrder,
-  });
+  const [categories, result] = await Promise.all([
+    getProductCategories(),
+    getProducts({
+      page,
+      pageSize,
+      searchTerm: searchTerm || undefined,
+      category,
+      sortBy,
+      sortOrder,
+    }),
+  ]);
 
   const createPageHref = (targetPage: number) => {
     const params = new URLSearchParams();
     if (searchTerm) {
       params.set("q", searchTerm);
+    }
+    if (rawCategory) {
+      params.set("category", rawCategory);
     }
     if (validSort) {
       params.set("sort", validSort);
@@ -80,7 +94,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     return queryString ? `/?${queryString}` : "/";
   };
 
-  const clearSearchHref = validSort ? `/?sort=${encodeURIComponent(validSort)}` : "/";
+  const clearFilterHref = validSort ? `/?sort=${encodeURIComponent(validSort)}` : "/";
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
@@ -122,6 +136,24 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                 <div className="relative min-w-[130px] flex-1 sm:flex-none">
+                  <label htmlFor="category-select" className="sr-only">
+                    商品分類
+                  </label>
+                  <select
+                    id="category-select"
+                    name="category"
+                    defaultValue={rawCategory}
+                    className="h-10 w-full rounded-lg border border-stone-300 bg-stone-50/60 px-3 text-sm text-stone-900 transition focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400/30 dark:border-stone-700 dark:bg-stone-950/50 dark:text-stone-100 dark:focus:border-stone-400 dark:focus:bg-stone-900 dark:focus:ring-stone-600/30"
+                  >
+                    <option value="">全部分類</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="relative min-w-[130px] flex-1 sm:flex-none">
                   <label htmlFor="sort-select" className="sr-only">
                     商品排序
                   </label>
@@ -144,9 +176,9 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                 >
                   搜尋
                 </button>
-                {searchTerm && (
+                {(searchTerm || rawCategory) && (
                   <Link
-                    href={clearSearchHref}
+                    href={clearFilterHref}
                     className="h-10 inline-flex items-center justify-center rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 shadow-xs transition hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-stone-800"
                   >
                     清除
@@ -155,12 +187,20 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               </div>
             </form>
 
-            {searchTerm && (
-              <div className="mt-3.5 border-t border-stone-200/60 pt-3 text-xs text-stone-500 dark:border-stone-800/60 dark:text-stone-400">
-                目前搜尋關鍵字：
-                <span className="font-semibold text-stone-800 dark:text-stone-200">
-                  「{searchTerm}」
-                </span>
+            {(searchTerm || rawCategory) && (
+              <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-stone-200/60 pt-3 text-xs text-stone-500 dark:border-stone-800/60 dark:text-stone-400">
+                <span>目前篩選條件：</span>
+                {searchTerm && (
+                  <span>
+                    關鍵字：<strong className="font-semibold text-stone-800 dark:text-stone-200">「{searchTerm}」</strong>
+                  </span>
+                )}
+                {searchTerm && rawCategory && <span>·</span>}
+                {rawCategory && (
+                  <span>
+                    分類：<strong className="font-semibold text-stone-800 dark:text-stone-200">「{rawCategory}」</strong>
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -198,17 +238,17 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               查無符合條件的商品
             </h2>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-stone-500 dark:text-stone-400">
-              {searchTerm
-                ? "請嘗試更換搜尋關鍵字或清除篩選條件。"
+              {searchTerm || rawCategory
+                ? "請嘗試更換搜尋關鍵字、選擇其他分類或清除篩選條件。"
                 : "目前目錄中尚無上架商品。"}
             </p>
-            {searchTerm && (
+            {(searchTerm || rawCategory) && (
               <div className="mt-6">
                 <Link
-                  href={clearSearchHref}
+                  href={clearFilterHref}
                   className="inline-flex items-center justify-center rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-xs transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
                 >
-                  清除搜尋條件
+                  清除篩選條件
                 </Link>
               </div>
             )}
@@ -264,6 +304,13 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                       {/* 商品資訊與層次 */}
                       <div className="mt-3.5 flex flex-1 flex-col justify-between">
                         <div>
+                          {product.category && product.category.trim().length > 0 && (
+                            <div className="mb-1.5">
+                              <span className="inline-flex items-center rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                                {product.category.trim()}
+                              </span>
+                            </div>
+                          )}
                           <h2 className="text-base font-semibold text-stone-900 transition-colors group-hover:text-stone-600 dark:text-stone-100 dark:group-hover:text-stone-300 line-clamp-2">
                             {product.name}
                           </h2>

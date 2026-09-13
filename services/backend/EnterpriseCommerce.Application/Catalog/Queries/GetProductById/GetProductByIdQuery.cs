@@ -14,7 +14,8 @@ public sealed record ProductResponse(
     decimal Price,
     string Currency,
     bool IsActive,
-    string ImageUrl);
+    string ImageUrl,
+    string Category);
 
 public sealed record ProductDetailResponse(
     Guid Id,
@@ -24,7 +25,8 @@ public sealed record ProductDetailResponse(
     string Currency,
     bool IsActive,
     string Description,
-    string ImageUrl);
+    string ImageUrl,
+    string Category);
 
 internal sealed class GetProductByIdQueryHandler : IQueryHandler<GetProductByIdQuery, ProductDetailResponse>
 {
@@ -56,7 +58,8 @@ internal sealed class GetProductByIdQueryHandler : IQueryHandler<GetProductByIdQ
             product.Currency,
             product.IsActive,
             product.Description,
-            product.ImageUrl);
+            product.ImageUrl,
+            product.Category);
 
         return Result.Success(response);
     }

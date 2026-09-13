@@ -39,6 +39,10 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
             .IsRequired()
             .HasMaxLength(2048);
 
+        builder.Property(p => p.Category)
+            .IsRequired()
+            .HasMaxLength(100);
+
         builder.HasIndex(p => p.Sku).IsUnique();
         
         builder.Property(p => p.Version)

@@ -204,7 +204,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange
         var productId = Guid.NewGuid();
-        var productDetailResponse = new ProductDetailResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true, "Test Description", "https://example.com/single.jpg");
+        var productDetailResponse = new ProductDetailResponse(productId, "Single Product", "SKU-SINGLE-1", 150m, "TWD", true, "Test Description", "https://example.com/single.jpg", "");
 
         _senderMock.Setup(m => m.Send(It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(productDetailResponse));
@@ -228,7 +228,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange
         var sku = "SKU-TEST-123";
-        var productResponse = new ProductResponse(Guid.NewGuid(), "Sku Product", sku, 200m, "TWD", true, "https://example.com/sku.jpg");
+        var productResponse = new ProductResponse(Guid.NewGuid(), "Sku Product", sku, 200m, "TWD", true, "https://example.com/sku.jpg", "");
 
         _senderMock.Setup(m => m.Send(It.Is<GetProductBySkuQuery>(q => q.Sku == sku && !q.AllowInactive), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(productResponse));
@@ -661,7 +661,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
     {
         // Arrange: 模擬商品經由 Reactivate 成為 Active 後，非 Admin 查詢得以成功取得
         var productId = Guid.NewGuid();
-        var reactivatedProductResponse = new ProductDetailResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true, "Reactivated Description", "https://example.com/reactivated.jpg");
+        var reactivatedProductResponse = new ProductDetailResponse(productId, "Reactivated Item", "SKU-REACTIVATED-1", 100m, "TWD", true, "Reactivated Description", "https://example.com/reactivated.jpg", "");
 
         _senderMock.Setup(m => m.Send(
                 It.Is<GetProductByIdQuery>(q => q.ProductId == productId && !q.AllowInactive),
@@ -1004,7 +1004,7 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
         var pagedList = PagedList<ProductResponse>.Create(
             new List<ProductResponse>
             {
-                new(Guid.NewGuid(), "List Product", "SKU-LIST-1", 100m, "TWD", true, "https://example.com/list.jpg")
+                new(Guid.NewGuid(), "List Product", "SKU-LIST-1", 100m, "TWD", true, "https://example.com/list.jpg", "")
             },
             page: 1,
             pageSize: 10,
@@ -1214,5 +1214,206 @@ public class ProductsControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_Anonymous_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PutAsJsonAsync($"/api/v1/Products/{Guid.NewGuid()}/category", new { category = "Electronics" });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_NonAdmin_ReturnsForbidden403()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{Guid.NewGuid()}/category")
+        {
+            Content = JsonContent.Create(new { category = "Electronics" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Customer");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_AdminUser_WithValidCategory_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory.UpdateProductCategoryCommand>(c =>
+                    c.ProductId == productId && c.Category == "Electronics"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/category")
+        {
+            Content = JsonContent.Create(new { category = "Electronics" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_AdminUser_WithEmptyClear_ReturnsOk200()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.Is<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory.UpdateProductCategoryCommand>(c =>
+                    c.ProductId == productId && c.Category == ""),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/category")
+        {
+            Content = JsonContent.Create(new { category = "" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_AdminUser_WithTooLongCategory_ReturnsBadRequest400()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory.UpdateProductCategoryCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.InvalidCategory));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/category")
+        {
+            Content = JsonContent.Create(new { category = new string('A', 101) })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_AdminUser_WhenProductNotFound_ReturnsNotFound404()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory.UpdateProductCategoryCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.NotFound));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/category")
+        {
+            Content = JsonContent.Create(new { category = "Electronics" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateProductCategory_AdminUser_WhenConcurrencyConflict_ReturnsConflict409()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Commands.UpdateProductCategory.UpdateProductCategoryCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(ProductErrors.ConcurrencyConflict));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/Products/{productId}/category")
+        {
+            Content = JsonContent.Create(new { category = "Electronics" })
+        };
+        requestMessage.Headers.Add("X-Test-Role", "Admin");
+
+        // Act
+        var response = await client.SendAsync(requestMessage);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task GetProducts_WithCategoryFilter_PassesCategoryToQuery()
+    {
+        // Arrange
+        _senderMock.Setup(m => m.Send(
+                It.Is<GetProductsQuery>(q => q.Category == "Electronics"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(PagedList<ProductResponse>.Create(new List<ProductResponse>(), 1, 10, 0)));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Products?category=Electronics");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _senderMock.Verify(m => m.Send(
+            It.Is<GetProductsQuery>(q => q.Category == "Electronics"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetProductCategories_Anonymous_ReturnsOk200AndCategoryList()
+    {
+        // Arrange
+        var categories = new List<string> { "Books", "Electronics" };
+        _senderMock.Setup(m => m.Send(
+                It.IsAny<EnterpriseCommerce.Application.Catalog.Queries.GetProductCategories.GetProductCategoriesQuery>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<IReadOnlyList<string>>(categories));
+
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/Products/categories");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<List<string>>();
+        content.Should().Equal("Books", "Electronics");
     }
 }

@@ -516,18 +516,136 @@ public class ProductTests
     }
 
     [Fact]
-    public void UpdateImageUrl_InactiveProduct_SucceedsWithoutLifecycleChange()
+    public void Category_NewProduct_DefaultsToEmpty()
+    {
+        // Act
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Assert
+        product.Category.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateCategory_WithValidCategory_UpdatesCategory()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateCategory("Electronics");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Category.Should().Be("Electronics");
+    }
+
+    [Fact]
+    public void UpdateCategory_WithWhitespacePadding_NormalizesWithTrim()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+
+        // Act
+        var result = product.UpdateCategory("  Electronics  ");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Category.Should().Be("Electronics");
+    }
+
+    [Fact]
+    public void UpdateCategory_WithEmptyOrWhitespace_ClearsCategory()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateCategory("Electronics");
+
+        // Act
+        var resultWhitespace = product.UpdateCategory("   ");
+
+        // Assert
+        resultWhitespace.IsSuccess.Should().BeTrue();
+        product.Category.Should().Be(string.Empty);
+
+        // Act
+        var resultEmpty = product.UpdateCategory("");
+
+        // Assert
+        resultEmpty.IsSuccess.Should().BeTrue();
+        product.Category.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void UpdateCategory_WithNull_ReturnsInvalidCategoryAndPreservesOldCategory()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateCategory("Electronics");
+
+        // Act
+        var result = product.UpdateCategory(null!);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidCategory);
+        product.Category.Should().Be("Electronics");
+    }
+
+    [Fact]
+    public void UpdateCategory_WithLengthExceeding100_ReturnsInvalidCategoryAndPreservesOldCategory()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateCategory("Electronics");
+        var longCategory = new string('C', 101);
+
+        // Act
+        var result = product.UpdateCategory(longCategory);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(ProductErrors.InvalidCategory);
+        product.Category.Should().Be("Electronics");
+    }
+
+    [Fact]
+    public void UpdateCategory_SuccessfulUpdate_PreservesAllOtherInvariants()
+    {
+        // Arrange
+        var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
+        product.UpdateDescription("Initial description");
+        product.UpdateImageUrl("https://example.com/image.jpg");
+        var originalId = product.Id;
+
+        // Act
+        var result = product.UpdateCategory("Electronics");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        product.Id.Should().Be(originalId);
+        product.Name.Should().Be("Test Product");
+        product.Sku.Should().Be("SKU-123");
+        product.Price.Should().Be(100m);
+        product.Currency.Should().Be("TWD");
+        product.IsActive.Should().BeTrue();
+        product.Description.Should().Be("Initial description");
+        product.ImageUrl.Should().Be("https://example.com/image.jpg");
+        product.Category.Should().Be("Electronics");
+    }
+
+    [Fact]
+    public void UpdateCategory_InactiveProduct_SucceedsWithoutLifecycleChange()
     {
         // Arrange
         var product = Product.Create("Test Product", "SKU-123", 100m, "TWD").Value;
         product.Deactivate();
 
         // Act
-        var result = product.UpdateImageUrl("https://example.com/inactive.jpg");
+        var result = product.UpdateCategory("Electronics");
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        product.ImageUrl.Should().Be("https://example.com/inactive.jpg");
+        product.Category.Should().Be("Electronics");
         product.IsActive.Should().BeFalse();
     }
 }

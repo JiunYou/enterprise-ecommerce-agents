@@ -25,6 +25,12 @@ export async function AuthControls() {
       >
         我的訂單
       </Link>
+      <Link
+        href="/wishlist"
+        className="inline-flex items-center text-sm font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+      >
+        我的收藏
+      </Link>
       <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
         已登入顧客
       </span>

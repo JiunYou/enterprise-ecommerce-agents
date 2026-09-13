@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/format";
 import { auth0 } from "@/lib/auth0";
 import { addItemToCart } from "@/lib/cart";
 import { AddToCartForm } from "@/components/AddToCartForm";
+import { AddToWishlistButton } from "@/components/AddToWishlistButton";
 import { CustomerHeader } from "@/components/CustomerHeader";
 
 interface ProductDetailPageProps {
@@ -220,6 +221,10 @@ export default async function ProductDetailPage({
                     isLoggedIn={isLoggedIn}
                     availableQuantity={availabilityResult?.success ? availabilityResult.data.availableQuantity : undefined}
                     onAddToCart={handleAddToCart}
+                  />
+                  <AddToWishlistButton
+                    productId={result.data.id}
+                    isLoggedIn={isLoggedIn}
                   />
                 </div>
               </div>

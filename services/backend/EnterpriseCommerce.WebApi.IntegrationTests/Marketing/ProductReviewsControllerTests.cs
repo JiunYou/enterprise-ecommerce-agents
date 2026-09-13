@@ -65,7 +65,8 @@ public class ProductReviewsControllerTests : IClassFixture<WebApplicationFactory
             },
             1,
             10,
-            1);
+            1,
+            5.0);
 
         _senderMock
             .Setup(s => s.Send(
@@ -81,9 +82,49 @@ public class ProductReviewsControllerTests : IClassFixture<WebApplicationFactory
         var content = await response.Content.ReadFromJsonAsync<ProductReviewsResponse>();
         content.Should().NotBeNull();
         content!.TotalCount.Should().Be(1);
+        content.AverageRating.Should().Be(5.0);
         content.Items.Should().HaveCount(1);
         content.Items[0].Rating.Should().Be(5);
         content.Items[0].Comment.Should().Be("很棒的商品");
+
+        // 驗證公開 DTO 絕不包含內部識別碼
+        var json = await response.Content.ReadAsStringAsync();
+        using var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
+        var item = jsonDoc.RootElement.GetProperty("items")[0];
+        item.TryGetProperty("customerId", out _).Should().BeFalse();
+        item.TryGetProperty("id", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetReviews_Anonymous_WhenNoReviews_Returns200OkWithNullAverageRating()
+    {
+        // Arrange
+        var productId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        var queryResponse = new ProductReviewsResponse(
+            new List<ProductReviewItemResponse>(),
+            1,
+            10,
+            0,
+            null);
+
+        _senderMock
+            .Setup(s => s.Send(
+                It.Is<GetProductReviewsQuery>(q => q.ProductId == productId && q.Page == 1 && q.PageSize == 10),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(queryResponse));
+
+        // Act
+        var response = await client.GetAsync($"/api/v1/products/{productId}/reviews");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        content.Should().NotBeNull();
+        content!.TotalCount.Should().Be(0);
+        content.AverageRating.Should().BeNull();
+        content.Items.Should().BeEmpty();
     }
 
     [Fact]

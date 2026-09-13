@@ -200,4 +200,126 @@ public class ProductReviewMySqlAcceptanceTests : IAsyncLifetime
         outOfRangePaged.TotalCount.Should().Be(2);
         outOfRangePaged.Page.Should().Be(99);
     }
+
+    [Fact]
+    public async Task ProductReviewSummary_RealMySql_EndToEnd_FullAcceptance()
+    {
+        // 1. Active Product 與對照商品、下架商品準備
+        var activeProduct = Product.Create("Summary Active Product", "SKU-SUM-001-" + Guid.NewGuid().ToString("N")[..8], 500m, "TWD").Value;
+        var otherProduct = Product.Create("Other Active Product", "SKU-SUM-002-" + Guid.NewGuid().ToString("N")[..8], 300m, "TWD").Value;
+        var inactiveProduct = Product.Create("Summary Inactive Product", "SKU-SUM-INACT-" + Guid.NewGuid().ToString("N")[..8], 200m, "TWD").Value;
+        inactiveProduct.Deactivate();
+
+        await using (var db = CreateFreshDbContext())
+        {
+            await db.Products.AddRangeAsync(activeProduct, otherProduct, inactiveProduct);
+            await db.SaveChangesAsync();
+        }
+
+        var anonymousClient = _factory!.CreateClient();
+
+        // 2. No Reviews: totalCount=0, averageRating=null
+        var initialResponse = await anonymousClient.GetAsync($"/api/v1/products/{activeProduct.Id}/reviews");
+        initialResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var initialData = await initialResponse.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        initialData.Should().NotBeNull();
+        initialData!.TotalCount.Should().Be(0);
+        initialData.AverageRating.Should().BeNull();
+        initialData.Items.Should().BeEmpty();
+
+        // 建立顧客客戶端輔助方法
+        HttpClient CreateCustomerClient(Guid customerId)
+        {
+            var c = _factory.CreateClient();
+            c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-" + customerId);
+            c.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+            return c;
+        }
+
+        // 3. Customer A rating=5
+        var clientA = CreateCustomerClient(Guid.NewGuid());
+        var resA = await clientA.PostAsJsonAsync($"/api/v1/products/{activeProduct.Id}/reviews", new CreateProductReviewRequest(5, "滿分好評"));
+        resA.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 4. Customer B rating=4
+        var clientB = CreateCustomerClient(Guid.NewGuid());
+        var resB = await clientB.PostAsJsonAsync($"/api/v1/products/{activeProduct.Id}/reviews", new CreateProductReviewRequest(4, "四星滿意"));
+        resB.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 5. Customer C rating=3
+        var clientC = CreateCustomerClient(Guid.NewGuid());
+        var resC = await clientC.PostAsJsonAsync($"/api/v1/products/{activeProduct.Id}/reviews", new CreateProductReviewRequest(3, "三星普通"));
+        resC.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 6. Public GET: totalCount=3, averageRating=4.0
+        var getResponse3 = await anonymousClient.GetAsync($"/api/v1/products/{activeProduct.Id}/reviews");
+        getResponse3.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data3 = await getResponse3.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        data3.Should().NotBeNull();
+        data3!.TotalCount.Should().Be(3);
+        data3.AverageRating.Should().Be(4.0); // RED: 尚未在 DB 計算 averageRating 時將為 null
+
+        // 7. Request pageSize=1: items count 1, totalCount=3, averageRating remains 4.0
+        var getPagedResponse = await anonymousClient.GetAsync($"/api/v1/products/{activeProduct.Id}/reviews?page=1&pageSize=1");
+        getPagedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagedData = await getPagedResponse.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        pagedData.Should().NotBeNull();
+        pagedData!.Items.Should().HaveCount(1);
+        pagedData.TotalCount.Should().Be(3);
+        pagedData.AverageRating.Should().Be(4.0);
+
+        // 8. Add another Review rating=1: totalCount=4, averageRating=3.25
+        var clientD = CreateCustomerClient(Guid.NewGuid());
+        var resD = await clientD.PostAsJsonAsync($"/api/v1/products/{activeProduct.Id}/reviews", new CreateProductReviewRequest(1, "一星差評"));
+        resD.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse4 = await anonymousClient.GetAsync($"/api/v1/products/{activeProduct.Id}/reviews");
+        getResponse4.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data4 = await getResponse4.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        data4.Should().NotBeNull();
+        data4!.TotalCount.Should().Be(4);
+        data4.AverageRating.Should().Be(3.25);
+
+        // 9. Average is scoped to Product: create another Product with a different rating; original Product average unchanged
+        var clientE = CreateCustomerClient(Guid.NewGuid());
+        var resOther = await clientE.PostAsJsonAsync($"/api/v1/products/{otherProduct.Id}/reviews", new CreateProductReviewRequest(2, "另一商品二星"));
+        resOther.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var otherResponse = await anonymousClient.GetAsync($"/api/v1/products/{otherProduct.Id}/reviews");
+        otherResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var otherData = await otherResponse.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        otherData.Should().NotBeNull();
+        otherData!.TotalCount.Should().Be(1);
+        otherData.AverageRating.Should().Be(2.0);
+
+        // 原商品的平均不受影響
+        var originalAfterOther = await anonymousClient.GetAsync($"/api/v1/products/{activeProduct.Id}/reviews");
+        originalAfterOther.StatusCode.Should().Be(HttpStatusCode.OK);
+        var originalDataAfterOther = await originalAfterOther.Content.ReadFromJsonAsync<ProductReviewsResponse>();
+        originalDataAfterOther.Should().NotBeNull();
+        originalDataAfterOther!.TotalCount.Should().Be(4);
+        originalDataAfterOther.AverageRating.Should().Be(3.25);
+
+        // 10. Inactive Product still 404
+        var inactiveResponse = await anonymousClient.GetAsync($"/api/v1/products/{inactiveProduct.Id}/reviews");
+        inactiveResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 11. Missing Product still 404
+        var missingResponse = await anonymousClient.GetAsync($"/api/v1/products/{Guid.NewGuid()}/reviews");
+        missingResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 12. Public privacy contract unchanged
+        var rawJson = await getResponse4.Content.ReadAsStringAsync();
+        using var jsonDoc = JsonDocument.Parse(rawJson);
+        var items = jsonDoc.RootElement.GetProperty("items");
+        foreach (var element in items.EnumerateArray())
+        {
+            element.TryGetProperty("customerId", out _).Should().BeFalse();
+            element.TryGetProperty("CustomerId", out _).Should().BeFalse();
+            element.TryGetProperty("id", out _).Should().BeFalse();
+            element.TryGetProperty("Id", out _).Should().BeFalse();
+            element.TryGetProperty("reviewId", out _).Should().BeFalse();
+            element.TryGetProperty("ReviewId", out _).Should().BeFalse();
+        }
+    }
 }

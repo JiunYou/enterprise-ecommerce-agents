@@ -22,9 +22,9 @@ public interface IProductReviewRepository
     void Add(ProductReview review);
 
     /// <summary>
-    /// 依商品識別碼分頁取得評論列表與總筆數
+    /// 依商品識別碼分頁取得評論列表、總筆數與全體評論平均評分
     /// </summary>
-    Task<(IReadOnlyList<ProductReview> Items, int TotalCount)> GetPagedByProductAsync(
+    Task<(IReadOnlyList<ProductReview> Items, int TotalCount, double? AverageRating)> GetPagedByProductAsync(
         Guid productId,
         int page,
         int pageSize,

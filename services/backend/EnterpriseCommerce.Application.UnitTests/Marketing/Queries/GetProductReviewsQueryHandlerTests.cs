@@ -46,7 +46,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview> { review1, review2 }, 2));
+            .ReturnsAsync((new List<ProductReview> { review1, review2 }, 2, 4.5));
 
         var query = new GetProductReviewsQuery(_productId, Page: 1, PageSize: 10);
 
@@ -64,6 +64,112 @@ public class GetProductReviewsQueryHandlerTests
         result.Value.Items[0].Comment.Should().Be("第一則評論");
         result.Value.Items[1].Rating.Should().Be(4);
         result.Value.Items[1].Comment.Should().Be("第二則評論");
+    }
+
+    [Fact]
+    public async Task Handle_WhenNoReviews_ShouldReturnNullAverageRating()
+    {
+        // Arrange
+        var product = Product.Create("Active Product", "SKU-NO-REVIEWS", 100m, "TWD").Value;
+        _productRepositoryMock
+            .Setup(r => r.GetByIdAsync(_productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        _productReviewRepositoryMock
+            .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<ProductReview>(), 0, (double?)null));
+
+        var query = new GetProductReviewsQuery(_productId);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Items.Should().BeEmpty();
+        result.Value.TotalCount.Should().Be(0);
+        result.Value.AverageRating.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_WhenSingleReview_ShouldReturnReviewRatingAsAverage()
+    {
+        // Arrange
+        var product = Product.Create("Active Product", "SKU-SINGLE-REVIEW", 100m, "TWD").Value;
+        _productRepositoryMock
+            .Setup(r => r.GetByIdAsync(_productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        var review = ProductReview.Create(Guid.NewGuid(), Guid.NewGuid(), _productId, 5, "單筆評論", DateTimeOffset.UtcNow).Value;
+
+        _productReviewRepositoryMock
+            .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<ProductReview> { review }, 1, 5.0));
+
+        var query = new GetProductReviewsQuery(_productId);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.TotalCount.Should().Be(1);
+        result.Value.AverageRating.Should().Be(5.0);
+    }
+
+    [Fact]
+    public async Task Handle_WhenMultipleReviews_ShouldReturnCorrectAverageRating()
+    {
+        // Arrange
+        var product = Product.Create("Active Product", "SKU-MULTI-REVIEW", 100m, "TWD").Value;
+        _productRepositoryMock
+            .Setup(r => r.GetByIdAsync(_productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        var r1 = ProductReview.Create(Guid.NewGuid(), Guid.NewGuid(), _productId, 5, "評論1", DateTimeOffset.UtcNow).Value;
+        var r2 = ProductReview.Create(Guid.NewGuid(), Guid.NewGuid(), _productId, 4, "評論2", DateTimeOffset.UtcNow).Value;
+        var r3 = ProductReview.Create(Guid.NewGuid(), Guid.NewGuid(), _productId, 3, "評論3", DateTimeOffset.UtcNow).Value;
+
+        _productReviewRepositoryMock
+            .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<ProductReview> { r1, r2, r3 }, 3, 4.0));
+
+        var query = new GetProductReviewsQuery(_productId);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.TotalCount.Should().Be(3);
+        result.Value.AverageRating.Should().Be(4.0);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPaged_AverageRatingShouldReflectAllReviewsIndependentOfCurrentPage()
+    {
+        // Arrange
+        var product = Product.Create("Active Product", "SKU-PAGED-REVIEW", 100m, "TWD").Value;
+        _productRepositoryMock
+            .Setup(r => r.GetByIdAsync(_productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(product);
+
+        var r1 = ProductReview.Create(Guid.NewGuid(), Guid.NewGuid(), _productId, 5, "最新評論", DateTimeOffset.UtcNow).Value;
+
+        _productReviewRepositoryMock
+            .Setup(r => r.GetPagedByProductAsync(_productId, 1, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<ProductReview> { r1 }, 3, 4.0));
+
+        var query = new GetProductReviewsQuery(_productId, Page: 1, PageSize: 1);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Items.Should().HaveCount(1);
+        result.Value.TotalCount.Should().Be(3);
+        result.Value.AverageRating.Should().Be(4.0);
     }
 
     [Fact]
@@ -118,7 +224,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview>(), 0));
+            .ReturnsAsync((new List<ProductReview>(), 0, (double?)null));
 
         var query = new GetProductReviewsQuery(_productId);
 
@@ -141,7 +247,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 1, 50, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview>(), 0));
+            .ReturnsAsync((new List<ProductReview>(), 0, (double?)null));
 
         var query = new GetProductReviewsQuery(_productId, Page: 1, PageSize: 100);
 
@@ -164,7 +270,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview>(), 0));
+            .ReturnsAsync((new List<ProductReview>(), 0, (double?)null));
 
         var query = new GetProductReviewsQuery(_productId, Page: 0, PageSize: 10);
 
@@ -187,7 +293,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 999, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview>(), 5));
+            .ReturnsAsync((new List<ProductReview>(), 5, 4.2));
 
         var query = new GetProductReviewsQuery(_productId, Page: 999, PageSize: 10);
 
@@ -216,7 +322,7 @@ public class GetProductReviewsQueryHandlerTests
 
         _productReviewRepositoryMock
             .Setup(r => r.GetPagedByProductAsync(_productId, 1, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductReview> { review }, 1));
+            .ReturnsAsync((new List<ProductReview> { review }, 1, 5.0));
 
         var query = new GetProductReviewsQuery(_productId);
 

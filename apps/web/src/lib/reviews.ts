@@ -13,6 +13,7 @@ export interface ProductReviewsResponse {
   page: number;
   pageSize: number;
   totalCount: number;
+  averageRating: number | null;
 }
 
 export type ProductReviewsResult =

@@ -1490,3 +1490,40 @@
   - 響應式與無障礙審查：行動端（375px）、平板（768px）與桌面端（1280px）視覺區塊固定無溢出，語意化 `alt` 標註齊全，縮寫磚保持 `aria-hidden="true"`（`CART_IMAGE_RESPONSIVE_AUDIT=PASS`、`CHECKOUT_IMAGE_RESPONSIVE_AUDIT=PASS`、`IMAGE_ACCESSIBILITY_AUDIT=PASS`）。
   - 權威凍結原始碼指紋：3 個功能檔案指紋為 `5d29ece396293fe13c13c5af42bede22e690b845f190d3f0a79305ead68afacb`。
   - 運行時狀態：`AUTHENTICATED_CART_IMAGE_RUNTIME=NOT_OBSERVED`、`AUTHENTICATED_CHECKOUT_IMAGE_RUNTIME=NOT_OBSERVED`（未具備自然合法之 Auth0 會話，遵循規範不偽造資料）。
+
+### 2026-09-13 — PR #52 — feat: add product categories
+- **垂直切片 (Vertical Slice)**：
+  - Product Category v1 (`PRODUCT_CATEGORY_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - 為商品目錄新增單一可選分類字串能力（`Product.Category`），貫穿領域實體、EF Core 遷移、公開/後台讀取模型、管理員分類變更、公開商品列表分類篩選、公開啟用分類探索及顧客端首頁篩選與詳情頁展示之完整垂直切片。
+  - **單一商品字串分類設計與明確無分類學邊界**：
+    - 商品具有 0 或 1 個分類，內部以非 null 字串儲存，預設為 `string.Empty`。
+    - 嚴格遵守 KISS/YAGNI 原則，不引入 Category Aggregate、獨立分類資料表、商品分類關聯表、多對多分類、階層樹狀分類、父子分類、分類 slug、SEO 分類頁面、分類描述或分類圖檔。
+  - **領域語意與不變量**：
+    - 新增變更方法 `UpdateCategory(string category)`：輸入進行前後空白去除（`Trim()`）；空字串或純空白字串正規化為 `string.Empty`（執行清空分類）；最大長度限制為 100 字元；`null` 或超過 100 字元回傳 `ProductErrors.InvalidCategory` 並保留原有值。
+    - 商品建立凍結：建立商品輸入未包含分類欄位（`CREATE_PRODUCT_CATEGORY_INPUT_ADDED=NO`），新商品預設分類為空。
+    - 啟用與停用商品均可更新或清空分類，且生命週期狀態與既有屬性（Id/Name/Sku/Price/Currency/IsActive/Description/ImageUrl）保持不變。
+  - **讀取與篩選模型契約**：
+    - `ProductResponse` 與 `ProductDetailResponse` 一致暴露 `Category`。
+    - `GetProductsQuery` 支援獨立可選 `Category` 篩選參數，搜尋語意維持 `Name OR SKU`，排序維持 `Name / Price`。
+    - 篩選組合順序嚴格落實：`onlyActive → searchTerm → category → totalCount → sort → pagination`，`totalCount` 精確反映分類篩選。
+  - **公開啟用分類探索**：
+    - 新增公開端點 `GET /api/v1/products/categories`，僅回傳啟用中商品之非空、相異且按字母遞增排序的分類字串陣列。
+    - 倉儲實作嚴格採用伺服器端 EF 查詢（`AsNoTracking`），於投影篩選前不全量載入商品至記憶體。
+  - **管理端點與使用者體驗**：
+    - 新增管理員專屬變更端點 `PUT /api/v1/products/{id:guid}/category`，具備角色授權與樂觀並行控制（409 Conflict 映射）。
+    - 管理後台商品詳情頁 (`apps/admin`)：新增 `UpdateProductCategoryForm` 元件，具備預填、100 字元上限、空白清空、Pending/錯誤/成功回饋與快取重新驗證。
+    - 顧客端前台 (`apps/web`)：目錄首頁搜尋列新增分類下拉選單（全部分類 + API 啟用分類），分頁與排序完整保留 `?category=...` 查詢字串；商品卡片非空時展示低調標籤，商品詳情頁展示分類元資料。
+  - **資料庫遷移與相容性**：
+    - 產生單一向下相容遷移 `20260913012238_AddProductCategory`（上一基準為 `20260912140159_AddProductImageUrl`，遷移總數為 14）。
+    - 欄位規格為 `varchar(100) NOT NULL default ""`，Up 僅新增欄位，Down 僅刪除欄位，歷史資料安全過渡為 `""`，無模型漂移。
+- **驗證成果 (Validation)**：
+  - 嚴格落實 RED-FIRST TDD（`DOMAIN_RED_FIRST=PASS`, `APPLICATION_MUTATION_RED_FIRST=PASS`, `PRODUCT_READ_MODEL_RED_FIRST=PASS`, `CATEGORY_FILTER_RED_FIRST=PASS`, `CATEGORY_DISCOVERY_RED_FIRST=PASS`, `WEBAPI_RED_FIRST=PASS`, `MIGRATION_RED_FIRST=PASS`）。
+  - 後端全量測試通過規模：Domain=206, Application=342, Infrastructure=212, WebApi=397。
+  - 前端驗證：Admin 與 Customer 前端 `npm run lint` 與 `npm run build` 全數通過（0 warnings, 0 errors）。
+  - 格式檢查：`git diff --check` 通過。
+  - 遷移驗收測試：升級、全新資料庫與降級鏈條全數通過（`PRODUCT_CATEGORY_MIGRATION_ACCEPTANCE=PASS`）。
+  - 真實 MySQL 驗收測試：完成 17 項商品分類端到端行為與邊界情境驗收（`PRODUCT_CATEGORY_MYSQL_ACCEPTANCE=PASS`）。
+  - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 14 個遷移、backend-api 啟動、存活探測 200、商品查詢 API 200 與分類探索 API 200（`PRODUCT_CATEGORY_COMPOSE_BOOTSTRAP=PASS`）。
+  - 權威來源指紋 (Source Fingerprint)：33 個來源檔案指紋為 `10793e432a7a64e1e47702a48cec795375e58a79455b188ac51cf5263f31c456`。
+  - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_CATEGORY_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_CATEGORY_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_CATEGORY_RUNTIME=NOT_OBSERVED`（未具備自然合法之 Auth0 會話，遵循規範不偽造資料）。

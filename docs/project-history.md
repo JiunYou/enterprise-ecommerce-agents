@@ -1656,3 +1656,30 @@
   - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
   - 格式與無障礙審查：`git diff --check` 通過，無語意破壞或響應式溢出。
   - 權威凍結原始碼指紋 (Source Fingerprint)：單一功能來源檔案 `apps/web/src/components/ProductReviewsSection.tsx` 指紋為 `d5f77e31108df1b87db1f60bc2d6b08930d6985fa52c048d17ceff57002eb77a`。
+
+### 2026-09-13 — PR #58 — feat: add product review summary
+- **垂直切片 (Vertical Slice)**：
+  - Customer Product Review Summary v1 (`CUSTOMER_PRODUCT_REVIEW_SUMMARY_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **擴充既有公開評論查詢契約**：重用現有 `GET /api/v1/products/{productId:guid}/reviews` 端點，不新增任何額外摘要端點（`NEW_REVIEW_SUMMARY_ENDPOINT_ADDED=NO`），避免前端重複發起 HTTP 請求。
+  - **平均評分派生欄位合約**：於公開分頁回應合約 `ProductReviewsResponse` 擴充 `AverageRating`（`double?`）。若評論數為 0，則 `AverageRating = null`（絕非 0）；若評論數大於等於 1，則為該商品全部評論之算術平均數。
+  - **伺服器端資料庫聚合運算**：於基礎設施層 [ProductReviewRepository](file:///Users/laijiunyou/Dev/prawn/services/backend/EnterpriseCommerce.Infrastructure/Persistence/Marketing/ProductReviewRepository.cs) 透過 EF Core `AverageAsync` 直譯為資料庫端 `AVG()` SQL 運算，無客戶端記憶體物質化（`REVIEW_AVERAGE_SERVER_SIDE_QUERY=YES`, `REVIEW_AVERAGE_CLIENT_SIDE_MATERIALIZATION=NO`）。
+  - **全商品評論範疇與分頁獨立性**：平均評分計算範疇為該商品之所有評論，嚴格獨立於當前分頁、首頁或頁面載入項目（`REVIEW_AVERAGE_SCOPE=ALL_PRODUCT_REVIEWS`），且在分頁（Skip/Take）之前於資料庫完成聚合。
+  - **無後端四捨五入政策**：後端與領域層不預設任何業務四捨五入政策，原樣傳回數值（`REVIEW_AVERAGE_BACKEND_ROUNDING_ADDED=NO`）；由前端呈現層規格化為一位小數。
+  - **前端展示與無障礙設計 (`apps/web`)**：
+    - 評論存在時展示：「`平均評分 4.5 / 5 · 12 則評論`」（採用 `averageRating.toFixed(1)` 與現有 `totalCount`）。
+    - 零評論時中性呈現「`目前尚無評分`」，絕不顯示「0.0 / 5」。
+    - 評論載入失敗時維持「`評論暫時無法載入`」，絕不捏造或填充虛擬平均評分（`REVIEW_SUMMARY_FAILURE_FABRICATES_DATA=NO`）。
+    - 具備完整語意與文字尺度標註，不單依賴星號符號或顏色，支援響應式自動換行（`REVIEW_SUMMARY_ACCESSIBILITY_AUDIT=PASS`）。
+  - **隱私邊界與範疇凍結**：
+    - 公開評論項目嚴格維持僅暴露 `Rating`, `Comment`, `CreatedAt`，絕不外洩 `CustomerId`、內部 Review Id、訂單編號或顧客個資（`PUBLIC_REVIEW_CUSTOMER_ID_EXPOSED=NO`, `PUBLIC_REVIEW_INTERNAL_ID_EXPOSED=NO`）。
+    - 零資料庫結構變更、零 Migration（最新遷移維持 `20260913101054_AddProductReviews`，總遷移數維持 16）。
+    - 絕不將評分摘要欄位耦合至 Product 領域、資料表或目錄卡片（`PRODUCT_REVIEW_SUMMARY_FIELDS_ADDED=NO`, `CATALOG_REVIEW_STATE_ADDED=NO`）。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`REVIEW_SUMMARY_APPLICATION_RED_FIRST=PASS`, `REVIEW_SUMMARY_WEBAPI_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=229, Application=382, Infrastructure=212, WebApi=440（全數通過）。
+  - 真實 MySQL 驗收測試：`ProductReviewMySqlAcceptanceTests.ProductReviewSummary_RealMySql_EndToEnd_FullAcceptance` 完整驗證 12 項情境（零評論 null、多評論平均、分頁獨立、新評論累加更新、跨商品隔離、下架與缺失商品 404、隱私遮蔽等）。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 格式檢查：`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：9 個原始碼路徑指紋為 `b55908de2e7a18bbaaf1cd7a07a3f8d786fb45a1997de36945f57da3707d63ce`。
+  - 運行時狀態：`CUSTOMER_PRODUCT_REVIEW_SUMMARY_RUNTIME=NOT_OBSERVED`（由真實 MySQL 整合驗收提供機器可驗證證據）。

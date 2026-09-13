@@ -2,23 +2,33 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { getProductById, getProductAvailability, ProductAvailabilityResult } from "@/lib/catalog";
 import { getWishlistItemStatus } from "@/lib/wishlist";
+import { getProductReviews, ProductReviewsResult } from "@/lib/reviews";
 import { formatPrice } from "@/lib/format";
 import { auth0 } from "@/lib/auth0";
 import { addItemToCart } from "@/lib/cart";
 import { AddToCartForm } from "@/components/AddToCartForm";
 import { WishlistToggleButton } from "@/components/WishlistToggleButton";
+import { ProductReviewsSection } from "@/components/ProductReviewsSection";
 import { CustomerHeader } from "@/components/CustomerHeader";
 
 interface ProductDetailPageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams?: Promise<{
+    reviewPage?: string;
+  }>;
 }
 
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: ProductDetailPageProps) {
   const { id } = await params;
+  const searchParamsObj = searchParams ? await searchParams : {};
+  const reviewPageNum = typeof searchParamsObj.reviewPage === "string" ? parseInt(searchParamsObj.reviewPage, 10) : 1;
+  const effectiveReviewPage = isNaN(reviewPageNum) || reviewPageNum < 1 ? 1 : reviewPageNum;
+
   const result = await getProductById(id);
   const session = await auth0.getSession();
   const isLoggedIn = Boolean(session && session.user);
@@ -43,6 +53,16 @@ export default async function ProductDetailPage({
       }
     } catch {
       initialIsWishlisted = false;
+    }
+  }
+
+  // 僅在商品成功載入時查詢公開評論；評論服務異常安全降級不阻礙商品頁面渲染 (Section 39, 45)
+  let reviewsResult: ProductReviewsResult | null = null;
+  if (result.success) {
+    try {
+      reviewsResult = await getProductReviews(result.data.id, effectiveReviewPage, 10);
+    } catch {
+      reviewsResult = { success: false, error: "取得評論失敗" };
     }
   }
 
@@ -126,8 +146,9 @@ export default async function ProductDetailPage({
             </section>
           )
         ) : (
-          <article
-            aria-label="商品詳細資訊"
+          <>
+            <article
+              aria-label="商品詳細資訊"
             className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10 lg:gap-12"
           >
             {/* 展示性商品視覺區塊 (Product Visual Area) */}
@@ -245,6 +266,15 @@ export default async function ProductDetailPage({
               </div>
             </div>
           </article>
+
+          {/* 顧客商品評論區塊 (Product Reviews) */}
+          <ProductReviewsSection
+            productId={result.data.id}
+            isLoggedIn={isLoggedIn}
+            reviewsResult={reviewsResult}
+            currentPage={effectiveReviewPage}
+          />
+        </>
         )}
       </main>
     </div>

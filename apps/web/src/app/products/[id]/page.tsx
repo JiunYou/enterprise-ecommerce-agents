@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { getProductById } from "@/lib/catalog";
+import { getProductById, getProductAvailability, ProductAvailabilityResult } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { auth0 } from "@/lib/auth0";
 import { addItemToCart } from "@/lib/cart";
@@ -20,6 +20,16 @@ export default async function ProductDetailPage({
   const result = await getProductById(id);
   const session = await auth0.getSession();
   const isLoggedIn = Boolean(session && session.user);
+
+  // 僅在商品成功載入時查詢庫存狀態；庫存服務異常不阻礙商品頁面渲染 (Section 18)
+  let availabilityResult: ProductAvailabilityResult | null = null;
+  if (result.success) {
+    try {
+      availabilityResult = await getProductAvailability(result.data.id);
+    } catch {
+      availabilityResult = { success: false, error: "取得庫存失敗" };
+    }
+  }
 
   async function handleAddToCart(productId: string, quantity: number) {
     "use server";
@@ -173,11 +183,42 @@ export default async function ProductDetailPage({
                   </div>
                 )}
 
+                {/* 庫存狀態區塊 (Product Availability) */}
+                <div className="border-t border-stone-200/80 pt-4 pb-1 dark:border-stone-800">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                      庫存狀態：
+                    </span>
+                    {availabilityResult?.success ? (
+                      availabilityResult.data.inStock ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                          現貨：{availabilityResult.data.availableQuantity} 件
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/40">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                          目前缺貨
+                        </span>
+                      )
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-400 border border-stone-200 dark:border-stone-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-stone-400"></span>
+                        庫存狀態暫時無法取得
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+                    庫存可能隨訂單變動，實際結果以加入購物車與結帳驗證為準。
+                  </p>
+                </div>
+
                 {/* 購買操作區塊 */}
                 <div className="pt-2">
                   <AddToCartForm
                     productId={result.data.id}
                     isLoggedIn={isLoggedIn}
+                    availableQuantity={availabilityResult?.success ? availabilityResult.data.availableQuantity : undefined}
                     onAddToCart={handleAddToCart}
                   />
                 </div>

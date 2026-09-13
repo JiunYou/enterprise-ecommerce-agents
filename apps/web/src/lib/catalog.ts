@@ -195,3 +195,64 @@ export async function getProductCategories(): Promise<string[]> {
     return [];
   }
 }
+
+export interface ProductAvailability {
+  productId: string;
+  availableQuantity: number;
+  inStock: boolean;
+}
+
+export type ProductAvailabilityResult =
+  | { success: true; data: ProductAvailability }
+  | { success: false; error: string };
+
+export async function getProductAvailability(
+  productId: string
+): Promise<ProductAvailabilityResult> {
+  const trimmedId = productId?.trim();
+  if (!trimmedId) {
+    return {
+      success: false,
+      error: "無效的商品識別碼",
+    };
+  }
+
+  const baseUrl = process.env.API_BASE_URL || "http://localhost:5110";
+
+  let url: URL;
+  try {
+    url = new URL(`/api/v1/products/${encodeURIComponent(trimmedId)}/availability`, baseUrl);
+  } catch {
+    return {
+      success: false,
+      error: "無效的 API 端點設定",
+    };
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `服務端回應錯誤 (HTTP ${response.status})`,
+      };
+    }
+
+    const data: ProductAvailability = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch {
+    return {
+      success: false,
+      error: "目前無法連線至商品庫存服務，請確認後端服務是否已啟動。",
+    };
+  }
+}

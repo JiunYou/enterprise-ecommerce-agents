@@ -1527,3 +1527,28 @@
   - 本地 Compose 運行時驗收：經由真實編排鏈條驗證全新 MySQL 啟動、db-migrate 執行（exit 0）、套用全部 14 個遷移、backend-api 啟動、存活探測 200、商品查詢 API 200 與分類探索 API 200（`PRODUCT_CATEGORY_COMPOSE_BOOTSTRAP=PASS`）。
   - 權威來源指紋 (Source Fingerprint)：33 個來源檔案指紋為 `10793e432a7a64e1e47702a48cec795375e58a79455b188ac51cf5263f31c456`。
   - 運行時狀態：`AUTHENTICATED_ADMIN_PRODUCT_CATEGORY_API_ACCEPTANCE=PASS`，`PUBLIC_PRODUCT_CATEGORY_API_ACCEPTANCE=PASS`，`AUTHENTICATED_ADMIN_PRODUCT_CATEGORY_RUNTIME=NOT_OBSERVED`（未具備自然合法之 Auth0 會話，遵循規範不偽造資料）。
+
+### 2026-09-13 — PR #53 — feat: expose customer product availability
+- **垂直切片 (Vertical Slice)**：
+  - Customer Product Availability v1 (`CUSTOMER_PRODUCT_AVAILABILITY_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - 公開商品可用性端點：於現有 `ProductsController` 新增 `GET /api/v1/products/{id:guid}/availability`，支援匿名存取。
+  - 公開資訊邊界與防護：合約僅暴露 `productId`、`availableQuantity` 與 `inStock`（`availableQuantity > 0`）；嚴禁洩漏 `ReservedQuantity`、預留紀錄清單、`OrderReference` 或 `InventoryId`。
+  - 商品可見性對齊：下架商品（Inactive）與不存在商品一律返回 404，防止該端點成為非公開商品列舉管道。
+  - 缺失庫存項目失敗關閉：已上架但無庫存項目之商品返回 404（資料完整性條件），絕不偽造零庫存。
+  - 零庫存語意：庫存存在且 `availableQuantity == 0` 時返回 200 OK 與 `inStock == false`。
+  - 唯讀快照語意：端點為純查詢操作，不加鎖、不鎖定、不預留庫存、不觸發任何變更或事件。
+  - 顧客端展示與加入購物車聯動：
+    - 商品詳情頁在商品本體載入成功後查詢庫存狀態；庫存服務異常不阻礙商品頁面渲染，具備優雅降級。
+    - 提供三種庫存視覺狀態：有現貨（`現貨：X 件`）、已缺貨（`目前缺貨`）、無法取得（`庫存狀態暫時無法取得`）並附帶驗證以購物車與結帳為準之提示。
+    - 表單行為：已知缺貨時禁用數量輸入與加入按鈕，且缺貨狀態優先於未登入提示；已知庫存時輸入上限箝制於 `min(999, availableQuantity)`；庫存未知時維持預設 999 上限與後端權威驗證。
+  - 後端權威不變：既有庫存感知加入購物車檢核與結帳預留閘門維持不變，前端可用性純為建議性質。
+  - 系統嚴格凍結：無領域層修改、無資料庫遷移或架構變更、未變更管理後台、未加入目錄列表大量庫存查詢。
+- **驗證成果 (Validation)**：
+  - 測試先行證據：`WEBAPI_RED_FIRST=PASS`、`REAL_MYSQL_AVAILABILITY_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=206, Application=342, Infrastructure=212, WebApi=404（全數通過）。
+  - 真實 MySQL 驗收測試：`ProductAvailabilityMySqlAcceptanceTests` 包含 13 項情境（含實際預留扣減可用量證明）全部通過。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 格式與無障礙審查：`git diff --check` 通過，響應式（375px/768px/1280px）與 Native disabled / 輔助文本審查通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：7 個來源檔案指紋為 `c835ca60c35bb2a77c84772abe5afb1ae790c202e82fce9b5d4dc2b70e436de7`。
+  - 運行時狀態：`CUSTOMER_PRODUCT_AVAILABILITY_RUNTIME=NOT_OBSERVED`（未具備自然合法瀏覽器會話，遵循規範不偽造資料）。

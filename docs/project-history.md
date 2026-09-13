@@ -1582,3 +1582,32 @@
   - 權威凍結原始碼指紋 (Source Fingerprint)：32 個來源檔案指紋為 `5dd2cd6f3ffc30280c711c0caa74c06125a4608e9cd5904ffc9abfbbae1a2c8f`。
   - 運行時狀態：`AUTHENTICATED_WISHLIST_API_ACCEPTANCE=PASS`，`AUTHENTICATED_WISHLIST_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。
 
+### 2026-09-13 — PR #55 — feat: add wishlist membership state
+- **垂直切片 (Vertical Slice)**：
+  - Customer Wishlist Membership v1 (`CUSTOMER_WISHLIST_MEMBERSHIP_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **顧客收藏狀態查詢端點**：於現有 `WishlistController` 擴充 `GET /api/v1/wishlist/items/{productId:guid}/status` 端點，支援已登入顧客查詢個人收藏狀態。
+  - **顧客隱私與所有權邊界**：CustomerId 嚴格由認證 Claims 提取（`ApiControllerBase.TryGetCustomerId`），禁止客戶端代入；回應契約僅暴露 `productId` 與 `isWishlisted`，絕不暴露 `customerId`、`wishlistItemId` 或 `addedAt`。
+  - **跨顧客隔離與私有狀態**：非擁有者查詢一律回傳 200 OK 與 `isWishlisted = false`（未收藏絕非 404），絕不洩漏其他顧客之收藏紀錄或擁有權資訊（`WISHLIST_MEMBERSHIP_CROSS_CUSTOMER_ISOLATION=PASS`）。
+  - **伺服器端高效存在性查詢**：`IWishlistRepository.ExistsAsync` 在基礎設施層透過 EF Core 的 `_dbContext.WishlistItems.AsNoTracking().AnyAsync(...)` 執行，由 MySQL 直接執行 `EXISTS` 查詢，完全不將收藏清單載入記憶體。
+  - **純讀取非變異保證**：查詢流程絕不呼叫 Add、Remove、`SaveChangesAsync` 或領域變更，經真實 MySQL 驗證呼叫前後資料庫筆數與狀態零變更（`WISHLIST_MEMBERSHIP_GET_MUTATES_STATE=NO`）。
+  - **商品詳細頁狀態感知與容錯降級**：
+    - 僅在顧客 Session 存在且商品資訊載入成功時才查詢收藏狀態。
+    - 收藏狀態查詢失敗時優雅降級為預設未收藏，商品核心資訊正常渲染，絕不中斷頁面（`WISHLIST_STATUS_FAILURE_BREAKS_PRODUCT_DETAIL=NO`）。
+    - 未登入顧客維持「登入後收藏」引導並保留 `returnTo` 參數，無匿名狀態查詢。
+  - **雙向切換控制項 (`WishlistToggleButton`)**：
+    - 替代舊有一維 `AddToWishlistButton`（舊組件徹底刪除以防控制項重疊）。
+    - 未收藏顯示「加入收藏」（點擊呼叫 Add），已收藏顯示「移除收藏」（點擊呼叫 Remove）。
+    - 狀態收斂 (Convergence)：加入時若遇 409 Conflict，前端收斂為已收藏狀態並提示；移除時若遇 404 NotFound，前端收斂為未收藏狀態並提示。
+    - 無障礙設計：具備 `aria-pressed={isWishlisted}`、`role="status"`、`aria-live="polite"` 狀態反饋與鍵盤操作能力。
+  - **系統架構凍結**：零資料庫架構變更、零新 Migration（遷移總數維持 15，最新維持 `20260913051257_AddWishlistItems`），領域模型與其他商業範疇完全凍結。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`WISHLIST_MEMBERSHIP_APPLICATION_RED_FIRST=PASS`，`WISHLIST_MEMBERSHIP_WEBAPI_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=210, Application=360, Infrastructure=212, WebApi=427（全數通過）。
+  - 真實 MySQL 驗收測試：`WishlistMySqlAcceptanceTests` 新增端對端會員狀態驗收測試全數通過（含跨顧客隔離與非變異證明）。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 格式檢查：`git diff --check` 通過。
+  - 權威雙維度凍結指紋：
+    - 內容指紋 (12 Content Paths)：`6b744b3e729661d54da8e797fe5bb4c20a4e48e3c9277bff40f853e7546d6f43`
+    - 範疇指紋 (13 Scope Paths，含 1 筆刪除 `AddToWishlistButton.tsx`)：`8959928c153b32929d53f873bb722703b2fff57bafa02c5e0fa2bf597e17645f`
+  - 運行時狀態：`AUTHENTICATED_WISHLIST_MEMBERSHIP_API_ACCEPTANCE=PASS`，`AUTHENTICATED_WISHLIST_MEMBERSHIP_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供完整驗收）。

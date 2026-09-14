@@ -1771,3 +1771,40 @@
   - 靜態無障礙與響應式審查：在 375px、768px、1280px 均自然換行無水平溢出，儲存控制項具備清楚描述性文字、語意化按鈕、>=44px 觸控尺寸、`role="status"` 成功提示與 `role="alert"` 失敗提示（`CHECKOUT_SAVE_ADDRESS_ACCESSIBILITY_AUDIT=PASS`）。
   - 權威凍結原始碼指紋 (Source Fingerprint)：2 個來源路徑指紋為 `c832991365ae1bf5f94cf72815dc8a1abbd33196af590926d0c464431a7745c8`。
   - 運行時狀態：`CUSTOMER_CHECKOUT_SAVE_ADDRESS_BROWSER_RUNTIME=NOT_OBSERVED`（無既有已登入瀏覽器 session，由既有通過之 API 驗證保障）。
+
+### 2026-09-14 — PR #63 — feat: add fixed amount coupon support
+- **垂直切片 (Vertical Slice)**：
+  - Fixed Amount Coupon v1 (`FIXED_AMOUNT_COUPON_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **行銷領域擁有權 (Marketing Domain Ownership)**：行銷領域（Marketing）全權負責優惠券（Coupon）之定義、有效性與適用資格判定。
+  - **管理端功能 (Admin Capabilities)**：管理員可建立固定金額優惠券（指定代碼、折抵金額、幣別、有效起訖時間）、分頁查詢優惠券清單、停用啟用中之優惠券。
+  - **顧客端功能 (Customer Capabilities)**：已認證顧客可於待處理購物車（Pending Cart）套用單一優惠券、移除已套用優惠券，並於購物車與結帳頁面檢視小計（Subtotal）、折抵金額（Discount）與最終總額（Total）。
+  - **單一優惠券且禁止堆疊 (Single Coupon & No Stacking)**：每一訂單／購物車最多僅允許套用一張優惠券（`MAX_APPLIED_COUPONS_PER_ORDER=1`），不支援任何形式之優惠券堆疊（`COUPON_STACKING_SUPPORTED=NO`）。
+  - **訂單金額權威與不可變快照 (Order Money Authority & Snapshot)**：訂單聚合根（Order Aggregate）持有標量快照欄位（DiscountAmount 與 CouponCode），完全擁有 SubtotalAmount、DiscountAmount 與 TotalAmount 之計算與持久化；跨領域邊界零外鍵（無 Orders &rarr; Coupons 外鍵）。折抵後總額嚴格維持大於零（`TotalAmount = SubtotalAmount - DiscountAmount > 0`），不支援零元或負數訂單。
+  - **購物車變更作廢快照 (Cart Mutation Invalidation)**：成功修改購物車項目（加入商品、更新數量、移除商品）時，一律自動清除已套用之優惠券快照；失敗的購物車變更絕不清除優惠券快照。
+  - **過期驗證先於庫存異動 (Expiration Before Inventory)**：於訂單送出（SubmitOrder）階段，在執行任何資料庫庫存鎖定或扣減前，嚴格重新校驗優惠券過期狀態；若優惠券已過期，立即拒絕送出訂單，絕不靜默扣除、絕不造成價格突然提高、絕不預留任何庫存。
+  - **管理端停用快照政策 (Admin Deactivation Policy)**：管理員停用優惠券僅阻止未來的套用操作，絕不作廢既有購物車或已送出訂單上的不可變快照；SubmitOrder 流程絕不重新查詢 Marketing Coupon 狀態。
+  - **支付金額權威與退款不變 (Payment Authority & Refund Unchanged)**：支付模組（Payment）無條件信任並使用訂單折抵後之 `Order.TotalAmount` 作為扣款金額（`PAYMENT_AMOUNT_SOURCE=ORDER_TOTAL_AMOUNT`）；支付與退款模組零優惠券計算邏輯（`PAYMENT_COUPON_LOGIC_ADDED=NO`, `REFUND_COUPON_CALCULATION_ADDED=NO`）；禁止任何前端／客戶端計算優惠券金額（`CLIENT_SIDE_COUPON_CALCULATION=NO`）。
+  - **資料庫遷移**：新增第 18 個資料庫遷移 `20260914120359_AddFixedAmountCoupons`，在 `Coupons` 資料表上為 `Code` 建立唯一索引 `IX_Coupons_Code`，並於 `Orders` 表擴充純量快照欄位；全儲存庫累計遷移數確切為 18。
+  - **並發衝突分類器精準度 (Concurrency & Classifier Precision)**：針對優惠券建立時的代碼重複競態條件，基礎架構層嚴格限定僅當 MySQL 錯誤碼為 1062、實體為 Coupon 且違反之條件包含 `IX_Coupons_Code` / `Coupons.Code` 時，才轉換為 `CouponCodeConflictException` 並映射至 HTTP 409 Conflict，杜絕任何寬鬆錯誤遮蔽；不對客戶端外洩資料庫內部例外細節；最終重複競態落敗者回傳 409，資料庫內最終匹配列數恰為 1。
+  - **刻意排除範疇 (Explicitly Out of Scope)**：百分比折扣、優惠券堆疊、使用次數上限、特定顧客專用券、商品/分類限制規則、最低消費門檻、免運費、零元訂單、自動促銷規則引擎、重新啟用已停用券、編輯/刪除優惠券。
+- **流程偏差記錄 (Historical Process-Deviation Record)**：
+  - 誠實記錄歷史時序偏差：
+    ```text
+    COUPON_MYSQL_MONEY_CHAIN_RED_FIRST=FAIL
+    MYSQL_MONEY_CHAIN_TEST_CLASSIFICATION=POST_IMPLEMENTATION_ACCEPTANCE
+    STRICT_RED_FIRST_CHRONOLOGY=FAIL
+    PROCESS_DEVIATION_RECORDED=YES
+    PROCESS_DEVIATION_RETROACTIVELY_REWRITTEN=NO
+    ```
+  - 原始 Group E 之 MySQL 金流鏈測試屬於實作後驗收測試（Post-Implementation Acceptance），未符合嚴格之先紅後綠開發時序；後續之兩次併發修復（Remediation #1 與 Remediation #2）均獨立採用嚴格之 RED-FIRST 流程完成。
+- **驗證成果 (Validation)**：
+  - 後端測試通過規模：Domain=351, Application=414, Infrastructure=212, WebApi=484（累計 1461 項測試全數 PASS，零略過、零失敗）。
+  - 遷移生命週期驗收測試：`20260914120359_AddFixedAmountCoupons` 乾淨資料庫遷移、升級路徑與結構驗證全數通過。
+  - 真實 MySQL 金流鏈驗收測試：購物車小計 &rarr; 優惠券折抵 &rarr; 訂單送出 &rarr; 持久化快照 &rarr; 折抵後總額 &rarr; PaymentAttempt 金額與幣別完全一致驗收通過。
+  - 過期送出防護驗收測試：過期優惠券阻擋送出且庫存零異動驗收通過。
+  - 併發代碼防護驗收測試：`AddCouponConcurrentConflictAcceptanceTests` 實體驗證通過。
+  - 支付與退款回歸測試：78 項既有支付與退款測試全數 PASS。
+  - 前端靜態分析與產品建置：`apps/web` 與 `apps/admin` 之 ESLint 與 Next.js production build 全數通過。
+  - 格式與衝突標記檢查：`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：62 個來源路徑指紋為 `3f4df5ddfbd798feb3b3077a40df0d15b80aedac24664ca031c427be436436e4`。

@@ -4,7 +4,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { CartItem } from "@/lib/cart";
 import type { SubmitOrderResult, ShippingAddress } from "@/lib/orders";
-import type { CustomerAddress } from "@/lib/addresses";
+import type {
+  CustomerAddress,
+  CreateCustomerAddressPayload,
+  CreateAddressResult,
+} from "@/lib/addresses";
 import { formatPrice } from "@/lib/format";
 
 interface CheckoutReviewProps {
@@ -16,6 +20,9 @@ interface CheckoutReviewProps {
     orderId: string,
     shippingAddress: ShippingAddress
   ) => Promise<SubmitOrderResult>;
+  onSaveAddress: (
+    payload: CreateCustomerAddressPayload
+  ) => Promise<CreateAddressResult>;
   savedAddresses?: CustomerAddress[];
   addressBookFailed?: boolean;
 }
@@ -32,11 +39,17 @@ export function CheckoutReview({
   currency,
   totalAmount,
   onSubmitOrder,
+  onSaveAddress,
   savedAddresses = [],
   addressBookFailed = false,
 }: CheckoutReviewProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [availableAddresses, setAvailableAddresses] = useState<CustomerAddress[]>(savedAddresses);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [recipientName, setRecipientName] = useState("");
@@ -49,9 +62,11 @@ export function CheckoutReview({
 
   const handleSelectSavedAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
+    setSaveMessage(null);
+    setSaveError(null);
     if (!addressId) return;
 
-    const matched = savedAddresses.find((a) => a.id === addressId);
+    const matched = availableAddresses.find((a) => a.id === addressId);
     if (matched) {
       setRecipientName(matched.recipientName);
       setPhone(matched.phone);
@@ -63,11 +78,7 @@ export function CheckoutReview({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isPending) return;
-    setErrorMessage(null);
-
+  const getNormalizedAddress = () => {
     const trimmedName = recipientName.trim();
     const trimmedPhone = phone.trim();
     const trimmedCountry = countryCode.trim().toUpperCase();
@@ -84,11 +95,10 @@ export function CheckoutReview({
       !trimmedCity ||
       !trimmedLine1
     ) {
-      setErrorMessage("請填寫所有必填收件資訊欄位。");
-      return;
+      return null;
     }
 
-    const shippingAddress: ShippingAddress = {
+    return {
       recipientName: trimmedName,
       phone: trimmedPhone,
       countryCode: trimmedCountry,
@@ -97,6 +107,28 @@ export function CheckoutReview({
       addressLine1: trimmedLine1,
       addressLine2: trimmedLine2 || undefined,
     };
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isPending || isSaving) return;
+    setErrorMessage(null);
+
+    const normalized = getNormalizedAddress();
+    if (!normalized) {
+      setErrorMessage("請填寫所有必填收件資訊欄位。");
+      return;
+    }
+
+    const shippingAddress: ShippingAddress = {
+      recipientName: normalized.recipientName,
+      phone: normalized.phone,
+      countryCode: normalized.countryCode,
+      postalCode: normalized.postalCode,
+      city: normalized.city,
+      addressLine1: normalized.addressLine1,
+      addressLine2: normalized.addressLine2,
+    };
 
     startTransition(async () => {
       const res = await onSubmitOrder(orderId, shippingAddress);
@@ -104,6 +136,47 @@ export function CheckoutReview({
         setErrorMessage(res.error);
       }
     });
+  };
+
+  const handleSaveAddress = async () => {
+    if (isPending || isSaving) return;
+    setSaveMessage(null);
+    setSaveError(null);
+
+    const normalized = getNormalizedAddress();
+    if (!normalized) {
+      setSaveError("請填寫所有必填收件資訊欄位。");
+      return;
+    }
+
+    const payload: CreateCustomerAddressPayload = {
+      recipientName: normalized.recipientName,
+      phone: normalized.phone,
+      countryCode: normalized.countryCode,
+      postalCode: normalized.postalCode,
+      city: normalized.city,
+      addressLine1: normalized.addressLine1,
+      addressLine2: normalized.addressLine2 || null,
+    };
+
+    setIsSaving(true);
+    try {
+      const res = await onSaveAddress(payload);
+      if (res.success) {
+        setAvailableAddresses((prev) => [...prev, res.data]);
+        setSelectedAddressId(res.data.id);
+        setSaveMessage("已儲存至我的地址。");
+      } else {
+        const errorDetail = res.error
+          ? `${res.error}，您仍可繼續完成結帳。`
+          : "無法儲存地址，您仍可繼續完成結帳。";
+        setSaveError(errorDetail);
+      }
+    } catch {
+      setSaveError("無法儲存地址，您仍可繼續完成結帳。");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -173,19 +246,7 @@ export function CheckoutReview({
 
             <div className="p-6 space-y-5">
               {/* 已儲存地址選取與降級提示 */}
-              {addressBookFailed ? (
-                <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-4 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-900/60 dark:text-stone-400">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <span>已儲存地址暫時無法載入，可直接手動填寫。</span>
-                    <Link
-                      href="/account/addresses"
-                      className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
-                    >
-                      管理已儲存地址
-                    </Link>
-                  </div>
-                </div>
-              ) : savedAddresses.length > 0 ? (
+              {availableAddresses.length > 0 ? (
                 <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4 dark:border-stone-800 dark:bg-stone-900/60">
                   <div className="flex items-center justify-between pb-2">
                     <label
@@ -208,12 +269,24 @@ export function CheckoutReview({
                     className="block w-full min-h-[44px] rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-2xs transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-stone-100 dark:focus:ring-stone-500/20"
                   >
                     <option value="">手動填寫</option>
-                    {savedAddresses.map((addr) => (
+                    {availableAddresses.map((addr) => (
                       <option key={addr.id} value={addr.id}>
                         {addr.recipientName} ({addr.phone}) - {addr.postalCode} {addr.city} {addr.addressLine1}
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : addressBookFailed ? (
+                <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-4 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-900/60 dark:text-stone-400">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <span>已儲存地址暫時無法載入，可直接手動填寫。</span>
+                    <Link
+                      href="/account/addresses"
+                      className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
+                    >
+                      管理已儲存地址
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between rounded-xl border border-dashed border-stone-200 bg-stone-50/40 px-4 py-3 text-xs text-stone-500 dark:border-stone-800 dark:bg-stone-900/40 dark:text-stone-400">
@@ -383,6 +456,101 @@ export function CheckoutReview({
                   className="mt-1.5 block w-full min-h-[44px] rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-2xs transition-colors placeholder:text-stone-400 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-100 dark:focus:ring-stone-500/20"
                 />
               </div>
+
+              {/* 手動輸入模式下的地址儲存動作 */}
+              {selectedAddressId === "" && (
+                <div className="pt-2 border-t border-stone-100 dark:border-stone-800/80">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveAddress}
+                      disabled={isSaving || isPending}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-2xs transition-colors hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center gap-2">
+                          <svg
+                            className="h-4 w-4 animate-spin text-current shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          <span>儲存中...</span>
+                        </span>
+                      ) : (
+                        "儲存目前地址"
+                      )}
+                    </button>
+                    <span className="text-xs text-stone-500 dark:text-stone-400">
+                      可將目前填寫的地址儲存至常用地址簿，方便日後選用。
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 儲存成功反饋 */}
+              {saveMessage && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                >
+                  <svg
+                    className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span>{saveMessage}</span>
+                </div>
+              )}
+
+              {/* 儲存失敗反饋 */}
+              {saveError && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-800 dark:bg-red-950/40 dark:text-red-300"
+                >
+                  <svg
+                    className="h-4 w-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>{saveError}</span>
+                </div>
+              )}
             </div>
           </section>
 
@@ -397,7 +565,7 @@ export function CheckoutReview({
 
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || isSaving}
               className="inline-flex min-h-[48px] w-full sm:w-auto sm:min-w-[220px] items-center justify-center rounded-xl bg-stone-900 px-8 py-3.5 text-base font-semibold text-white shadow-sm transition-colors hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
             >
               {isPending ? (

@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCart } from "@/lib/cart";
 import { submitOrder, type SubmitOrderResult, type ShippingAddress } from "@/lib/orders";
-import { getCustomerAddresses, type CustomerAddress } from "@/lib/addresses";
+import {
+  getCustomerAddresses,
+  createCustomerAddress,
+  type CustomerAddress,
+  type CreateCustomerAddressPayload,
+  type CreateAddressResult,
+} from "@/lib/addresses";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { CheckoutReview } from "@/components/CheckoutReview";
 
@@ -34,6 +40,13 @@ export default async function CheckoutPage() {
       redirect(`/orders/${encodeURIComponent(orderId)}`);
     }
     return res;
+  }
+
+  async function handleSaveAddress(
+    payload: CreateCustomerAddressPayload
+  ): Promise<CreateAddressResult> {
+    "use server";
+    return await createCustomerAddress(payload);
   }
 
   return (
@@ -199,6 +212,7 @@ export default async function CheckoutPage() {
             currency={result.data.currency}
             totalAmount={result.data.totalAmount}
             onSubmitOrder={handleSubmitOrder}
+            onSaveAddress={handleSaveAddress}
             savedAddresses={savedAddresses}
             addressBookFailed={addressBookFailed}
           />

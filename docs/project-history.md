@@ -1736,3 +1736,18 @@
   - 格式檢查：`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：12 個來源路徑指紋為 `9731681b2507e74acdba0cbd9ec54293737ddda3a9dea17ba4338022cd397687`。
   - 運行時狀態：`AUTHENTICATED_CUSTOMER_ADDRESS_UPDATE_API_ACCEPTANCE=PASS`，`CUSTOMER_ADDRESS_UPDATE_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供機器可驗證證據）。
+
+### 2026-09-14 — PR #61 — feat: expose customer address book navigation
+- **垂直切片 (Vertical Slice)**：
+  - Customer Address Book Discoverability v1 (`CUSTOMER_ADDRESS_BOOK_DISCOVERABILITY_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **已認證顧客導覽可發現性**：於顧客端導覽列 (`AuthControls`) 加入「我的地址」連結，直達既有收件地址管理頁面 `/account/addresses`。
+  - **既有導覽與未登入行為維持不變**：完整保留「我的訂單」(`/orders`)、「我的收藏」(`/wishlist`)、「已登入顧客」標籤與「登出」動作；未登入狀態維持僅顯示「登入 / 註冊」按鈕（`UNAUTHENTICATED_NAVIGATION_CHANGED=NO`）。
+  - **響應式安全折行**：已認證控制項容器加入最小必要之 `flex-wrap`（`className="flex flex-wrap items-center gap-3"`），配合外層 `CustomerHeader` 之響應式容器，確保在 375px、768px、1280px 等視窗寬度下皆能自然折行且無水平溢出破壞（`CUSTOMER_HEADER_375PX_OVERFLOW=NO`）。
+  - **無障礙設計 (Accessibility)**：使用可見文字「我的地址」、語意化 Next.js `Link` 標籤、鍵盤焦點可達且在行動端不隱藏，樣式與既有兄弟導覽連結完全一致（`ADDRESS_NAV_ACCESSIBILITY_AUDIT=PASS`）。
+  - **業務與架構邊界凍結**：地址領域、API、資料庫結構零變更；地址建立、更新、刪除零變更；訂單、結帳預填、認證授權身分模型零變更；無新增會員中心（Account Center）、下拉選單或額外導覽抽象；無新增資料庫遷移（最新遷移維持 `20260914034143_AddCustomerAddresses`，總數維持 17）。
+- **驗證成果 (Validation)**：
+  - 前端靜態程式碼檢查：`npm --prefix apps/web run lint` 通過（PASS）。
+  - 前端正式產品建置：`npm --prefix apps/web run build` 通過（PASS）。
+  - 格式與衝突標記檢查：`git diff --check` 通過（PASS）。
+  - 單一來源路徑權威指紋 (Source Fingerprint)：`c5e3450cb6aa4f516cd6b55313f2f46564f490f11eab0082c25d315538530c11  apps/web/src/components/AuthControls.tsx`，清單指紋為 `5e194e4f7f9641128f819d8af20779fd02e6c7a1996aef04c02f50570b21b8be`。

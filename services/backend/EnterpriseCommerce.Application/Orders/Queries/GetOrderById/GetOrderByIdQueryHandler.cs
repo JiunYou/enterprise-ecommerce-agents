@@ -129,8 +129,12 @@ internal sealed class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery
             items,
             shippingAddress,
             shipmentTracking,
-            refundResponses);
+            refundResponses,
+            order.SubtotalAmount.Amount,
+            order.DiscountAmount.Amount,
+            order.AppliedCouponCode);
 
         return Result.Success(response);
+
     }
 }

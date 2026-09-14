@@ -11,8 +11,11 @@ public sealed record CartResponse(
     Guid? Id,
     string Currency,
     decimal TotalAmount,
-    IReadOnlyCollection<CartItemResponse> Items)
+    IReadOnlyCollection<CartItemResponse> Items,
+    decimal SubtotalAmount = 0m,
+    decimal DiscountAmount = 0m,
+    string? AppliedCouponCode = null)
 {
     public static CartResponse Empty(string currency = "USD") =>
-        new(null, currency, 0m, Array.Empty<CartItemResponse>());
+        new(null, currency, 0m, Array.Empty<CartItemResponse>(), 0m, 0m, null);
 }

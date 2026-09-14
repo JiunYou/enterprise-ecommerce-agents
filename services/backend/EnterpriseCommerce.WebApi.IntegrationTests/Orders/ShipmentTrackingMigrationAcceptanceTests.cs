@@ -231,15 +231,24 @@ public class ShipmentTrackingMigrationAcceptanceTests : IAsyncLifetime
         // Apply new migration
         await migrator.MigrateAsync(targetMigration);
 
-        // Read using fresh DbContext
-        await using var readDbContext = CreateDbContext();
-        var loadedOrder = await readDbContext.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == new OrderId(orderId));
-
-        loadedOrder.Should().NotBeNull();
-        loadedOrder!.Status.Should().Be(OrderStatus.Shipped);
-        loadedOrder.ShippingCarrier.Should().BeNull();
-        loadedOrder.ShippingTrackingNumber.Should().BeNull();
-        loadedOrder.ShippedAt.Should().BeNull();
+        // Read historical order using raw SQL to verify columns on intermediate migration without EF Core schema drift
+        var conn2 = dbContext.Database.GetDbConnection();
+        if (conn2.State != System.Data.ConnectionState.Open)
+        {
+            await conn2.OpenAsync();
+        }
+        await using var selectCmd = conn2.CreateCommand();
+        selectCmd.CommandText = "SELECT Status, ShippingCarrier, ShippingTrackingNumber, ShippedAt FROM Orders WHERE Id = @id;";
+        var pId = selectCmd.CreateParameter();
+        pId.ParameterName = "@id";
+        pId.Value = orderId.ToString();
+        selectCmd.Parameters.Add(pId);
+        await using var reader = await selectCmd.ExecuteReaderAsync();
+        (await reader.ReadAsync()).Should().BeTrue();
+        reader.GetString(0).Should().Be("Shipped");
+        reader.IsDBNull(1).Should().BeTrue();
+        reader.IsDBNull(2).Should().BeTrue();
+        reader.IsDBNull(3).Should().BeTrue();
     }
 
     [Fact]

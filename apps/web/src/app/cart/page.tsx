@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { getCart, updateCartItemQuantity, removeCartItem } from "@/lib/cart";
+import { getCart, updateCartItemQuantity, removeCartItem, applyCoupon, removeCoupon } from "@/lib/cart";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { CartItemList } from "@/components/CartItemList";
 
@@ -17,6 +17,20 @@ export default async function CartPage() {
   async function handleRemoveItem(productId: string) {
     "use server";
     const res = await removeCartItem(productId);
+    revalidatePath("/cart");
+    return res;
+  }
+
+  async function handleApplyCoupon(code: string) {
+    "use server";
+    const res = await applyCoupon(code);
+    revalidatePath("/cart");
+    return res;
+  }
+
+  async function handleRemoveCoupon() {
+    "use server";
+    const res = await removeCoupon();
     revalidatePath("/cart");
     return res;
   }
@@ -178,9 +192,14 @@ export default async function CartPage() {
           <CartItemList
             items={result.data.items}
             currency={result.data.currency}
+            subtotalAmount={result.data.subtotalAmount}
+            discountAmount={result.data.discountAmount}
             totalAmount={result.data.totalAmount}
+            appliedCouponCode={result.data.appliedCouponCode}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
+            onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
           />
         )}
       </main>

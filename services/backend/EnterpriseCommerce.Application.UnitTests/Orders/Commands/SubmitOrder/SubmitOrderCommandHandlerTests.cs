@@ -394,4 +394,31 @@ public class SubmitOrderCommandHandlerTests
         _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_WhenAppliedCouponExpired_ShouldFailBeforeInventoryMutationAndLeaveOrderPending()
+    {
+        // Arrange
+        var customerId = Guid.NewGuid();
+        var order = Order.Create(customerId, "TWD");
+        var productId = Guid.NewGuid();
+        order.AddItem(new ProductId(productId), new Money(100, "TWD"), 1);
+        var expiredAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        order.ApplyCoupon("EXPIRED100", new Money(50, "TWD"), expiredAt);
+
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+
+        var command = new SubmitOrderCommand(order.Id.Value, customerId, CreateValidShippingAddressDto());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderErrors.AppliedCouponExpired.Code, result.Error.Code);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        _inventoryRepositoryMock.Verify(r => r.GetByProductIdForUpdateAsync(It.IsAny<ProductReference>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

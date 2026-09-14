@@ -40,7 +40,16 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(o => o.ShippedAt);
 
+        builder.Property(o => o.AppliedCouponCode)
+            .HasMaxLength(32);
+
+        builder.Property(o => o.AppliedCouponDiscountAmount)
+            .HasPrecision(18, 4);
+
+        builder.Property(o => o.AppliedCouponExpiresAt);
+
         builder.HasIndex(o => new { o.Status, o.SubmittedAt });
+
 
 
         builder.OwnsOne(o => o.ShippingAddress, shippingBuilder =>

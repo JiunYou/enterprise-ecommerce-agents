@@ -32,8 +32,12 @@ internal sealed class GetCartQueryHandler : IQueryHandler<GetCartQuery, CartResp
             pendingOrder.Id.Value,
             pendingOrder.Currency,
             pendingOrder.TotalAmount.Amount,
-            items);
+            items,
+            pendingOrder.SubtotalAmount.Amount,
+            pendingOrder.DiscountAmount.Amount,
+            pendingOrder.AppliedCouponCode);
 
         return Result.Success(response);
+
     }
 }

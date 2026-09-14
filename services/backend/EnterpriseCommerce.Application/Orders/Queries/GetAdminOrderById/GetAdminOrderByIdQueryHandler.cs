@@ -161,9 +161,13 @@ internal sealed class GetAdminOrderByIdQueryHandler : IQueryHandler<GetAdminOrde
             shippingAddress,
             adminCancellation,
             refundRequiredPayments,
-            shipmentTracking);
+            shipmentTracking,
+            order.SubtotalAmount.Amount,
+            order.DiscountAmount.Amount,
+            order.AppliedCouponCode);
 
         return Result.Success(response);
+
 
     }
 }

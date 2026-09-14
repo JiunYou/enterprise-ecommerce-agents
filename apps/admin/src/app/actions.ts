@@ -1299,3 +1299,146 @@ export async function createProductAction(
     };
   }
 }
+
+export interface CreateCouponInput {
+  code: string;
+  discountAmount: number;
+  currency: string;
+  startsAt: string;
+  expiresAt: string;
+}
+
+export interface CouponActionResult {
+  success: boolean;
+  error?: string;
+  couponId?: string;
+}
+
+export async function createCouponAction(
+  input: CreateCouponInput
+): Promise<CouponActionResult> {
+  const code = (input.code || "").trim();
+  if (!code) {
+    return { success: false, error: "優惠券代碼為必填。" };
+  }
+
+  if (input.discountAmount <= 0) {
+    return { success: false, error: "折扣金額必須大於 0。" };
+  }
+
+  const currency = (input.currency || "").trim().toUpperCase();
+  if (currency.length !== 3) {
+    return { success: false, error: "幣別必須為 3 碼英文字母。" };
+  }
+
+  if (!input.startsAt || !input.expiresAt) {
+    return { success: false, error: "開始時間與結束時間為必填。" };
+  }
+
+  const startsAtDate = new Date(input.startsAt);
+  const expiresAtDate = new Date(input.expiresAt);
+  if (isNaN(startsAtDate.getTime()) || isNaN(expiresAtDate.getTime())) {
+    return { success: false, error: "無效的時間格式。" };
+  }
+
+  if (expiresAtDate <= startsAtDate) {
+    return { success: false, error: "結束時間必須晚於開始時間。" };
+  }
+
+  try {
+    const response = await authenticatedFetch("/api/v1/admin/coupons", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+        discountAmount: input.discountAmount,
+        currency,
+        startsAt: startsAtDate.toISOString(),
+        expiresAt: expiresAtDate.toISOString(),
+      }),
+    });
+
+    if (response.status === 201 || response.status === 200) {
+      const data = await response.json().catch(() => null);
+      revalidatePath("/coupons");
+      return { success: true, couponId: data?.id };
+    }
+
+    if (response.status === 409) {
+      return { success: false, error: "優惠券代碼已存在，請使用其他代碼。" };
+    }
+
+    if (response.status === 401) {
+      return { success: false, error: "未授權或登入已逾期，請重新登入。" };
+    }
+
+    if (response.status === 403) {
+      return { success: false, error: "權限不足，僅系統管理員可建立優惠券。" };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || errorJson?.title || "優惠券建立資料無效，請檢查後重試。",
+      };
+    }
+
+    return { success: false, error: "建立優惠券失敗，請稍後重試。" };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "連線錯誤";
+    if (errorMessage.includes("Unauthorized")) {
+      return { success: false, error: "未授權或登入已逾期，請重新登入。" };
+    }
+    return { success: false, error: "伺服器通訊錯誤，無法完成優惠券建立。" };
+  }
+}
+
+export async function deactivateCouponAction(
+  couponId: string
+): Promise<CouponActionResult> {
+  const trimmedId = (couponId || "").trim();
+  if (!trimmedId) {
+    return { success: false, error: "無效的優惠券識別碼。" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/admin/coupons/${encodeURIComponent(trimmedId)}/deactivate`,
+      {
+        method: "POST",
+      }
+    );
+
+    if (response.status === 200 || response.status === 204) {
+      revalidatePath("/coupons");
+      return { success: true };
+    }
+
+    if (response.status === 401) {
+      return { success: false, error: "未授權或登入已逾期，請重新登入。" };
+    }
+
+    if (response.status === 403) {
+      return { success: false, error: "權限不足，僅系統管理員可停用優惠券。" };
+    }
+
+    if (response.status === 400) {
+      const errorJson = await response.json().catch(() => null);
+      return {
+        success: false,
+        error: errorJson?.detail || errorJson?.title || "無法停用該優惠券（可能已停用或不存在）。",
+      };
+    }
+
+    return { success: false, error: "停用優惠券失敗，請稍後重試。" };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "連線錯誤";
+    if (errorMessage.includes("Unauthorized")) {
+      return { success: false, error: "未授權或登入已逾期，請重新登入。" };
+    }
+    return { success: false, error: "伺服器通訊錯誤，無法完成優惠券停用。" };
+  }
+}

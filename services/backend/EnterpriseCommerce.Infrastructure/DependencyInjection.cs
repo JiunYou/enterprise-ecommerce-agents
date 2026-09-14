@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddScoped<EnterpriseCommerce.Application.Marketing.Wishlist.IWishlistRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.WishlistRepository>();
         services.AddScoped<EnterpriseCommerce.Application.Marketing.Reviews.IProductReviewRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.ProductReviewRepository>();
         services.AddScoped<EnterpriseCommerce.Application.Customers.Addresses.ICustomerAddressRepository, EnterpriseCommerce.Infrastructure.Persistence.Customers.CustomerAddressRepository>();
+        services.AddScoped<EnterpriseCommerce.Application.Marketing.Coupons.ICouponRepository, EnterpriseCommerce.Infrastructure.Persistence.Marketing.CouponRepository>();
+        services.AddSingleton(TimeProvider.System);
+
 
         services.Configure<EnterpriseCommerce.Infrastructure.Payments.ECPay.ECPayPaymentOptions>(options =>
         {

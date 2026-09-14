@@ -1683,3 +1683,31 @@
   - 格式檢查：`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：9 個原始碼路徑指紋為 `b55908de2e7a18bbaaf1cd7a07a3f8d786fb45a1997de36945f57da3707d63ce`。
   - 運行時狀態：`CUSTOMER_PRODUCT_REVIEW_SUMMARY_RUNTIME=NOT_OBSERVED`（由真實 MySQL 整合驗收提供機器可驗證證據）。
+
+### 2026-09-14 — PR #59 — feat: add customer address book
+- **垂直切片 (Vertical Slice)**：
+  - Customer Address Book v1 (`CUSTOMER_ADDRESS_BOOK_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **首個 Customer 領域上下文業務實體**：建立首個顧客領域持久化業務模型 `CustomerAddress : Entity<Guid>`，持久化至獨立資料表 `CustomerAddresses`；無領域事件（No Domain Events）、無發件匣機制（No Outbox）。
+  - **領域驗證規範**：收件人姓名（RecipientName <= 100）、電話（Phone <= 30，過濾控制字元）、國家代碼（CountryCode 剛好 2 個 ASCII 英文字母並規格化為大寫）、郵遞區號（PostalCode <= 20）、城市（City <= 100）、街道地址 1（AddressLine1 <= 200）、街道地址 2（AddressLine2 <= 200 可為空）。
+  - **已認證地址簿管理 API**：提供 `GET /api/v1/customer/addresses`、`POST /api/v1/customer/addresses` 與 `DELETE /api/v1/customer/addresses/{addressId}`；未認證請求回傳 401 Unauthorized，缺少 CustomerId claim 回傳 403 Forbidden。
+  - **顧客所有權與跨顧客隔離**：CustomerId 嚴格僅由伺服器端憑證 Claims 提取（`ApiControllerBase.TryGetCustomerId`），禁止客戶端指定（`CUSTOMER_ADDRESS_CUSTOMER_ID_CLIENT_SUPPLIED=NO`），且回應 DTO 絕不外洩 CustomerId（`CUSTOMER_ADDRESS_CUSTOMER_ID_EXPOSED=NO`）；刪除其他顧客之地址於持久層直接回傳 404 NotFound，與地址不存在完全一致，杜絕跨顧客刪除與資料存在性探測。
+  - **PII 隱私安全防護邊界**：地址包含姓名、電話與地址細節等個人隱私資訊；無任何公開地址存取、無後台管理端地址存取（`PUBLIC_CUSTOMER_ADDRESS_ACCESS_ADDED=NO`, `ADMIN_CUSTOMER_ADDRESS_ACCESS_ADDED=NO`）；禁止記錄任何請求內容或地址個資日誌（`CUSTOMER_ADDRESS_PII_LOGGING_ADDED=NO`）。
+  - **資料庫合約與跨領域解耦**：獨立資料表 `CustomerAddresses` 建立主鍵 `PK(Id)` 與顧客索引 `INDEX(CustomerId)`；不對 CustomerIdentity 與 Order 建立實體外鍵關聯，保持界限上下文獨立解耦（`CUSTOMER_ADDRESS_IDENTITY_FOREIGN_KEY_ADDED=NO`, `CUSTOMER_ADDRESS_ORDER_FOREIGN_KEY_ADDED=NO`）。
+  - **結帳整合與訂單邊界完整防護**：
+    - 結帳頁面（`/checkout`）載入已儲存地址簿僅供下拉預填既有表單欄位（`CHECKOUT_SAVED_ADDRESS_PREFILL=PASS`）。
+    - 顧客選擇預填地址後仍可自由修改表單值；送出訂單（`submitOrder`）維持既有之不可變 `ShippingAddress` 快照契約。
+    - 訂單領域與資料庫架構零變更（`ORDER_DOMAIN_CHANGED=NO`, `ORDER_SCHEMA_CHANGED=NO`），訂單絕不接收 CustomerAddressId（`ORDER_RECEIVES_CUSTOMER_ADDRESS_ID=NO`）。
+    - 地址簿服務若發生異常或載入失敗，結帳頁面維持手動輸入能力，完全不阻礙訂單送出流程（`ADDRESS_BOOK_FAILURE_BREAKS_CHECKOUT=NO`, `SAVED_ADDRESS_REQUIRED_FOR_CHECKOUT=NO`）。
+  - **資料庫遷移**：新增第 17 個資料庫遷移 `20260914034143_AddCustomerAddresses`（基於 EF Core 8.0.2，前一遷移為 `20260913101054_AddProductReviews`）；Up 僅建立 `CustomerAddresses` 資料表與 `CustomerId` 索引，Down 僅刪除該表，全庫累計 17 個遷移，零無關模型漂移。
+  - **刻意排除範疇 (Explicitly Out of Scope)**：無地址編輯/更新、無預設地址、無地址標籤、無自動去重、無最大地址數量上限、無結帳時自動儲存地址、無 CustomerProfile、無會員等級、無管理端存取、無外部地址驗證服務或地理編碼。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`CUSTOMER_ADDRESS_DOMAIN_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_CREATE_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_DELETE_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_LIST_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_WEBAPI_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_MIGRATION_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=271, Application=389, Infrastructure=212, WebApi=454（全數通過）。
+  - 真實 MySQL 驗收測試：`CustomerAddressMySqlAcceptanceTests`（持久化、規格化、清單所有權、顧客 A/B 隔離、跨顧客刪除 404、未授權刪除資料保留、確定性排序、擁有者刪除、無效地址零寫入、CustomerId 無外洩、無 PII 跨顧客洩漏等）全數通過。
+  - 遷移生命週期驗收測試：`CustomerAddressMigrationAcceptanceTests`（升級路徑、結構驗證、全 17 個遷移全新建立、回滾 Down 驗證）全數通過。
+  - Docker Compose 啟動驗證：真實 MySQL 容器健康啟動，`db-migrate` 成功套用全部 17 個遷移（`20260914034143_AddCustomerAddresses` 為最新），後端存活探測回傳 200 OK（`POST_MERGE_FRESH_COMPOSE_BOOTSTRAP=PASS`）。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 靜態無障礙審查：涵蓋 375px/768px/1280px，卡片排版自動換行無水平溢出，標籤與輸入控制項完整關聯，焦點與狀態反饋明確（`CUSTOMER_ADDRESS_ACCESSIBILITY_AUDIT=PASS`）。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：31 個來源路徑指紋為 `39408bd7131d247d5f0fb7cc11cd2c3ecfa52ef44bce561ce5e95077db20e1ef`。
+  - 運行時狀態：`AUTHENTICATED_CUSTOMER_ADDRESS_API_ACCEPTANCE=PASS`，`CUSTOMER_ADDRESS_BOOK_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供機器可驗證證據）。

@@ -22,11 +22,80 @@ public sealed class Order : AggregateRoot<OrderId>
         return Status == OrderStatus.Submitted && SubmittedAt.HasValue && SubmittedAt.Value <= threshold;
     }
     
+    public string? AppliedCouponCode { get; private set; }
+    public decimal? AppliedCouponDiscountAmount { get; private set; }
+    public DateTimeOffset? AppliedCouponExpiresAt { get; private set; }
+
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
-    public Money TotalAmount => _items.Count == 0 
-        ? Money.Zero(Currency) 
+    public Money SubtotalAmount => _items.Count == 0
+        ? Money.Zero(Currency)
         : _items.Select(x => x.GetTotalPrice()).Aggregate((a, b) => a + b);
+
+    public Money DiscountAmount => AppliedCouponDiscountAmount.HasValue
+        ? new Money(AppliedCouponDiscountAmount.Value, Currency)
+        : Money.Zero(Currency);
+
+    public Money TotalAmount => _items.Count == 0
+        ? Money.Zero(Currency)
+        : new Money(SubtotalAmount.Amount - DiscountAmount.Amount, Currency);
+
+    public Result ApplyCoupon(string code, Money discount, DateTimeOffset expiresAt)
+    {
+        if (Status != OrderStatus.Pending)
+        {
+            return Result.Failure(OrderErrors.InvalidStatusTransition);
+        }
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Result.Failure(OrderErrors.InvalidCouponCode);
+        }
+
+        if (discount.Currency != Currency)
+        {
+            return Result.Failure(OrderErrors.CurrencyMismatch);
+        }
+
+        if (discount.Amount <= 0)
+        {
+            return Result.Failure(OrderErrors.InvalidCouponDiscount);
+        }
+
+        if (discount.Amount >= SubtotalAmount.Amount)
+        {
+            return Result.Failure(OrderErrors.CouponDiscountExceedsSubtotal);
+        }
+
+        if (!string.IsNullOrEmpty(AppliedCouponCode))
+        {
+            return Result.Failure(OrderErrors.CouponAlreadyApplied);
+        }
+
+        AppliedCouponCode = code.Trim().ToUpperInvariant();
+        AppliedCouponDiscountAmount = discount.Amount;
+        AppliedCouponExpiresAt = expiresAt;
+
+        return Result.Success();
+    }
+
+    public Result RemoveCoupon()
+    {
+        if (Status != OrderStatus.Pending)
+        {
+            return Result.Failure(OrderErrors.InvalidStatusTransition);
+        }
+
+        ClearCouponSnapshot();
+        return Result.Success();
+    }
+
+    private void ClearCouponSnapshot()
+    {
+        AppliedCouponCode = null;
+        AppliedCouponDiscountAmount = null;
+        AppliedCouponExpiresAt = null;
+    }
 
     private Order(OrderId id, Guid customerId, string currency) : base(id)
     {
@@ -68,11 +137,13 @@ public sealed class Order : AggregateRoot<OrderId>
         if (existingItem is not null)
         {
             existingItem.AddQuantity(quantity);
+            ClearCouponSnapshot();
             return Result.Success();
         }
 
         var orderItem = new OrderItem(Id, productId, unitPrice, quantity);
         _items.Add(orderItem);
+        ClearCouponSnapshot();
 
         return Result.Success();
     }
@@ -96,6 +167,7 @@ public sealed class Order : AggregateRoot<OrderId>
         }
 
         item.UpdateQuantity(quantity);
+        ClearCouponSnapshot();
         return Result.Success();
     }
 
@@ -113,6 +185,7 @@ public sealed class Order : AggregateRoot<OrderId>
         }
 
         _items.Remove(item);
+        ClearCouponSnapshot();
         return Result.Success();
     }
 
@@ -159,6 +232,11 @@ public sealed class Order : AggregateRoot<OrderId>
             return Result.Failure(OrderErrors.ShippingAddressRequired);
         }
 
+        if (AppliedCouponExpiresAt.HasValue && AppliedCouponExpiresAt.Value <= submittedAt)
+        {
+            return Result.Failure(OrderErrors.AppliedCouponExpired);
+        }
+
         var result = ChangeStatus(OrderStatus.Submitted);
         if (result.IsSuccess)
         {
@@ -167,6 +245,7 @@ public sealed class Order : AggregateRoot<OrderId>
         }
         return result;
     }
+
 
     public Result MarkAsPaid()
     {

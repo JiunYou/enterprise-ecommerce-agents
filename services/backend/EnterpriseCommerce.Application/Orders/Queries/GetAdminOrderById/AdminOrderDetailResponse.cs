@@ -13,10 +13,14 @@ public sealed record AdminOrderDetailResponse(
     ShippingAddressResponse? ShippingAddress = null,
     AdminCancellationResponse? AdminCancellation = null,
     IReadOnlyCollection<AdminRefundRequiredPaymentResponse>? RefundRequiredPayments = null,
-    ShipmentTrackingResponse? ShipmentTracking = null)
+    ShipmentTrackingResponse? ShipmentTracking = null,
+    decimal SubtotalAmount = 0m,
+    decimal DiscountAmount = 0m,
+    string? AppliedCouponCode = null)
 {
     public IReadOnlyCollection<AdminRefundRequiredPaymentResponse> RefundRequiredPayments { get; init; } = RefundRequiredPayments ?? Array.Empty<AdminRefundRequiredPaymentResponse>();
 }
+
 
 
 public sealed record AdminCancellationResponse(

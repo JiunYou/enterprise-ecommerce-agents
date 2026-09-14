@@ -155,6 +155,45 @@ namespace EnterpriseCommerce.Infrastructure.Migrations
                     b.ToTable("InventoryItems", (string)null);
                 });
 
+            modelBuilder.Entity("EnterpriseCommerce.Domain.Marketing.Coupon", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Coupons", (string)null);
+                });
+
             modelBuilder.Entity("EnterpriseCommerce.Domain.Marketing.ProductReview", b =>
                 {
                     b.Property<Guid>("Id")
@@ -211,6 +250,17 @@ namespace EnterpriseCommerce.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("char(36)");
+
+                    b.Property<string>("AppliedCouponCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<decimal?>("AppliedCouponDiscountAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset?>("AppliedCouponExpiresAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Currency")
                         .IsRequired()

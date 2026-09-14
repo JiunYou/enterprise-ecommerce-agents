@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React from "react";
 
-export type AdminNavSection = "fulfillment" | "orders" | "products";
+export type AdminNavSection = "fulfillment" | "orders" | "products" | "coupons";
 
 export interface AdminHeaderProps {
   activeSection: AdminNavSection;
@@ -21,6 +21,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { id: "fulfillment", label: "訂單履約", href: "/" },
   { id: "orders", label: "訂單管理", href: "/orders" },
   { id: "products", label: "商品管理", href: "/products" },
+  { id: "coupons", label: "優惠券管理", href: "/coupons" },
 ] as const;
 
 export function AdminHeader({

@@ -16,7 +16,10 @@ export interface CartItem {
 export interface Cart {
   id: string | null;
   currency: string;
+  subtotalAmount: number;
+  discountAmount: number;
   totalAmount: number;
+  appliedCouponCode: string | null;
   items: CartItem[];
 }
 
@@ -262,6 +265,103 @@ export async function removeCartItem(
     return {
       success: false,
       error: "連線錯誤，無法移除品項",
+    };
+  }
+}
+
+export async function applyCoupon(code: string): Promise<CartMutationResult> {
+  const session = await auth0.getSession();
+  if (!session || !session.user) {
+    return {
+      success: false,
+      unauthorized: true,
+      error: "請先登入會員以套用優惠券",
+    };
+  }
+
+  if (!code || !code.trim()) {
+    return {
+      success: false,
+      error: "請輸入優惠券代碼",
+    };
+  }
+
+  try {
+    const response = await authenticatedFetch("/api/v1/cart/coupon", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code: code.trim() }),
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "登入狀態無效或已過期，請重新登入",
+      };
+    }
+
+    if (!response.ok) {
+      let errDetail = "套用優惠券失敗";
+      try {
+        const errorJson = await response.json();
+        errDetail = errorJson.detail || errorJson.title || errDetail;
+      } catch {
+        const txt = await response.text();
+        if (txt) errDetail = txt;
+      }
+      return {
+        success: false,
+        error: errDetail,
+      };
+    }
+
+    return { success: true };
+  } catch {
+    return {
+      success: false,
+      error: "連線錯誤，無法套用優惠券",
+    };
+  }
+}
+
+export async function removeCoupon(): Promise<CartMutationResult> {
+  const session = await auth0.getSession();
+  if (!session || !session.user) {
+    return {
+      success: false,
+      unauthorized: true,
+      error: "請先登入會員以移除優惠券",
+    };
+  }
+
+  try {
+    const response = await authenticatedFetch("/api/v1/cart/coupon", {
+      method: "DELETE",
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        unauthorized: true,
+        error: "登入狀態無效或已過期，請重新登入",
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: "移除優惠券失敗",
+      };
+    }
+
+    return { success: true };
+  } catch {
+    return {
+      success: false,
+      error: "連線錯誤，無法移除優惠券",
     };
   }
 }

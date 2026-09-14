@@ -37,7 +37,10 @@ public sealed record OrderResponse(
     IReadOnlyCollection<OrderItemResponse> Items,
     ShippingAddressResponse? ShippingAddress = null,
     ShipmentTrackingResponse? ShipmentTracking = null,
-    IReadOnlyList<CustomerRefundStatusResponse>? Refunds = null)
+    IReadOnlyList<CustomerRefundStatusResponse>? Refunds = null,
+    decimal SubtotalAmount = 0m,
+    decimal DiscountAmount = 0m,
+    string? AppliedCouponCode = null)
 {
     public IReadOnlyList<CustomerRefundStatusResponse> Refunds { get; init; } = Refunds ?? Array.Empty<CustomerRefundStatusResponse>();
 }

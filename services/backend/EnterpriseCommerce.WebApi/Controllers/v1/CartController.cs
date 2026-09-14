@@ -1,4 +1,7 @@
 using Asp.Versioning;
+using EnterpriseCommerce.Application.Orders.Commands.ApplyCouponToCart;
+using EnterpriseCommerce.Application.Orders.Commands.RemoveCouponFromCart;
+
 using EnterpriseCommerce.Application.Orders.Commands.AddItemToCart;
 using EnterpriseCommerce.Application.Orders.Commands.RemoveCartItem;
 using EnterpriseCommerce.Application.Orders.Commands.UpdateCartItemQuantity;
@@ -119,5 +122,55 @@ public class CartController : ApiControllerBase
         }
 
         return Ok();
+    }
+
+    [HttpPut("coupon")]
+    [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ApplyCoupon(
+        [FromBody] ApplyCouponRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new ApplyCouponToCartCommand(customerId, request.Code);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [HttpDelete("coupon")]
+    [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RemoveCoupon(CancellationToken cancellationToken)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new RemoveCouponFromCartCommand(customerId);
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
     }
 }

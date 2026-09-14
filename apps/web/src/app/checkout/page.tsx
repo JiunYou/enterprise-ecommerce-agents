@@ -210,7 +210,10 @@ export default async function CheckoutPage() {
             orderId={result.data.id}
             items={result.data.items}
             currency={result.data.currency}
+            subtotalAmount={result.data.subtotalAmount}
+            discountAmount={result.data.discountAmount}
             totalAmount={result.data.totalAmount}
+            appliedCouponCode={result.data.appliedCouponCode}
             onSubmitOrder={handleSubmitOrder}
             onSaveAddress={handleSaveAddress}
             savedAddresses={savedAddresses}

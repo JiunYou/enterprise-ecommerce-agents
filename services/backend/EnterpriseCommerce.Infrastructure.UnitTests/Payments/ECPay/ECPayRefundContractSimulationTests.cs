@@ -1199,7 +1199,7 @@ public class ECPayRefundContractSimulationTests
         var httpClient = new HttpClient();
         using (httpClient)
         {
-            var provider = new ECPayRefundProvider(httpClient, options);
+            var provider = new ECPayRefundProvider(httpClient, options, new TestTimeProvider(new DateTimeOffset(2026, 9, 7, 14, 0, 0, TimeSpan.Zero)));
             var request = new RefundExecutionRequest(
                 new PaymentAttemptId(Guid.NewGuid()),
                 ProviderTransactionId: "2000132300017",
@@ -1365,7 +1365,8 @@ public sealed class FakeECPayServer : IDisposable
         };
 
         var httpClient = new HttpClient();
-        var provider = new ECPayRefundProvider(httpClient, options, timeProvider);
+        var safeTimeProvider = timeProvider ?? new TestTimeProvider(new DateTimeOffset(2026, 9, 7, 14, 0, 0, TimeSpan.Zero));
+        var provider = new ECPayRefundProvider(httpClient, options, safeTimeProvider);
         return (provider, httpClient);
     }
 

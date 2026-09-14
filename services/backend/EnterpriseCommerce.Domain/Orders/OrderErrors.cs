@@ -71,4 +71,28 @@ public static class OrderErrors
     public static readonly Error InvalidShippingTrackingNumber = new(
         "Order.InvalidShippingTrackingNumber",
         "Shipping tracking number is required, must not exceed 100 characters, and must not contain control characters.");
+
+    public static readonly Error CouponAlreadyApplied = new(
+        "Order.CouponAlreadyApplied",
+        "訂單已套用優惠券，無法重複套用。");
+
+    public static readonly Error InvalidCouponCode = new(
+        "Order.InvalidCouponCode",
+        "優惠券代碼不得為空。");
+
+    public static readonly Error InvalidCouponDiscount = new(
+        "Order.InvalidCouponDiscount",
+        "優惠券折扣金額必須大於零。");
+
+    public static readonly Error CouponDiscountExceedsSubtotal = new(
+        "Order.CouponDiscountExceedsSubtotal",
+        "優惠券折扣金額必須小於商品小計總額。");
+
+    public static readonly Error AppliedCouponExpired = new(
+        "Order.AppliedCouponExpired",
+        "訂單套用之優惠券已逾期失效。");
+
+    public static readonly Error NoCouponApplied = new(
+        "Order.NoCouponApplied",
+        "訂單尚未套用任何優惠券。");
 }

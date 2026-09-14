@@ -15,7 +15,10 @@ interface CheckoutReviewProps {
   orderId: string;
   items: CartItem[];
   currency: string;
+  subtotalAmount?: number;
+  discountAmount?: number;
   totalAmount: number;
+  appliedCouponCode?: string | null;
   onSubmitOrder: (
     orderId: string,
     shippingAddress: ShippingAddress
@@ -37,7 +40,10 @@ export function CheckoutReview({
   orderId,
   items,
   currency,
+  subtotalAmount,
+  discountAmount,
   totalAmount,
+  appliedCouponCode,
   onSubmitOrder,
   onSaveAddress,
   savedAddresses = [],
@@ -666,13 +672,35 @@ export function CheckoutReview({
 
             {/* 總計與付款前說明 */}
             <div className="border-t border-stone-200 bg-stone-50/50 p-6 dark:border-stone-800 dark:bg-stone-900/60 space-y-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-base font-semibold text-stone-700 dark:text-stone-300">
-                  訂單應付總額
-                </span>
-                <span className="font-mono text-2xl font-extrabold tracking-tight text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                  {formatPrice(totalAmount, currency)}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-stone-600 dark:text-stone-400">
+                    商品小計
+                  </span>
+                  <span className="font-mono font-medium text-stone-900 dark:text-stone-100">
+                    {formatPrice(subtotalAmount ?? totalAmount, currency)}
+                  </span>
+                </div>
+
+                {(discountAmount ?? 0) > 0 && (
+                  <div className="flex items-baseline justify-between text-sm text-emerald-700 dark:text-emerald-400">
+                    <span>
+                      優惠折扣 {appliedCouponCode ? `(${appliedCouponCode})` : ""}
+                    </span>
+                    <span className="font-mono font-medium">
+                      -{formatPrice(discountAmount!, currency)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-baseline justify-between border-t border-stone-200 pt-2 dark:border-stone-800">
+                  <span className="text-base font-semibold text-stone-700 dark:text-stone-300">
+                    應付總額
+                  </span>
+                  <span className="font-mono text-2xl font-extrabold tracking-tight text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    {formatPrice(totalAmount, currency)}
+                  </span>
+                </div>
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">

@@ -16,17 +16,20 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
     private readonly IProductRepository _productRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IApplicationUnitOfWork _unitOfWork;
+    private readonly TimeProvider _timeProvider;
 
     public SubmitOrderCommandHandler(
         IOrderRepository orderRepository,
         IProductRepository productRepository,
         IInventoryRepository inventoryRepository,
-        IApplicationUnitOfWork unitOfWork)
+        IApplicationUnitOfWork unitOfWork,
+        TimeProvider? timeProvider = null)
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
         _inventoryRepository = inventoryRepository;
         _unitOfWork = unitOfWork;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<Result> Handle(SubmitOrderCommand request, CancellationToken cancellationToken)
@@ -66,6 +69,12 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
         if (order.Items.Count == 0)
         {
             return Result.Failure(OrderErrors.EmptyOrder);
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        if (order.AppliedCouponExpiresAt.HasValue && order.AppliedCouponExpiresAt.Value <= now)
+        {
+            return Result.Failure(OrderErrors.AppliedCouponExpired);
         }
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -113,7 +122,7 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
                 }
             }
 
-            var submitResult = order.Submit(shippingAddressResult.Value, DateTimeOffset.UtcNow);
+            var submitResult = order.Submit(shippingAddressResult.Value, now);
             if (submitResult.IsFailure)
             {
                 await _unitOfWork.RollbackTransactionAsync(cancellationToken);
@@ -124,6 +133,7 @@ internal sealed class SubmitOrderCommandHandler : ICommandHandler<SubmitOrderCom
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
             return Result.Success();
+
         }
         catch
         {

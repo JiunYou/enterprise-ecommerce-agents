@@ -1,5 +1,6 @@
 using EnterpriseCommerce.Application.Abstractions;
 using EnterpriseCommerce.Application.Events;
+using EnterpriseCommerce.Application.Exceptions;
 using EnterpriseCommerce.Domain.Inventory;
 using EnterpriseCommerce.Domain.Orders;
 using EnterpriseCommerce.Domain.Primitives;
@@ -28,8 +29,10 @@ public sealed class EnterpriseCommerceDbContext : DbContext, IApplicationUnitOfW
     public DbSet<EnterpriseCommerce.Domain.Marketing.WishlistItem> WishlistItems { get; set; } = null!;
     public DbSet<EnterpriseCommerce.Domain.Marketing.ProductReview> ProductReviews { get; set; } = null!;
     public DbSet<EnterpriseCommerce.Domain.Customers.CustomerAddress> CustomerAddresses { get; set; } = null!;
+    public DbSet<EnterpriseCommerce.Domain.Marketing.Coupon> Coupons { get; set; } = null!;
 
     public EnterpriseCommerceDbContext(DbContextOptions<EnterpriseCommerceDbContext> options)
+
         : base(options)
     {
     }
@@ -96,8 +99,42 @@ public sealed class EnterpriseCommerceDbContext : DbContext, IApplicationUnitOfW
             await OutboxMessages.AddRangeAsync(outboxMessages, cancellationToken);
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsCouponCodeUniqueViolation(ex))
+        {
+            throw new CouponCodeConflictException("Coupon code already exists.", ex);
+        }
     }
+
+    private static bool IsCouponCodeUniqueViolation(DbUpdateException ex)
+    {
+        var isCouponEntity = ex.Entries.Any(e => e.Entity is EnterpriseCommerce.Domain.Marketing.Coupon);
+        var current = (Exception?)ex;
+        var isDuplicateKey = false;
+        var isCouponCodeIndex = false;
+
+        while (current != null)
+        {
+            if (current is MySqlConnector.MySqlException mysqlEx && mysqlEx.Number == 1062)
+            {
+                isDuplicateKey = true;
+                if (mysqlEx.Message.Contains("IX_Coupons_Code", StringComparison.OrdinalIgnoreCase) ||
+                    mysqlEx.Message.Contains("Coupons.Code", StringComparison.OrdinalIgnoreCase))
+                {
+                    isCouponCodeIndex = true;
+                }
+            }
+
+            current = current.InnerException;
+        }
+
+        return isDuplicateKey && isCouponEntity && isCouponCodeIndex;
+    }
+
+
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {

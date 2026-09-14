@@ -1751,3 +1751,23 @@
   - 前端正式產品建置：`npm --prefix apps/web run build` 通過（PASS）。
   - 格式與衝突標記檢查：`git diff --check` 通過（PASS）。
   - 單一來源路徑權威指紋 (Source Fingerprint)：`c5e3450cb6aa4f516cd6b55313f2f46564f490f11eab0082c25d315538530c11  apps/web/src/components/AuthControls.tsx`，清單指紋為 `5e194e4f7f9641128f819d8af20779fd02e6c7a1996aef04c02f50570b21b8be`。
+
+### 2026-09-14 — PR #62 — feat: save checkout address to address book
+- **垂直切片 (Vertical Slice)**：
+  - Customer Checkout Save Address v1 (`CUSTOMER_CHECKOUT_SAVE_ADDRESS_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **結帳頁面直接儲存地址**：已認證顧客在結帳頁面手動填寫收件資訊時，可點擊「儲存目前地址」按鈕，直接將當前輸入內容持久化至既有地址簿，無須離開結帳流程。
+  - **重用既有 API 與後端邊界凍結**：完整重用既有 `createCustomerAddress` 與 `POST /api/v1/customer/addresses` 端點；無新增任何後端 API、無新增領域模型或結帳專用地址結構（`EXISTING_CUSTOMER_ADDRESS_CREATE_API_REUSED=YES`, `NEW_CHECKOUT_ADDRESS_API_ADDED=NO`）。
+  - **儲存與送出訂單嚴格獨立**：儲存地址（Save Address）與送出訂單（Submit Order）為完全獨立操作；儲存動作使用 `<button type="button">`，絕不觸發訂單送出、不影響訂單狀態、不清除購物車；送出訂單絕不自動觸發地址儲存（`ADDRESS_SAVE_AUTOMATICALLY_SUBMITS_ORDER=NO`, `ORDER_SUBMISSION_AUTOMATICALLY_SAVES_ADDRESS=NO`）。
+  - **儲存失敗隔離與降級保護**：地址儲存失敗僅顯示專屬錯誤提示（「無法儲存地址，您仍可繼續完成結帳。」），表單內容完全保留，顧客依然可正常點擊送出訂單（`ADDRESS_SAVE_FAILURE_BREAKS_CHECKOUT=NO`, `ADDRESS_SAVE_FAILURE_MUTATES_ORDER=NO`）。若地址簿初始載入失敗，結帳維持可用，手動儲存仍可發送（`ADDRESS_BOOK_FAILURE_BREAKS_CHECKOUT=NO`）。
+  - **當前 Session 即時更新選單**：儲存成功後直接以 API 回傳之物件附加至 `availableAddresses` 本地狀態並設為選中，無須重新全量抓取地址簿，且當前表單欄位內容完整保留（`NEWLY_SAVED_ADDRESS_AVAILABLE_IN_CURRENT_CHECKOUT=YES`, `CHECKOUT_FORM_VALUES_PRESERVED_AFTER_SAVE=YES`）。
+  - **安全與 PII 保護**：前端未傳入 `CustomerId`，完全由伺服器端憑證 claims 提取（`CUSTOMER_ID_CLIENT_SUPPLIED_FOR_CHECKOUT_SAVE=NO`）；無任何地址 PII 日誌記錄（`CHECKOUT_ADDRESS_SAVE_PII_LOGGING_ADDED=NO`）。
+  - **明確非範疇 (Explicitly Out of Scope)**：無預設地址（Default Address）、無地址去重（Deduplication）、無地址標籤、無送出時自動儲存、無結帳頁面修改/刪除已存地址功能、無 CustomerProfile、無訂單合約修改（`ORDER_RECEIVES_CUSTOMER_ADDRESS_ID=NO`）。
+  - **資料庫與遷移凍結**：零資料庫架構變更、零新增遷移（`DB_SCHEMA_CHANGED=NO`, `NEW_MIGRATION_CREATED=NO`）；最新遷移維持 `20260914034143_AddCustomerAddresses`，總遷移數維持 17。
+- **驗證成果 (Validation)**：
+  - 前端靜態分析：`npm --prefix apps/web run lint` 通過（PASS）。
+  - 前端正式產品建置：`npm --prefix apps/web run build` 通過（PASS）。
+  - 格式檢查：`git diff --check` 通過（PASS）。
+  - 靜態無障礙與響應式審查：在 375px、768px、1280px 均自然換行無水平溢出，儲存控制項具備清楚描述性文字、語意化按鈕、>=44px 觸控尺寸、`role="status"` 成功提示與 `role="alert"` 失敗提示（`CHECKOUT_SAVE_ADDRESS_ACCESSIBILITY_AUDIT=PASS`）。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：2 個來源路徑指紋為 `c832991365ae1bf5f94cf72815dc8a1abbd33196af590926d0c464431a7745c8`。
+  - 運行時狀態：`CUSTOMER_CHECKOUT_SAVE_ADDRESS_BROWSER_RUNTIME=NOT_OBSERVED`（無既有已登入瀏覽器 session，由既有通過之 API 驗證保障）。

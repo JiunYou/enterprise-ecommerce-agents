@@ -1736,4 +1736,3 @@
   - 格式檢查：`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：12 個來源路徑指紋為 `9731681b2507e74acdba0cbd9ec54293737ddda3a9dea17ba4338022cd397687`。
   - 運行時狀態：`AUTHENTICATED_CUSTOMER_ADDRESS_UPDATE_API_ACCEPTANCE=PASS`，`CUSTOMER_ADDRESS_UPDATE_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供機器可驗證證據）。
-

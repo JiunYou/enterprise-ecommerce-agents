@@ -224,4 +224,204 @@ public class CustomerAddressMySqlAcceptanceTests : IAsyncLifetime
         var listBFinal = await getResponseBFinal.Content.ReadFromJsonAsync<List<CustomerAddressResponse>>();
         listBFinal.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task CustomerAddress_Update_RealMySql_EndToEnd_Acceptance_And_CrossCustomerIsolation()
+    {
+        var customerA = Guid.NewGuid();
+        var customerB = Guid.NewGuid();
+
+        var clientA = _factory!.CreateClient();
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-a");
+        clientA.DefaultRequestHeaders.Add("X-Test-User-Id", customerA.ToString());
+
+        var clientB = _factory.CreateClient();
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-b");
+        clientB.DefaultRequestHeaders.Add("X-Test-User-Id", customerB.ToString());
+
+        // 1. Customer A creates address A1
+        var createRequestA1 = new CreateCustomerAddressRequest(
+            "  王小明  ",
+            "  0912345678  ",
+            "tw",
+            " 100 ",
+            " 台北市 ",
+            " 中正區忠孝西路一段 ",
+            " 3 樓之 1 ");
+
+        var postResponseA1 = await clientA.PostAsJsonAsync("/api/v1/customer/addresses", createRequestA1);
+        postResponseA1.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Created);
+        var a1Response = await postResponseA1.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a1Response.Should().NotBeNull();
+        var a1Id = a1Response!.Id;
+
+        // 2. Capture Id, CustomerId, CreatedAt and row count
+        Guid originalId;
+        Guid originalCustomerId;
+        DateTimeOffset originalCreatedAt;
+        int countWithA1;
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstOrDefaultAsync(a => a.Id == a1Id);
+            dbA1.Should().NotBeNull();
+            originalId = dbA1!.Id;
+            originalCustomerId = dbA1.CustomerId;
+            originalCreatedAt = dbA1.CreatedAt;
+            countWithA1 = await db.CustomerAddresses.CountAsync();
+        }
+
+        // 建立 A2 以便後續檢驗清單排序未因 A1 更新而改變
+        await Task.Delay(50);
+        var createRequestA2 = new CreateCustomerAddressRequest(
+            "王大同",
+            "0987654321",
+            "TW",
+            "200",
+            "基隆市",
+            "仁愛區孝二路",
+            null);
+        var postResponseA2 = await clientA.PostAsJsonAsync("/api/v1/customer/addresses", createRequestA2);
+        postResponseA2.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Created);
+        var a2Response = await postResponseA2.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        var a2Id = a2Response!.Id;
+
+        int totalCountBeforeUpdate;
+        await using (var db = CreateFreshDbContext())
+        {
+            totalCountBeforeUpdate = await db.CustomerAddresses.CountAsync();
+            totalCountBeforeUpdate.Should().Be(countWithA1 + 1);
+        }
+
+        // 3. Customer A PUT updates every mutable field
+        var updateRequestA1 = new UpdateCustomerAddressRequest(
+            "  陳大文  ",
+            "  0988776655  ",
+            "us",
+            " 94105 ",
+            " 舊金山 ",
+            " 市場街 100 號 ",
+            "    "); // Whitespace to be normalized to null
+
+        var putResponse = await clientA.PutAsJsonAsync($"/api/v1/customer/addresses/{a1Id}", updateRequestA1);
+        putResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 18. API response does not expose CustomerId
+        var putJson = await putResponse.Content.ReadAsStringAsync();
+        using (var jsonDoc = JsonDocument.Parse(putJson))
+        {
+            jsonDoc.RootElement.TryGetProperty("customerId", out _).Should().BeFalse("PUT response must not expose customerId");
+            jsonDoc.RootElement.TryGetProperty("CustomerId", out _).Should().BeFalse("PUT response must not expose CustomerId");
+        }
+
+        var putResult = JsonSerializer.Deserialize<CustomerAddressResponse>(putJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        putResult.Should().NotBeNull();
+        putResult!.Id.Should().Be(a1Id);
+        putResult.RecipientName.Should().Be("陳大文");
+        putResult.Phone.Should().Be("0988776655");
+        putResult.CountryCode.Should().Be("US");
+        putResult.PostalCode.Should().Be("94105");
+        putResult.City.Should().Be("舊金山");
+        putResult.AddressLine1.Should().Be("市場街 100 號");
+        putResult.AddressLine2.Should().BeNull();
+
+        // 4. Fresh DbContext proves replacement values persisted
+        // 5. CountryCode normalized uppercase
+        // 6. AddressLine2 whitespace became null
+        // 7. Id unchanged
+        // 8. CustomerId unchanged
+        // 9. CreatedAt unchanged
+        // 10. physical row count unchanged
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1Updated = await db.CustomerAddresses.FirstOrDefaultAsync(a => a.Id == a1Id);
+            dbA1Updated.Should().NotBeNull();
+            dbA1Updated!.Id.Should().Be(originalId);
+            dbA1Updated.CustomerId.Should().Be(originalCustomerId);
+            dbA1Updated.CreatedAt.Should().Be(originalCreatedAt);
+            dbA1Updated.RecipientName.Should().Be("陳大文");
+            dbA1Updated.Phone.Should().Be("0988776655");
+            dbA1Updated.CountryCode.Should().Be("US");
+            dbA1Updated.PostalCode.Should().Be("94105");
+            dbA1Updated.City.Should().Be("舊金山");
+            dbA1Updated.AddressLine1.Should().Be("市場街 100 號");
+            dbA1Updated.AddressLine2.Should().BeNull();
+
+            var currentCount = await db.CustomerAddresses.CountAsync();
+            currentCount.Should().Be(totalCountBeforeUpdate, "Row count must remain unchanged after update");
+        }
+
+        // 11. Customer B attempts PUT on A1 -> 404
+        var hackRequest = new UpdateCustomerAddressRequest(
+            "惡意竄改者",
+            "0900111222",
+            "TW",
+            "100",
+            "台北市",
+            "攻擊地址",
+            null);
+        var crossPutResponse = await clientB.PutAsJsonAsync($"/api/v1/customer/addresses/{a1Id}", hackRequest);
+        crossPutResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 12. Fresh DbContext proves A1 unchanged after B attempt
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1AfterHack = await db.CustomerAddresses.FirstOrDefaultAsync(a => a.Id == a1Id);
+            dbA1AfterHack.Should().NotBeNull();
+            dbA1AfterHack!.RecipientName.Should().Be("陳大文");
+            dbA1AfterHack.Phone.Should().Be("0988776655");
+            dbA1AfterHack.AddressLine1.Should().Be("市場街 100 號");
+        }
+
+        // 13. missing AddressId -> 404
+        var nonExistentAddressId = Guid.NewGuid();
+        var missingPutResponse = await clientA.PutAsJsonAsync($"/api/v1/customer/addresses/{nonExistentAddressId}", updateRequestA1);
+        missingPutResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 14. invalid update -> 400
+        var invalidUpdateRequest = new UpdateCustomerAddressRequest(
+            "", // Invalid name
+            "0988776655",
+            "US",
+            "94105",
+            "舊金山",
+            "市場街",
+            null);
+        var invalidPutResponse = await clientA.PutAsJsonAsync($"/api/v1/customer/addresses/{a1Id}", invalidUpdateRequest);
+        invalidPutResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // 15. fresh DbContext proves invalid update caused zero mutation
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1AfterInvalid = await db.CustomerAddresses.FirstOrDefaultAsync(a => a.Id == a1Id);
+            dbA1AfterInvalid.Should().NotBeNull();
+            dbA1AfterInvalid!.RecipientName.Should().Be("陳大文");
+            dbA1AfterInvalid.Phone.Should().Be("0988776655");
+        }
+
+        // 16. list endpoint returns updated values
+        // 17. list ordering still follows original CreatedAt/Id semantics (A2 first, A1 second)
+        var getListResponse = await clientA.GetAsync("/api/v1/customer/addresses");
+        getListResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var listJson = await getListResponse.Content.ReadAsStringAsync();
+        using (var jsonDoc = JsonDocument.Parse(listJson))
+        {
+            foreach (var item in jsonDoc.RootElement.EnumerateArray())
+            {
+                item.TryGetProperty("customerId", out _).Should().BeFalse();
+                item.TryGetProperty("CustomerId", out _).Should().BeFalse();
+            }
+        }
+        var listA = JsonSerializer.Deserialize<List<CustomerAddressResponse>>(listJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        listA.Should().NotBeNull();
+        listA!.Should().HaveCount(2);
+        listA[0].Id.Should().Be(a2Id, "Newer A2 must still be listed first");
+        listA[1].Id.Should().Be(a1Id, "Updated A1 must preserve original ordering");
+        listA[1].RecipientName.Should().Be("陳大文");
+        listA[1].Phone.Should().Be("0988776655");
+        listA[1].CountryCode.Should().Be("US");
+        listA[1].City.Should().Be("舊金山");
+        listA[1].AddressLine1.Should().Be("市場街 100 號");
+        listA[1].AddressLine2.Should().BeNull();
+    }
 }

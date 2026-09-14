@@ -1,6 +1,7 @@
 using EnterpriseCommerce.Application.Customers.Addresses;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.CreateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.DeleteCustomerAddress;
+using EnterpriseCommerce.Application.Customers.Addresses.Commands.UpdateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Queries.GetCustomerAddresses;
 using EnterpriseCommerce.Domain.Customers;
 using EnterpriseCommerce.Domain.Primitives;
@@ -293,6 +294,181 @@ public class CustomerAddressesControllerTests : IClassFixture<WebApplicationFact
             .ReturnsAsync(Result.Failure(CustomerAddressErrors.NotFound));
 
         var response = await client.DeleteAsync($"/api/v1/customer/addresses/{otherCustomerAddressId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region PUT /api/v1/customer/addresses/{addressId}
+
+    [Fact]
+    public async Task UpdateAddress_Anonymous_Returns401Unauthorized()
+    {
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        var request = new UpdateCustomerAddressRequest(
+            "新姓名",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路",
+            null);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{addressId}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_AuthenticatedWithoutCustomerId_Returns403Forbidden()
+    {
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        var request = new UpdateCustomerAddressRequest(
+            "新姓名",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路",
+            null);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{addressId}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_OwnedAddress_Returns200WithUpdatedResponse()
+    {
+        var customerId = Guid.NewGuid();
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var request = new UpdateCustomerAddressRequest(
+            "新姓名",
+            "0922222222",
+            "us",
+            "94105",
+            "San Francisco",
+            "Market St",
+            "Suite 100");
+
+        var updatedResponse = new CustomerAddressResponse(
+            addressId,
+            "新姓名",
+            "0922222222",
+            "US",
+            "94105",
+            "San Francisco",
+            "Market St",
+            "Suite 100");
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<UpdateCustomerAddressCommand>(c =>
+                c.CustomerId == customerId &&
+                c.AddressId == addressId &&
+                c.RecipientName == request.RecipientName &&
+                c.Phone == request.Phone &&
+                c.CountryCode == request.CountryCode &&
+                c.PostalCode == request.PostalCode &&
+                c.City == request.City &&
+                c.AddressLine1 == request.AddressLine1 &&
+                c.AddressLine2 == request.AddressLine2), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(updatedResponse));
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{addressId}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        body.Should().NotBeNull();
+        body!.Id.Should().Be(addressId);
+        body.RecipientName.Should().Be("新姓名");
+        body.CountryCode.Should().Be("US");
+    }
+
+    [Fact]
+    public async Task UpdateAddress_InvalidDomainRequest_Returns400BadRequest()
+    {
+        var customerId = Guid.NewGuid();
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var request = new UpdateCustomerAddressRequest(
+            "",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路",
+            null);
+
+        _senderMock
+            .Setup(s => s.Send(It.IsAny<UpdateCustomerAddressCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<CustomerAddressResponse>(CustomerAddressErrors.InvalidRecipientName));
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{addressId}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_MissingAddress_Returns404NotFound()
+    {
+        var customerId = Guid.NewGuid();
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var request = new UpdateCustomerAddressRequest(
+            "新姓名",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路",
+            null);
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<UpdateCustomerAddressCommand>(c => c.CustomerId == customerId && c.AddressId == addressId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<CustomerAddressResponse>(CustomerAddressErrors.NotFound));
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{addressId}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_CrossCustomerAddress_Returns404NotFound()
+    {
+        var customerId = Guid.NewGuid();
+        var otherCustomerAddressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var request = new UpdateCustomerAddressRequest(
+            "新姓名",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路",
+            null);
+
+        _senderMock
+            .Setup(s => s.Send(It.Is<UpdateCustomerAddressCommand>(c => c.CustomerId == customerId && c.AddressId == otherCustomerAddressId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<CustomerAddressResponse>(CustomerAddressErrors.NotFound));
+
+        var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{otherCustomerAddressId}", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }

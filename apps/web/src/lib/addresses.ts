@@ -23,11 +23,17 @@ export interface CreateCustomerAddressPayload {
   addressLine2?: string | null;
 }
 
+export type UpdateCustomerAddressPayload = CreateCustomerAddressPayload;
+
 export type AddressListResult =
   | { success: true; data: CustomerAddress[] }
   | { success: false; unauthorized?: boolean; error?: string };
 
 export type CreateAddressResult =
+  | { success: true; data: CustomerAddress }
+  | { success: false; unauthorized?: boolean; error?: string };
+
+export type UpdateAddressResult =
   | { success: true; data: CustomerAddress }
   | { success: false; unauthorized?: boolean; error?: string };
 
@@ -155,5 +161,63 @@ export async function deleteCustomerAddress(
     return { success: true };
   } catch {
     return { success: false, error: "刪除地址失敗，請稍後再試" };
+  }
+}
+
+/**
+ * 更新顧客已儲存收件地址
+ */
+export async function updateCustomerAddress(
+  addressId: string,
+  payload: UpdateCustomerAddressPayload
+): Promise<UpdateAddressResult> {
+  const session = await auth0.getSession();
+  if (!session) {
+    return { success: false, unauthorized: true, error: "請先登入後再更新收件地址" };
+  }
+
+  try {
+    const response = await authenticatedFetch(`/api/v1/customer/addresses/${encodeURIComponent(addressId)}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        recipientName: payload.recipientName,
+        phone: payload.phone,
+        countryCode: payload.countryCode,
+        postalCode: payload.postalCode,
+        city: payload.city,
+        addressLine1: payload.addressLine1,
+        addressLine2: payload.addressLine2 || null,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, unauthorized: true, error: "登入逾期，請重新登入" };
+      }
+      if (response.status === 403) {
+        return { success: false, error: "身分驗證失敗，無法更新地址" };
+      }
+      if (response.status === 404) {
+        return { success: false, error: "找不到指定的收件地址，請重新整理後再試。" };
+      }
+      if (response.status === 400) {
+        try {
+          const problem = await response.json();
+          return { success: false, error: problem.detail || "地址資料不符合格式要求" };
+        } catch {
+          return { success: false, error: "地址資料不符合格式要求" };
+        }
+      }
+      return { success: false, error: "更新地址失敗，請稍後再試" };
+    }
+
+    const data = (await response.json()) as CustomerAddress;
+    return { success: true, data };
+  } catch {
+    return { success: false, error: "更新地址失敗，請稍後再試" };
   }
 }

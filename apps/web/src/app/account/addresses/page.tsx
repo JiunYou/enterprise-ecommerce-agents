@@ -3,8 +3,10 @@ import { revalidatePath } from "next/cache";
 import {
   getCustomerAddresses,
   createCustomerAddress,
+  updateCustomerAddress,
   deleteCustomerAddress,
   type CreateCustomerAddressPayload,
+  type UpdateCustomerAddressPayload,
 } from "@/lib/addresses";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { AddressManagementClient } from "./AddressManagementClient";
@@ -15,6 +17,18 @@ export default async function AccountAddressesPage() {
   async function handleCreateAddress(payload: CreateCustomerAddressPayload) {
     "use server";
     const res = await createCustomerAddress(payload);
+    if (res.success) {
+      revalidatePath("/account/addresses");
+    }
+    return res;
+  }
+
+  async function handleUpdateAddress(
+    addressId: string,
+    payload: UpdateCustomerAddressPayload
+  ) {
+    "use server";
+    const res = await updateCustomerAddress(addressId, payload);
     if (res.success) {
       revalidatePath("/account/addresses");
     }
@@ -107,6 +121,7 @@ export default async function AccountAddressesPage() {
           <AddressManagementClient
             initialAddresses={result.data}
             onCreateAddress={handleCreateAddress}
+            onUpdateAddress={handleUpdateAddress}
             onDeleteAddress={handleDeleteAddress}
           />
         )}

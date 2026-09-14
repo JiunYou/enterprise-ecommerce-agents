@@ -2,6 +2,7 @@ using Asp.Versioning;
 using EnterpriseCommerce.Application.Customers.Addresses;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.CreateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.DeleteCustomerAddress;
+using EnterpriseCommerce.Application.Customers.Addresses.Commands.UpdateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Queries.GetCustomerAddresses;
 using EnterpriseCommerce.WebApi.Contracts.Customers;
 using MediatR;
@@ -104,5 +105,42 @@ public class CustomerAddressesController : ApiControllerBase
         }
 
         return Ok();
+    }
+
+    [HttpPut("{addressId:guid}")]
+    [ProducesResponseType(typeof(CustomerAddressResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateAddress(
+        Guid addressId,
+        [FromBody] UpdateCustomerAddressRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new UpdateCustomerAddressCommand(
+            customerId,
+            addressId,
+            request.RecipientName,
+            request.Phone,
+            request.CountryCode,
+            request.PostalCode,
+            request.City,
+            request.AddressLine1,
+            request.AddressLine2);
+
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
     }
 }

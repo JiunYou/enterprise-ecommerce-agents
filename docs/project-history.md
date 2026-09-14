@@ -1711,3 +1711,29 @@
   - 靜態無障礙審查：涵蓋 375px/768px/1280px，卡片排版自動換行無水平溢出，標籤與輸入控制項完整關聯，焦點與狀態反饋明確（`CUSTOMER_ADDRESS_ACCESSIBILITY_AUDIT=PASS`）。
   - 權威凍結原始碼指紋 (Source Fingerprint)：31 個來源路徑指紋為 `39408bd7131d247d5f0fb7cc11cd2c3ecfa52ef44bce561ce5e95077db20e1ef`。
   - 運行時狀態：`AUTHENTICATED_CUSTOMER_ADDRESS_API_ACCEPTANCE=PASS`，`CUSTOMER_ADDRESS_BOOK_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供機器可驗證證據）。
+
+### 2026-09-14 — PR #60 — feat: support customer address updates
+- **垂直切片 (Vertical Slice)**：
+  - Customer Address Update v1 (`CUSTOMER_ADDRESS_UPDATE_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **已認證地址更新 API**：擴充既有控制器提供 `PUT /api/v1/customer/addresses/{addressId:guid}`；匿名請求回傳 401 Unauthorized，缺少 CustomerId claim 回傳 403 Forbidden。
+  - **顧客所有權與 404 隔離防護**：`CustomerId` 嚴格僅由伺服器端憑證 Claims 提取（`TryGetCustomerId`），禁止由客戶端 body、route、query 或 header 指定（`CUSTOMER_ADDRESS_UPDATE_CUSTOMER_ID_CLIENT_SUPPLIED=NO`）；回應資料絕不外洩 CustomerId（`CUSTOMER_ADDRESS_UPDATE_CUSTOMER_ID_EXPOSED=NO`）；若欲更新之地址不存在或為其他顧客所有，儲存庫查詢回傳 null，統一映射為不可區分的 404 NotFound，杜絕跨顧客竄改與所有權探測（`CUSTOMER_ADDRESS_UPDATE_CROSS_CUSTOMER_ISOLATION=PASS`）。
+  - **領域驗證共用與無漂移保證**：抽出私有 `ValidateAndNormalize` 輔助方法由 `Create` 與 `Update` 共同重用，確保收件人姓名（<= 100）、電話（<= 30，無控制字元）、國碼（2 碼 ASCII 英文字母並轉大寫）、郵遞區號（<= 20）、城市（<= 100）、地址行 1（<= 200）與地址行 2（空白規格化為 null，<= 200）之驗證規則完全一致。
+  - **異動原子性與不變量維持**：任一更換欄位驗證失敗時直接回傳領域錯誤，實體狀態零變更（`CUSTOMER_ADDRESS_UPDATE_PARTIAL_MUTATION_ON_FAILURE=NO`）；更新操作嚴格保留原始 `Id`、`CustomerId` 與 `CreatedAt`（`CUSTOMER_ADDRESS_UPDATE_PRESERVES_ID=YES`, `CUSTOMER_ADDRESS_UPDATE_PRESERVES_CUSTOMER_ID=YES`, `CUSTOMER_ADDRESS_UPDATE_PRESERVES_CREATED_AT=YES`）。
+  - **儲存庫重用與單元工作合約**：直接重用既有顧客範圍查詢 `GetByIdForCustomerAsync`，無全域地址查詢；更新成功時僅呼叫一次 `SaveChangesAsync`，驗證失敗或查無地址時呼叫零次（`CUSTOMER_ADDRESS_UPDATE_SUCCESS_SAVE_CHANGES_COUNT=1`, `CUSTOMER_ADDRESS_UPDATE_FAILURE_SAVE_CHANGES_COUNT=0`）。
+  - **PII 安全與邊界凍結**：地址個資禁止輸出至任何日誌（`CUSTOMER_ADDRESS_UPDATE_PII_LOGGING_ADDED=NO`）；無公開與管理端地址存取（`PUBLIC_CUSTOMER_ADDRESS_ACCESS_ADDED=NO`, `ADMIN_CUSTOMER_ADDRESS_ACCESS_ADDED=NO`）；無領域事件或發件匣（`CUSTOMER_ADDRESS_UPDATE_DOMAIN_EVENT_ADDED=NO`, `CUSTOMER_ADDRESS_UPDATE_OUTBOX_ADDED=NO`）。
+  - **資料庫與遷移凍結**：零資料庫結構變更、零新增 Migration（`DB_SCHEMA_CHANGED=NO`, `NEW_MIGRATION_CREATED=NO`）；最新遷移維持 `20260914034143_AddCustomerAddresses`，總遷移數維持 17；無 `UpdatedAt`、無 `Version` 併發標記、無預設地址或標籤行為。
+  - **訂單與結帳邊界凍結**：訂單領域與資料庫架構零變更（`ORDER_DOMAIN_CHANGED=NO`, `ORDER_SCHEMA_CHANGED=NO`）；結帳邏輯與預填完全不變（`CHECKOUT_SAVED_ADDRESS_PREFILL_CHANGED=NO`, `CHECKOUT_ORDER_SUBMISSION_BEHAVIOR_CHANGED=NO`）。
+  - **前端地址管理 UI (`apps/web`)**：
+    - 在 [AddressManagementClient.tsx](file:///Users/laijiunyou/Dev/prawn/apps/web/src/app/account/addresses/AddressManagementClient.tsx) 引入 `editingId` 狀態，重用上方表單切換為編輯模式，按鈕切換為「儲存修改」與「取消編輯」。
+    - 點擊卡片「編輯」載入該地址資料並流暢捲動至表單；更新成功顯示「已成功更新收件地址。」並恢復新增模式；更新失敗保留輸入欄位；404 顯示「找不到指定的收件地址，請重新整理後再試。」。
+    - 具備完整無障礙設計（ARIA 標籤、role="alert"/role="status"、鍵盤焦點樣式、>=44px 觸控尺寸）。
+- **驗證成果 (Validation)**：
+  - 測試先行完整證據：`CUSTOMER_ADDRESS_UPDATE_DOMAIN_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_UPDATE_APPLICATION_RED_FIRST=PASS`, `CUSTOMER_ADDRESS_UPDATE_WEBAPI_RED_FIRST=PASS`。
+  - 後端測試通過規模：Domain=308, Application=393, Infrastructure=212, WebApi=461（全數通過，0 失敗）。
+  - 真實 MySQL 驗收測試：`CustomerAddressMySqlAcceptanceTests` 新增完整更新驗收測試，證明 Customer A 更新持久化、國碼正規化、空白 AddressLine2 轉 null、不可變欄位保留、列數不變、Customer B 竄改回傳 404 且資料零變更、無效更新零寫入、清單反映更新且排序維持建立時間降冪、CustomerId 無外洩。
+  - 前端靜態分析與產品建置：`npm --prefix apps/web run lint` 與 `npm --prefix apps/web run build` 通過。
+  - 格式檢查：`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：12 個來源路徑指紋為 `9731681b2507e74acdba0cbd9ec54293737ddda3a9dea17ba4338022cd397687`。
+  - 運行時狀態：`AUTHENTICATED_CUSTOMER_ADDRESS_UPDATE_API_ACCEPTANCE=PASS`，`CUSTOMER_ADDRESS_UPDATE_BROWSER_RUNTIME=NOT_OBSERVED`（本機無即時 Live Auth0 Session，由 TestAuth 與實體 MySQL 提供機器可驗證證據）。
+

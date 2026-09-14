@@ -73,72 +73,153 @@ public sealed class CustomerAddress : Entity<Guid>
             return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidCustomerId);
         }
 
+        var validationResult = ValidateAndNormalize(
+            recipientName,
+            phone,
+            countryCode,
+            postalCode,
+            city,
+            addressLine1,
+            addressLine2);
+
+        if (validationResult.IsFailure)
+        {
+            return Result.Failure<CustomerAddress>(validationResult.Error);
+        }
+
+        var values = validationResult.Value;
+
+        return Result.Success(new CustomerAddress(
+            id,
+            customerId,
+            values.RecipientName,
+            values.Phone,
+            values.CountryCode,
+            values.PostalCode,
+            values.City,
+            values.AddressLine1,
+            values.AddressLine2,
+            createdAt));
+    }
+
+    public Result Update(
+        string? recipientName,
+        string? phone,
+        string? countryCode,
+        string? postalCode,
+        string? city,
+        string? addressLine1,
+        string? addressLine2)
+    {
+        var validationResult = ValidateAndNormalize(
+            recipientName,
+            phone,
+            countryCode,
+            postalCode,
+            city,
+            addressLine1,
+            addressLine2);
+
+        if (validationResult.IsFailure)
+        {
+            return Result.Failure(validationResult.Error);
+        }
+
+        var values = validationResult.Value;
+
+        RecipientName = values.RecipientName;
+        Phone = values.Phone;
+        CountryCode = values.CountryCode;
+        PostalCode = values.PostalCode;
+        City = values.City;
+        AddressLine1 = values.AddressLine1;
+        AddressLine2 = values.AddressLine2;
+
+        return Result.Success();
+    }
+
+    private static Result<(
+        string RecipientName,
+        string Phone,
+        string CountryCode,
+        string PostalCode,
+        string City,
+        string AddressLine1,
+        string? AddressLine2)> ValidateAndNormalize(
+        string? recipientName,
+        string? phone,
+        string? countryCode,
+        string? postalCode,
+        string? city,
+        string? addressLine1,
+        string? addressLine2)
+    {
         if (string.IsNullOrWhiteSpace(recipientName))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidRecipientName);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidRecipientName);
         }
 
         var trimmedRecipientName = recipientName.Trim();
         if (trimmedRecipientName.Length > MaxRecipientNameLength)
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidRecipientName);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidRecipientName);
         }
 
         if (string.IsNullOrWhiteSpace(phone))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidPhone);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidPhone);
         }
 
         var trimmedPhone = phone.Trim();
         if (trimmedPhone.Length > MaxPhoneLength || trimmedPhone.Any(char.IsControl))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidPhone);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidPhone);
         }
 
         if (string.IsNullOrWhiteSpace(countryCode))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidCountryCode);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidCountryCode);
         }
 
         var trimmedCountryCode = countryCode.Trim();
         if (trimmedCountryCode.Length != CountryCodeLength || !trimmedCountryCode.All(char.IsAsciiLetter))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidCountryCode);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidCountryCode);
         }
 
         var normalizedCountryCode = trimmedCountryCode.ToUpperInvariant();
 
         if (string.IsNullOrWhiteSpace(postalCode))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidPostalCode);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidPostalCode);
         }
 
         var trimmedPostalCode = postalCode.Trim();
         if (trimmedPostalCode.Length > MaxPostalCodeLength)
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidPostalCode);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidPostalCode);
         }
 
         if (string.IsNullOrWhiteSpace(city))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidCity);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidCity);
         }
 
         var trimmedCity = city.Trim();
         if (trimmedCity.Length > MaxCityLength)
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidCity);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidCity);
         }
 
         if (string.IsNullOrWhiteSpace(addressLine1))
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidAddressLine1);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidAddressLine1);
         }
 
         var trimmedAddressLine1 = addressLine1.Trim();
         if (trimmedAddressLine1.Length > MaxAddressLineLength)
         {
-            return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidAddressLine1);
+            return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidAddressLine1);
         }
 
         string? trimmedAddressLine2 = null;
@@ -147,20 +228,17 @@ public sealed class CustomerAddress : Entity<Guid>
             trimmedAddressLine2 = addressLine2.Trim();
             if (trimmedAddressLine2.Length > MaxAddressLineLength)
             {
-                return Result.Failure<CustomerAddress>(CustomerAddressErrors.InvalidAddressLine2);
+                return Result.Failure<(string, string, string, string, string, string, string?)>(CustomerAddressErrors.InvalidAddressLine2);
             }
         }
 
-        return Result.Success(new CustomerAddress(
-            id,
-            customerId,
+        return Result.Success((
             trimmedRecipientName,
             trimmedPhone,
             normalizedCountryCode,
             trimmedPostalCode,
             trimmedCity,
             trimmedAddressLine1,
-            trimmedAddressLine2,
-            createdAt));
+            trimmedAddressLine2));
     }
 }

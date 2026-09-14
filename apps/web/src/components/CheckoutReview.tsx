@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { CartItem } from "@/lib/cart";
 import type { SubmitOrderResult, ShippingAddress } from "@/lib/orders";
+import type { CustomerAddress } from "@/lib/addresses";
 import { formatPrice } from "@/lib/format";
 
 interface CheckoutReviewProps {
@@ -15,6 +16,8 @@ interface CheckoutReviewProps {
     orderId: string,
     shippingAddress: ShippingAddress
   ) => Promise<SubmitOrderResult>;
+  savedAddresses?: CustomerAddress[];
+  addressBookFailed?: boolean;
 }
 
 function getProductMonogram(name?: string): string {
@@ -29,10 +32,13 @@ export function CheckoutReview({
   currency,
   totalAmount,
   onSubmitOrder,
+  savedAddresses = [],
+  addressBookFailed = false,
 }: CheckoutReviewProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [recipientName, setRecipientName] = useState("");
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("TW");
@@ -40,6 +46,22 @@ export function CheckoutReview({
   const [city, setCity] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
+
+  const handleSelectSavedAddress = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    if (!addressId) return;
+
+    const matched = savedAddresses.find((a) => a.id === addressId);
+    if (matched) {
+      setRecipientName(matched.recipientName);
+      setPhone(matched.phone);
+      setCountryCode(matched.countryCode);
+      setPostalCode(matched.postalCode);
+      setCity(matched.city);
+      setAddressLine1(matched.addressLine1);
+      setAddressLine2(matched.addressLine2 || "");
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +172,61 @@ export function CheckoutReview({
             </div>
 
             <div className="p-6 space-y-5">
+              {/* 已儲存地址選取與降級提示 */}
+              {addressBookFailed ? (
+                <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-4 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-900/60 dark:text-stone-400">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <span>已儲存地址暫時無法載入，可直接手動填寫。</span>
+                    <Link
+                      href="/account/addresses"
+                      className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
+                    >
+                      管理已儲存地址
+                    </Link>
+                  </div>
+                </div>
+              ) : savedAddresses.length > 0 ? (
+                <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4 dark:border-stone-800 dark:bg-stone-900/60">
+                  <div className="flex items-center justify-between pb-2">
+                    <label
+                      htmlFor="savedAddressSelect"
+                      className="text-sm font-medium text-stone-800 dark:text-stone-200"
+                    >
+                      已儲存地址
+                    </label>
+                    <Link
+                      href="/account/addresses"
+                      className="text-xs font-medium text-stone-600 underline underline-offset-2 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                    >
+                      管理已儲存地址
+                    </Link>
+                  </div>
+                  <select
+                    id="savedAddressSelect"
+                    value={selectedAddressId}
+                    onChange={(e) => handleSelectSavedAddress(e.target.value)}
+                    className="block w-full min-h-[44px] rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-2xs transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-stone-100 dark:focus:ring-stone-500/20"
+                  >
+                    <option value="">手動填寫</option>
+                    {savedAddresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.recipientName} ({addr.phone}) - {addr.postalCode} {addr.city} {addr.addressLine1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-xl border border-dashed border-stone-200 bg-stone-50/40 px-4 py-3 text-xs text-stone-500 dark:border-stone-800 dark:bg-stone-900/40 dark:text-stone-400">
+                  <span>尚未儲存常用地址，可於下方手動填寫。</span>
+                  <Link
+                    href="/account/addresses"
+                    className="font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
+                  >
+                    管理已儲存地址
+                  </Link>
+                </div>
+              )}
+
               {/* 姓名與電話 */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>

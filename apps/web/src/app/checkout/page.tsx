@@ -3,11 +3,24 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCart } from "@/lib/cart";
 import { submitOrder, type SubmitOrderResult, type ShippingAddress } from "@/lib/orders";
+import { getCustomerAddresses, type CustomerAddress } from "@/lib/addresses";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { CheckoutReview } from "@/components/CheckoutReview";
 
 export default async function CheckoutPage() {
   const result = await getCart();
+
+  let savedAddresses: CustomerAddress[] = [];
+  let addressBookFailed = false;
+
+  if (result.success) {
+    const addressResult = await getCustomerAddresses();
+    if (addressResult.success) {
+      savedAddresses = addressResult.data;
+    } else if (!addressResult.unauthorized) {
+      addressBookFailed = true;
+    }
+  }
 
   async function handleSubmitOrder(
     orderId: string,
@@ -186,6 +199,8 @@ export default async function CheckoutPage() {
             currency={result.data.currency}
             totalAmount={result.data.totalAmount}
             onSubmitOrder={handleSubmitOrder}
+            savedAddresses={savedAddresses}
+            addressBookFailed={addressBookFailed}
           />
         )}
       </main>

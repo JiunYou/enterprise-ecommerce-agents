@@ -1,0 +1,220 @@
+{
+  "version": "1.0",
+  "description": "路由回歸測試固件 — 從現有 agents.json / skills.json / 治理規則衍生的高價值邊界案例",
+  "fixtures": [
+    {
+      "id": "backend-pagination",
+      "description": "後端路徑所有權 — services/backend 明確歸屬 dotnet-backend",
+      "task": "Add pagination to customer order history endpoint",
+      "paths": ["services/backend/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "frontend-order-ui",
+      "description": "前端路徑所有權 — apps/** 明確歸屬 frontend",
+      "task": "Modify customer order history UI component",
+      "paths": ["apps/web/src/components/OrderHistory.tsx"],
+      "expected_status": "routed",
+      "expected_primary_agent": "frontend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["frontend-engineering"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "worker-processing",
+      "description": "Worker 路徑所有權 — services/workers/** 明確歸屬 nodejs-backend",
+      "task": "Modify Node.js worker email processing logic",
+      "paths": ["services/workers/email-worker/handler.js"],
+      "expected_status": "routed",
+      "expected_primary_agent": "nodejs-backend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["nodejs"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "infrastructure-docker",
+      "description": "基礎設施路徑所有權 — infrastructure/** 明確歸屬 devops",
+      "task": "Update Docker Compose configuration for local development",
+      "paths": ["infrastructure/docker/docker-compose.yml"],
+      "expected_status": "routed",
+      "expected_primary_agent": "devops",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["devops"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "backend-jwt-auth",
+      "description": "安全性觸發 — JWT authorization 修改應觸發 security 審查",
+      "task": "Modify JWT authorization behavior in OrdersController",
+      "paths": ["services/backend/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["security"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "SECURITY_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "payment-gateway",
+      "description": "支付安全性 — payment 修改應觸發 security 審查",
+      "task": "Implement payment gateway integration with Stripe webhook handler",
+      "paths": ["services/backend/EnterpriseCommerce.Infrastructure/Payments/StripeService.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["security"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "SECURITY_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "pci-compliance",
+      "description": "PCI 合規性 — PCI 修改應觸發 compliance 審查",
+      "task": "Update PCI compliance data handling for card storage",
+      "paths": ["services/backend/EnterpriseCommerce.Infrastructure/Payments/CardTokenizer.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["compliance"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "COMPLIANCE_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "privacy-pii",
+      "description": "隱私/PII — privacy 修改應觸發 security + compliance 審查",
+      "task": "Modify PII handling and privacy policy for user personal data export",
+      "paths": ["services/backend/EnterpriseCommerce.Application/Services/UserDataExportService.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["security", "compliance"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "SECURITY_REVIEW_REQUIRED", "COMPLIANCE_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "architecture-cross-module",
+      "description": "架構邊界 — cross-module 變更應路由至 system-architect 並觸發 architecture-reviewer 審查",
+      "task": "Refactor cross-module dependency boundary between catalog and order services",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "system-architect",
+      "expected_reviewers_contain": ["architecture-reviewer"],
+      "expected_default_skills_contain": ["software-architecture"],
+      "expected_reason_codes_contain": ["PRIMARY_FOR_MATCH", "ARCHITECTURE_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "generic-system-module-design",
+      "description": "通用詞彙防護 — 僅包含泛指單詞 design 或 module 且缺乏架構邊界證據時不應誤路由至 system-architect",
+      "task": "Review system module design notes",
+      "paths": [],
+      "expected_status": "unmatched",
+      "expected_primary_agent": null,
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["NO_ROUTE_MATCH"]
+    },
+    {
+      "id": "explicit-system-architect",
+      "description": "顯式 System Architect — 直接指定有效的 system-architect Agent ID",
+      "task": "Design overall service boundaries",
+      "paths": [],
+      "requested_agent": "system-architect",
+      "expected_status": "routed",
+      "expected_primary_agent": "system-architect",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["software-architecture"],
+      "expected_reason_codes_contain": ["EXPLICIT_AGENT"]
+    },
+    {
+      "id": "technology-dotnet",
+      "description": "技術信號 — ASP.NET Core 明確指向 dotnet-backend（無路徑）",
+      "task": "Add new ASP.NET Core middleware for request logging",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["EXPLICIT_TECHNOLOGY"]
+    },
+    {
+      "id": "technology-nextjs",
+      "description": "技術信號 — Next.js 明確指向 frontend（無路徑）",
+      "task": "Create new Next.js page for product catalog",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "frontend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["frontend-engineering"],
+      "expected_reason_codes_contain": ["EXPLICIT_TECHNOLOGY"]
+    },
+    {
+      "id": "ambiguous-frontend-backend",
+      "description": "模糊案例 — 同時涉及前端和後端路徑，應為 ambiguous",
+      "task": "Add product review feature with UI and API changes",
+      "paths": [
+        "apps/web/src/components/ProductReview.tsx",
+        "services/backend/EnterpriseCommerce.WebApi/Controllers/ReviewsController.cs"
+      ],
+      "expected_status": "ambiguous",
+      "expected_primary_agent": null,
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["AMBIGUOUS_ROUTE"]
+    },
+    {
+      "id": "unmatched-vague",
+      "description": "無匹配案例 — 證據不足時不應捏造路由",
+      "task": "Improve system performance",
+      "paths": [],
+      "expected_status": "unmatched",
+      "expected_primary_agent": null,
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["NO_ROUTE_MATCH"]
+    },
+    {
+      "id": "explicit-agent",
+      "description": "顯式 Agent — 直接指定有效的 Agent ID",
+      "task": "Run database migration for orders table",
+      "paths": [],
+      "requested_agent": "database",
+      "expected_status": "routed",
+      "expected_primary_agent": "database",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["mysql"],
+      "expected_reason_codes_contain": ["EXPLICIT_AGENT"]
+    },
+    {
+      "id": "unknown-path-no-fabricate",
+      "description": "未知路徑 — 不屬於任何 owns 模式的路徑不應捏造 Agent",
+      "task": "Update README documentation",
+      "paths": ["docs/README.md"],
+      "expected_status": "unmatched",
+      "expected_primary_agent": null,
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["NO_ROUTE_MATCH"]
+    },
+    {
+      "id": "webhook-security",
+      "description": "外部 webhook — 應觸發 security 審查",
+      "task": "Add external webhook endpoint for order status updates",
+      "paths": ["services/backend/EnterpriseCommerce.WebApi/Controllers/WebhooksController.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["security"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "SECURITY_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "qa-validation-testing",
+      "description": "QA 驗證路由 — 任務明確指定 testing 與 validation 應路由至 qa",
+      "task": "Execute regression testing and validation suite for checkout workflow",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "qa",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["testing"],
+      "expected_reason_codes_contain": ["PRIMARY_FOR_MATCH"]
+    }
+  ]
+}

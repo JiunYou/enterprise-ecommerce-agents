@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderById;
+using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderOperationsOverview;
 using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrders;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,23 @@ public sealed class AdminOrdersController : ApiControllerBase
 {
     public AdminOrdersController(ISender sender) : base(sender)
     {
+    }
+
+    [HttpGet("overview")]
+    [ProducesResponseType(typeof(AdminOrderOperationsOverviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetOverview(CancellationToken cancellationToken = default)
+    {
+        var query = new GetAdminOrderOperationsOverviewQuery();
+        var result = await Sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet]

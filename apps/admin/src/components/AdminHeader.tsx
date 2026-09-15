@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React from "react";
 
-export type AdminNavSection = "fulfillment" | "orders" | "products" | "coupons";
+export type AdminNavSection = "dashboard" | "fulfillment" | "orders" | "products" | "coupons";
 
 export interface AdminHeaderProps {
   activeSection: AdminNavSection;
@@ -18,6 +18,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
+  { id: "dashboard", label: "營運總覽", href: "/dashboard" },
   { id: "fulfillment", label: "訂單履約", href: "/" },
   { id: "orders", label: "訂單管理", href: "/orders" },
   { id: "products", label: "商品管理", href: "/products" },

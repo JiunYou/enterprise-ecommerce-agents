@@ -111,4 +111,56 @@ internal sealed class OrderRepository : IOrderRepository
 
         return (items, totalCount);
     }
+
+    public async Task<AdminOrderOperationsOverviewData> GetAdminOrderOperationsOverviewAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var formalOrdersQuery = _dbContext.Orders
+            .AsNoTracking()
+            .Where(o => o.SubmittedAt != null);
+
+        // 1 status-count aggregate query
+        var statusCounts = await formalOrdersQuery
+            .GroupBy(o => o.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var submittedCount = statusCounts.FirstOrDefault(x => x.Status == OrderStatus.Submitted)?.Count ?? 0;
+        var paidCount = statusCounts.FirstOrDefault(x => x.Status == OrderStatus.Paid)?.Count ?? 0;
+        var shippedCount = statusCounts.FirstOrDefault(x => x.Status == OrderStatus.Shipped)?.Count ?? 0;
+        var cancelledCount = statusCounts.FirstOrDefault(x => x.Status == OrderStatus.Cancelled)?.Count ?? 0;
+        var totalCount = submittedCount + paidCount + shippedCount + cancelledCount;
+
+        // 1 recent-orders projection query (up to 5 formal orders, ordered by SubmittedAt DESC, Id DESC)
+        var recentOrdersRaw = await formalOrdersQuery
+            .OrderByDescending(o => o.SubmittedAt)
+            .ThenByDescending(o => (Guid)o.Id)
+            .Take(5)
+            .Select(o => new
+            {
+                Id = (Guid)o.Id,
+                Status = o.Status,
+                Currency = o.Currency,
+                SubmittedAt = o.SubmittedAt!.Value,
+                Subtotal = o.Items.Sum(i => (decimal?)i.UnitPrice.Amount * i.Quantity) ?? 0m,
+                Discount = o.AppliedCouponDiscountAmount ?? 0m
+            })
+            .ToListAsync(cancellationToken);
+
+        var recentOrders = recentOrdersRaw.Select(r => new AdminOrderOverviewRecentOrderData(
+            r.Id,
+            r.Status.ToString(),
+            r.Currency,
+            r.Subtotal - r.Discount,
+            r.SubmittedAt
+        )).ToList();
+
+        return new AdminOrderOperationsOverviewData(
+            totalCount,
+            submittedCount,
+            paidCount,
+            shippedCount,
+            cancelledCount,
+            recentOrders);
+    }
 }

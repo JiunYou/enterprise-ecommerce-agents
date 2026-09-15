@@ -1825,3 +1825,23 @@
   - 既有治理審計通過：`python3 .agents/tools/governance/audit-governance.py` 通過（`GOVERNANCE_AUDIT=PASS`）。
   - 格式與衝突標記檢查：`git diff --check` 通過（`DIFF_CHECK=PASS`）。
   - 權威凍結原始碼指紋 (Source Fingerprint)：6 個來源路徑指紋為 `5873bb23039d3ff0376603e5e6825383ed5bb839f73b971cbc0117f76388e0fc`。
+
+### 2026-09-15 — PR #65 — feat(admin): add order operations overview
+- **垂直切片 (Vertical Slice)**：
+  - Admin Order Operations Overview v1 (`ADMIN_ORDER_OPERATIONS_OVERVIEW_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **管理端營運總覽專屬路由 (`/dashboard`)**：新增獨立後台營運總覽頁面 `/dashboard`，既有根路由 `/` 維持為訂單履約佇列（`ADMIN_ROOT_FULFILLMENT_BEHAVIOR_CHANGED=NO`, `NEW_ADMIN_DASHBOARD_ROUTE=/dashboard`）。
+  - **正式訂單嚴格定義**：正式訂單嚴格以 `SubmittedAt != null` 為依據，未送出之購物車（Pending Cart）一律排除於總數統計、各狀態計數及近期訂單清單之外（`PENDING_CART_INCLUDED_IN_ADMIN_OVERVIEW=NO`）。
+  - **四項狀態計數與總數不變量**：提供 Submitted、Paid、Shipped、Cancelled 四種狀態計數與 formal Order 總數，嚴格維持 `totalCount = submittedCount + paidCount + shippedCount + cancelledCount`。
+  - **近期訂單列表與確定性排序**：回傳最新至多 5 筆正式訂單，嚴格依 `SubmittedAt DESC, Id DESC` 排序。
+  - **客戶個資 PII 嚴格防護**：近期訂單清單僅包含 `Id`、`Status`、`Currency`、`TotalAmount`、`SubmittedAt`，嚴格排除 `CustomerId`、收件地址、電話、姓名或付款細節（`ADMIN_OVERVIEW_EXPOSES_CUSTOMER_PII=NO`）。
+  - **禁止跨訂單金額聚合指標**：嚴格不提供任何 Revenue、Sales、GMV、AOV 或跨訂單金額聚合統計，杜絕未經會計定義之營收假象（`AGGREGATED_MONEY_METRIC_ADDED=NO`）。
+  - **訂單折後應付金額權威性**：近期訂單金額由資料庫投影以 `Subtotal - Discount` 讀取持久化快照，真實 MySQL 容器驗收證明套用固定金額優惠券之訂單（1000 - 100 = 900 TWD）呈現精確應付總額；不重算優惠券資格、不查詢支付模組（`OVERVIEW_REEVALUATES_COUPON=NO`, `OVERVIEW_QUERIES_PAYMENT_FOR_AMOUNT=NO`）。
+  - **安全與存取控制 (Admin RBAC)**：唯讀端點 `GET /api/v1/admin/orders/overview` 限 Admin 角色存取；未認證請求回傳 401，非 Admin 已認證請求回傳 403，合規 Admin 請求回傳 200。
+  - **無領域模型與資料庫變更**：零資料表結構更動、零新遷移檔案（`DB_SCHEMA_CHANGED=NO`, `NEW_MIGRATION_CREATED=NO`，累積遷移數維持 18）；Order、Payment、Refund、Coupon 領域與生產代碼零變更。
+- **驗證成果 (Validation)**：
+  - 真實 MySQL 容器驗收測試全數通過（狀態聚合計數、Pending 排除、最多 5 筆排序、折後應付金額權威性全數 PASS）。
+  - 後端測試通過規模：Domain=351, Application=421, Infrastructure=212, WebApi=488（零失敗、零新增略過）。
+  - 管理端前端靜態檢查與產品建置：`apps/admin` 之 ESLint 與 Next.js production build (`next build`) 全數通過，完整支援 375px、768px 與 1280px 響應式佈局。
+  - 格式與衝突標記檢查：`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：13 個來源路徑指紋為 `e048cf4021474e7a6fb92bea891f21303f2fa7bba6fbf7d7522c78e299090d45`。

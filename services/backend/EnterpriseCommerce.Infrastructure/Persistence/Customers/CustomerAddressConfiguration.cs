@@ -46,6 +46,10 @@ public sealed class CustomerAddressConfiguration : IEntityTypeConfiguration<Cust
         builder.Property(a => a.CreatedAt)
             .IsRequired();
 
+        builder.Property(a => a.IsDefault)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasIndex(a => a.CustomerId);
     }
 }

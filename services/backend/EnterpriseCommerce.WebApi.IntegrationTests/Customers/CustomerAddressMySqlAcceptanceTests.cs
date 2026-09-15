@@ -424,4 +424,192 @@ public class CustomerAddressMySqlAcceptanceTests : IAsyncLifetime
         listA[1].AddressLine1.Should().Be("市場街 100 號");
         listA[1].AddressLine2.Should().BeNull();
     }
+
+    [Fact]
+    public async Task CustomerDefaultAddress_RealMySql_Acceptance_And_Concurrency_Invariant()
+    {
+        var customer1 = Guid.NewGuid();
+        var customer2 = Guid.NewGuid();
+
+        var client1 = _factory!.CreateClient();
+        client1.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-c1");
+        client1.DefaultRequestHeaders.Add("X-Test-User-Id", customer1.ToString());
+
+        var client2 = _factory.CreateClient();
+        client2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-c2");
+        client2.DefaultRequestHeaders.Add("X-Test-User-Id", customer2.ToString());
+
+        // 建立 Customer 1 的地址 A1 與 A2
+        var postA1 = await client1.PostAsJsonAsync("/api/v1/customer/addresses", new CreateCustomerAddressRequest(
+            "地址A1", "0911111111", "TW", "100", "台北市", "忠孝東路一段", null));
+        postA1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var a1Dto = await postA1.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a1Dto.Should().NotBeNull();
+        a1Dto!.IsDefault.Should().BeFalse("新建地址預設狀態必須為 false");
+        var a1Id = a1Dto.Id;
+
+        var postA2 = await client1.PostAsJsonAsync("/api/v1/customer/addresses", new CreateCustomerAddressRequest(
+            "地址A2", "0922222222", "TW", "100", "台北市", "忠孝東路二段", null));
+        postA2.StatusCode.Should().Be(HttpStatusCode.OK);
+        var a2Dto = await postA2.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a2Dto.Should().NotBeNull();
+        a2Dto!.IsDefault.Should().BeFalse("新建地址預設狀態必須為 false");
+        var a2Id = a2Dto.Id;
+
+        // 建立 Customer 2 的地址 B1
+        var postB1 = await client2.PostAsJsonAsync("/api/v1/customer/addresses", new CreateCustomerAddressRequest(
+            "地址B1", "0933333333", "TW", "100", "台北市", "忠孝東路三段", null));
+        postB1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var b1Dto = await postB1.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        b1Dto.Should().NotBeNull();
+        var b1Id = b1Dto!.Id;
+
+        // ==========================================
+        // A. Basic set-default
+        // ==========================================
+        // 初始狀態: A1=false, A2=false
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstAsync(a => a.Id == a1Id);
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            dbA1.IsDefault.Should().BeFalse();
+            dbA2.IsDefault.Should().BeFalse();
+        }
+
+        // Set A1 as default -> A1=true, A2=false
+        var setDefaultA1Res = await client1.PutAsync($"/api/v1/customer/addresses/{a1Id}/default", null);
+        setDefaultA1Res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var a1UpdatedDto = await setDefaultA1Res.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a1UpdatedDto.Should().NotBeNull();
+        a1UpdatedDto!.IsDefault.Should().BeTrue();
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstAsync(a => a.Id == a1Id);
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            dbA1.IsDefault.Should().BeTrue();
+            dbA2.IsDefault.Should().BeFalse();
+        }
+
+        // Set A2 as default -> A1=false, A2=true
+        var setDefaultA2Res = await client1.PutAsync($"/api/v1/customer/addresses/{a2Id}/default", null);
+        setDefaultA2Res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var a2UpdatedDto = await setDefaultA2Res.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a2UpdatedDto.Should().NotBeNull();
+        a2UpdatedDto!.IsDefault.Should().BeTrue();
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstAsync(a => a.Id == a1Id);
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            dbA1.IsDefault.Should().BeFalse();
+            dbA2.IsDefault.Should().BeTrue();
+        }
+
+        // ==========================================
+        // B. Idempotence
+        // ==========================================
+        // Set A2 again -> A1=false, A2=true
+        var setDefaultA2AgainRes = await client1.PutAsync($"/api/v1/customer/addresses/{a2Id}/default", null);
+        setDefaultA2AgainRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var a2AgainDto = await setDefaultA2AgainRes.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        a2AgainDto.Should().NotBeNull();
+        a2AgainDto!.IsDefault.Should().BeTrue();
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstAsync(a => a.Id == a1Id);
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            dbA1.IsDefault.Should().BeFalse();
+            dbA2.IsDefault.Should().BeTrue();
+        }
+
+        // ==========================================
+        // C. Cross-customer isolation
+        // ==========================================
+        // Customer 1 嘗試設定 Customer 2 的 B1 地址為預設 -> 404，且雙方狀態均未被修改
+        var crossCustomerRes = await client1.PutAsync($"/api/v1/customer/addresses/{b1Id}/default", null);
+        crossCustomerRes.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA1 = await db.CustomerAddresses.FirstAsync(a => a.Id == a1Id);
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            var dbB1 = await db.CustomerAddresses.FirstAsync(a => a.Id == b1Id);
+            dbA1.IsDefault.Should().BeFalse();
+            dbA2.IsDefault.Should().BeTrue("Customer 1 預設地址保持 A2");
+            dbB1.IsDefault.Should().BeFalse("Customer 2 的地址未受任何影響");
+        }
+
+        // ==========================================
+        // D. Update preservation
+        // ==========================================
+        // 更新 A2 地址內容 -> A2 依然為 IsDefault=true
+        var updateA2Res = await client1.PutAsJsonAsync($"/api/v1/customer/addresses/{a2Id}", new UpdateCustomerAddressRequest(
+            "地址A2改名", "0922222222", "TW", "100", "台北市", "忠孝東路二段變更", null));
+        updateA2Res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updateA2Dto = await updateA2Res.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        updateA2Dto.Should().NotBeNull();
+        updateA2Dto!.IsDefault.Should().BeTrue("更新地址欄位時必須保留原有的 IsDefault 狀態");
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbA2 = await db.CustomerAddresses.FirstAsync(a => a.Id == a2Id);
+            dbA2.RecipientName.Should().Be("地址A2改名");
+            dbA2.IsDefault.Should().BeTrue();
+        }
+
+        // ==========================================
+        // E. Delete default
+        // ==========================================
+        // 刪除目前為預設的 A2 地址 -> 剩餘地址 DefaultAddressCount == 0（不自動遞補）
+        var deleteA2Res = await client1.DeleteAsync($"/api/v1/customer/addresses/{a2Id}");
+        deleteA2Res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using (var db = CreateFreshDbContext())
+        {
+            var dbAddressesA = await db.CustomerAddresses.Where(a => a.CustomerId == customer1).ToListAsync();
+            dbAddressesA.Should().HaveCount(1);
+            dbAddressesA[0].Id.Should().Be(a1Id);
+            dbAddressesA[0].IsDefault.Should().BeFalse("刪除預設地址後，其餘地址不可自動遞補，預設地址數量應為 0");
+        }
+
+        // ==========================================
+        // F. Concurrent Set Default
+        // ==========================================
+        // 建立兩個新地址 C1 與 C2
+        var postC1 = await client1.PostAsJsonAsync("/api/v1/customer/addresses", new CreateCustomerAddressRequest(
+            "並行測試C1", "0911223344", "TW", "100", "台北市", "仁愛路一段", null));
+        var c1Dto = await postC1.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        var c1Id = c1Dto!.Id;
+
+        var postC2 = await client1.PostAsJsonAsync("/api/v1/customer/addresses", new CreateCustomerAddressRequest(
+            "並行測試C2", "0911223355", "TW", "100", "台北市", "仁愛路二段", null));
+        var c2Dto = await postC2.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        var c2Id = c2Dto!.Id;
+
+        // 建立獨立的 HttpClient 模擬兩個同時並行的 Set-Default 請求
+        var clientThread1 = _factory.CreateClient();
+        clientThread1.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-c1-t1");
+        clientThread1.DefaultRequestHeaders.Add("X-Test-User-Id", customer1.ToString());
+
+        var clientThread2 = _factory.CreateClient();
+        clientThread2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-c1-t2");
+        clientThread2.DefaultRequestHeaders.Add("X-Test-User-Id", customer1.ToString());
+
+        var task1 = clientThread1.PutAsync($"/api/v1/customer/addresses/{c1Id}/default", null);
+        var task2 = clientThread2.PutAsync($"/api/v1/customer/addresses/{c2Id}/default", null);
+
+        var responses = await Task.WhenAll(task1, task2);
+
+        responses[0].StatusCode.Should().Be(HttpStatusCode.OK);
+        responses[1].StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 驗證核心不變量：在並行 Set-Default 之後，該客戶的預設地址數量必須恰好為 1
+        await using (var db = CreateFreshDbContext())
+        {
+            var defaultCount = await db.CustomerAddresses.CountAsync(a => a.CustomerId == customer1 && a.IsDefault);
+            defaultCount.Should().Be(1, "並行執行 SetDefault 後，客戶的預設地址數量必須恰好為 1");
+        }
+    }
 }

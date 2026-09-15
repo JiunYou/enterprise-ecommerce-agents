@@ -22,6 +22,7 @@ public sealed class CustomerAddress : Entity<Guid>
     public string AddressLine1 { get; private set; } = default!;
     public string? AddressLine2 { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public bool IsDefault { get; private set; }
 
     private CustomerAddress(
         Guid id,
@@ -45,10 +46,12 @@ public sealed class CustomerAddress : Entity<Guid>
         AddressLine1 = addressLine1;
         AddressLine2 = addressLine2;
         CreatedAt = createdAt;
+        IsDefault = false;
     }
 
     private CustomerAddress() : base(Guid.Empty)
     {
+        IsDefault = false;
     }
 
     public static Result<CustomerAddress> Create(
@@ -136,6 +139,16 @@ public sealed class CustomerAddress : Entity<Guid>
         AddressLine2 = values.AddressLine2;
 
         return Result.Success();
+    }
+
+    public void SetAsDefault()
+    {
+        IsDefault = true;
+    }
+
+    public void ClearDefault()
+    {
+        IsDefault = false;
     }
 
     private static Result<(

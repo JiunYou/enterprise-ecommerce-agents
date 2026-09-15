@@ -2,6 +2,7 @@ using Asp.Versioning;
 using EnterpriseCommerce.Application.Customers.Addresses;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.CreateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.DeleteCustomerAddress;
+using EnterpriseCommerce.Application.Customers.Addresses.Commands.SetDefaultCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.UpdateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Queries.GetCustomerAddresses;
 using EnterpriseCommerce.WebApi.Contracts.Customers;
@@ -134,6 +135,31 @@ public class CustomerAddressesController : ApiControllerBase
             request.AddressLine1,
             request.AddressLine2);
 
+        var result = await Sender.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return HandleFailure(result);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [HttpPut("{addressId:guid}/default")]
+    [ProducesResponseType(typeof(CustomerAddressResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SetDefaultAddress(
+        Guid addressId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCustomerId(out var customerId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var command = new SetDefaultCustomerAddressCommand(customerId, addressId);
         var result = await Sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

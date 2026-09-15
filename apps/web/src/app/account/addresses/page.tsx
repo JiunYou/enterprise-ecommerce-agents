@@ -5,6 +5,7 @@ import {
   createCustomerAddress,
   updateCustomerAddress,
   deleteCustomerAddress,
+  setDefaultCustomerAddress,
   type CreateCustomerAddressPayload,
   type UpdateCustomerAddressPayload,
 } from "@/lib/addresses";
@@ -38,6 +39,15 @@ export default async function AccountAddressesPage() {
   async function handleDeleteAddress(addressId: string) {
     "use server";
     const res = await deleteCustomerAddress(addressId);
+    if (res.success) {
+      revalidatePath("/account/addresses");
+    }
+    return res;
+  }
+
+  async function handleSetDefaultAddress(addressId: string) {
+    "use server";
+    const res = await setDefaultCustomerAddress(addressId);
     if (res.success) {
       revalidatePath("/account/addresses");
     }
@@ -123,6 +133,7 @@ export default async function AccountAddressesPage() {
             onCreateAddress={handleCreateAddress}
             onUpdateAddress={handleUpdateAddress}
             onDeleteAddress={handleDeleteAddress}
+            onSetDefaultAddress={handleSetDefaultAddress}
           />
         )}
       </main>

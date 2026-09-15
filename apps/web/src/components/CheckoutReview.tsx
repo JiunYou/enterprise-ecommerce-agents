@@ -57,14 +57,31 @@ export function CheckoutReview({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [recipientName, setRecipientName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [countryCode, setCountryCode] = useState("TW");
-  const [postalCode, setPostalCode] = useState("");
-  const [city, setCity] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
+  const initialDefaultAddress = savedAddresses.find((a) => a.isDefault);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(
+    initialDefaultAddress ? initialDefaultAddress.id : ""
+  );
+  const [recipientName, setRecipientName] = useState(
+    initialDefaultAddress ? initialDefaultAddress.recipientName : ""
+  );
+  const [phone, setPhone] = useState(
+    initialDefaultAddress ? initialDefaultAddress.phone : ""
+  );
+  const [countryCode, setCountryCode] = useState(
+    initialDefaultAddress ? initialDefaultAddress.countryCode : "TW"
+  );
+  const [postalCode, setPostalCode] = useState(
+    initialDefaultAddress ? initialDefaultAddress.postalCode : ""
+  );
+  const [city, setCity] = useState(
+    initialDefaultAddress ? initialDefaultAddress.city : ""
+  );
+  const [addressLine1, setAddressLine1] = useState(
+    initialDefaultAddress ? initialDefaultAddress.addressLine1 : ""
+  );
+  const [addressLine2, setAddressLine2] = useState(
+    initialDefaultAddress?.addressLine2 || ""
+  );
 
   const handleSelectSavedAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
@@ -277,7 +294,7 @@ export function CheckoutReview({
                     <option value="">手動填寫</option>
                     {availableAddresses.map((addr) => (
                       <option key={addr.id} value={addr.id}>
-                        {addr.recipientName} ({addr.phone}) - {addr.postalCode} {addr.city} {addr.addressLine1}
+                        {addr.isDefault ? "[預設] " : ""}{addr.recipientName} ({addr.phone}) - {addr.postalCode} {addr.city} {addr.addressLine1}
                       </option>
                     ))}
                   </select>

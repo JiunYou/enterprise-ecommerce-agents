@@ -69,7 +69,8 @@ public sealed class UpdateCustomerAddressCommandHandler : ICommandHandler<Update
             address.PostalCode,
             address.City,
             address.AddressLine1,
-            address.AddressLine2);
+            address.AddressLine2,
+            address.IsDefault);
 
         return Result.Success(response);
     }

@@ -1,6 +1,7 @@
 using EnterpriseCommerce.Application.Customers.Addresses;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.CreateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.DeleteCustomerAddress;
+using EnterpriseCommerce.Application.Customers.Addresses.Commands.SetDefaultCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Commands.UpdateCustomerAddress;
 using EnterpriseCommerce.Application.Customers.Addresses.Queries.GetCustomerAddresses;
 using EnterpriseCommerce.Domain.Customers;
@@ -85,7 +86,7 @@ public class CustomerAddressesControllerTests : IClassFixture<WebApplicationFact
 
         var expectedResponses = new List<CustomerAddressResponse>
         {
-            new(Guid.NewGuid(), "王小明", "0912345678", "TW", "100", "台北市", "忠孝西路", null)
+            new(Guid.NewGuid(), "王小明", "0912345678", "TW", "100", "台北市", "忠孝西路", null, false)
         };
 
         _senderMock
@@ -168,7 +169,8 @@ public class CustomerAddressesControllerTests : IClassFixture<WebApplicationFact
             "100",
             "台北市",
             "忠孝西路一段",
-            "3 樓之 1");
+            "3 樓之 1",
+            false);
 
         _senderMock
             .Setup(s => s.Send(It.Is<CreateCustomerAddressCommand>(c =>
@@ -367,7 +369,8 @@ public class CustomerAddressesControllerTests : IClassFixture<WebApplicationFact
             "94105",
             "San Francisco",
             "Market St",
-            "Suite 100");
+            "Suite 100",
+            false);
 
         _senderMock
             .Setup(s => s.Send(It.Is<UpdateCustomerAddressCommand>(c =>
@@ -471,6 +474,123 @@ public class CustomerAddressesControllerTests : IClassFixture<WebApplicationFact
         var response = await client.PutAsJsonAsync($"/api/v1/customer/addresses/{otherCustomerAddressId}", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region PUT /api/v1/customer/addresses/{addressId:guid}/default
+
+    [Fact]
+    public async Task SetDefaultAddress_Anonymous_Returns401Unauthorized()
+    {
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        var response = await client.PutAsync($"/api/v1/customer/addresses/{addressId}/default", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task SetDefaultAddress_MissingCustomerIdClaim_Returns403Forbidden()
+    {
+        var addressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token-without-user-id");
+
+        var response = await client.PutAsync($"/api/v1/customer/addresses/{addressId}/default", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task SetDefaultAddress_UnknownOrCrossCustomerAddress_Returns404NotFound()
+    {
+        var customerId = Guid.NewGuid();
+        var targetAddressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        _senderMock
+            .Setup(s => s.Send(
+                It.Is<SetDefaultCustomerAddressCommand>(c => c.CustomerId == customerId && c.AddressId == targetAddressId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<CustomerAddressResponse>(CustomerAddressErrors.NotFound));
+
+        var response = await client.PutAsync($"/api/v1/customer/addresses/{targetAddressId}/default", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task SetDefaultAddress_ValidTarget_Returns200WithIsDefaultTrue()
+    {
+        var customerId = Guid.NewGuid();
+        var targetAddressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var responseDto = new CustomerAddressResponse(
+            targetAddressId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路一段",
+            null,
+            true);
+
+        _senderMock
+            .Setup(s => s.Send(
+                It.Is<SetDefaultCustomerAddressCommand>(c => c.CustomerId == customerId && c.AddressId == targetAddressId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(responseDto));
+
+        var response = await client.PutAsync($"/api/v1/customer/addresses/{targetAddressId}/default", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        body.Should().NotBeNull();
+        body!.Id.Should().Be(targetAddressId);
+        body.IsDefault.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SetDefaultAddress_RepeatedTarget_Returns200WithIsDefaultTrue()
+    {
+        var customerId = Guid.NewGuid();
+        var targetAddressId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.DefaultScheme, "token");
+        client.DefaultRequestHeaders.Add("X-Test-User-Id", customerId.ToString());
+
+        var responseDto = new CustomerAddressResponse(
+            targetAddressId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "忠孝西路一段",
+            null,
+            true);
+
+        _senderMock
+            .Setup(s => s.Send(
+                It.Is<SetDefaultCustomerAddressCommand>(c => c.CustomerId == customerId && c.AddressId == targetAddressId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(responseDto));
+
+        var response = await client.PutAsync($"/api/v1/customer/addresses/{targetAddressId}/default", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        body.Should().NotBeNull();
+        body!.Id.Should().Be(targetAddressId);
+        body.IsDefault.Should().BeTrue();
     }
 
     #endregion

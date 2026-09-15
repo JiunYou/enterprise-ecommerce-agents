@@ -835,4 +835,91 @@ public class CustomerAddressTests
     }
 
     #endregion
+
+    #region Default Address Tests
+
+    [Fact]
+    public void Create_NewCustomerAddress_ShouldStartWithIsDefaultFalse()
+    {
+        var address = CustomerAddress.Create(
+            _validId,
+            _validCustomerId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "中正區忠孝西路一段",
+            null,
+            _validCreatedAt).Value;
+
+        address.IsDefault.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SetAsDefault_ShouldChangeIsDefaultToTrue()
+    {
+        var address = CustomerAddress.Create(
+            _validId,
+            _validCustomerId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "中正區忠孝西路一段",
+            null,
+            _validCreatedAt).Value;
+
+        address.SetAsDefault();
+
+        address.IsDefault.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ClearDefault_AfterSetAsDefault_ShouldChangeIsDefaultToFalse()
+    {
+        var address = CustomerAddress.Create(
+            _validId,
+            _validCustomerId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "中正區忠孝西路一段",
+            null,
+            _validCreatedAt).Value;
+
+        address.SetAsDefault();
+        address.IsDefault.Should().BeTrue();
+
+        address.ClearDefault();
+
+        address.IsDefault.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ClearDefault_WhenAlreadyFalse_ShouldRemainValidAndIdempotent()
+    {
+        var address = CustomerAddress.Create(
+            _validId,
+            _validCustomerId,
+            "王小明",
+            "0912345678",
+            "TW",
+            "100",
+            "台北市",
+            "中正區忠孝西路一段",
+            null,
+            _validCreatedAt).Value;
+
+        address.IsDefault.Should().BeFalse();
+
+        address.ClearDefault();
+
+        address.IsDefault.Should().BeFalse();
+    }
+
+    #endregion
 }

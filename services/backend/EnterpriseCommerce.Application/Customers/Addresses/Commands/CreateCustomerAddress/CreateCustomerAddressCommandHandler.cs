@@ -60,7 +60,8 @@ public sealed class CreateCustomerAddressCommandHandler : ICommandHandler<Create
             address.PostalCode,
             address.City,
             address.AddressLine1,
-            address.AddressLine2);
+            address.AddressLine2,
+            address.IsDefault);
 
         return Result.Success(response);
     }

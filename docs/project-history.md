@@ -1868,4 +1868,3 @@
   - 語法編譯與快取檢查：`python3 -B -m py_compile` 通過，無殘留 `.pyc`（`PYTHON_COMPILE=PASS`, `ROUTING_PYC_PRESENT=NO`）。
   - 既有治理審計通過：`audit-governance.py` 通過，`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：3 個來源路徑指紋為 `30ec98e17ac6a63074872cdabc438252ddcfa8f34caaf9acc305fd9242f18e0e`。
-

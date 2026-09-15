@@ -95,7 +95,6 @@ _TECHNOLOGY_SIGNALS: dict[str, str] = {
     "css": "frontend",
     "node.js": "nodejs-backend",
     "nodejs": "nodejs-backend",
-    "worker": "nodejs-backend",
     "mysql migration": "database",
     "mysql schema": "database",
     "database migration": "database",
@@ -103,7 +102,7 @@ _TECHNOLOGY_SIGNALS: dict[str, str] = {
     "dockerfile": "devops",
     "docker-compose": "devops",
     "ci/cd": "devops",
-    "pipeline": "devops",
+    "ci/cd pipeline": "devops",
     "kubernetes": "devops",
     "k8s": "devops",
     "ddd": "domain-architect",
@@ -374,13 +373,17 @@ def resolve_candidates(
         if ReasonCode.EXPLICIT_TECHNOLOGY.value not in reason_codes:
             reason_codes.append(ReasonCode.EXPLICIT_TECHNOLOGY.value)
 
-    # 4. primary_for 匹配
+    # 4. primary_for 匹配（僅作為後備信號）
+    # 信號優先順序：explicit agent > path ownership > technology > primary_for
+    # 當強確定性信號已識別實作候選者時，primary_for 不應引入競爭候選者
+    has_strong_signals = len(candidate_agents) > 0
     primary_matches = _extract_primary_for_matches(task, agents_data)
-    for agent_id, _topic in primary_matches:
-        if agent_id not in candidate_agents:
-            candidate_agents.append(agent_id)
-        if ReasonCode.PRIMARY_FOR_MATCH.value not in reason_codes:
-            reason_codes.append(ReasonCode.PRIMARY_FOR_MATCH.value)
+    if not has_strong_signals:
+        for agent_id, _topic in primary_matches:
+            if agent_id not in candidate_agents:
+                candidate_agents.append(agent_id)
+            if ReasonCode.PRIMARY_FOR_MATCH.value not in reason_codes:
+                reason_codes.append(ReasonCode.PRIMARY_FOR_MATCH.value)
 
     # 5. 風險 / 審查者
     required_reviewers: list[str] = []

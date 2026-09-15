@@ -21,5 +21,7 @@ public interface IOrderRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+    Task<AdminOrderOperationsOverviewData> GetAdminOrderOperationsOverviewAsync(
+        CancellationToken cancellationToken = default);
 }
 

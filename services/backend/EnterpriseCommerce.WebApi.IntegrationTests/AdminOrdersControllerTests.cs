@@ -1,4 +1,5 @@
 using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderById;
+using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrderOperationsOverview;
 using EnterpriseCommerce.Application.Orders.Queries.GetAdminOrders;
 using EnterpriseCommerce.Application.Orders.Queries.GetOrderById;
 using EnterpriseCommerce.Domain.Orders;
@@ -330,5 +331,83 @@ public class AdminOrdersControllerTests : IClassFixture<WebApplicationFactory<Pr
 
         var unintendedDetailAliasResponse = await client.GetAsync($"/api/v1/AdminOrders/{orderId}");
         unintendedDetailAliasResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // ==========================================
+    // OVERVIEW ENDPOINT AUTHORIZATION & CONTRACT
+    // ==========================================
+
+    [Fact]
+    public async Task GetOverview_Anonymous_ReturnsUnauthorized401()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/v1/admin/orders/overview");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetOverview_AuthenticatedNonAdmin_ReturnsForbidden403()
+    {
+        // Arrange
+        var client = CreateClientWithRole("Customer");
+
+        // Act
+        var response = await client.GetAsync("/api/v1/admin/orders/overview");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetOverview_Admin_ReturnsOk200_WithContract_AndExcludesCustomerId()
+    {
+        // Arrange
+        var client = CreateClientWithRole("Admin");
+        var recentOrderId = Guid.NewGuid();
+        var submittedAt = DateTimeOffset.UtcNow;
+
+        var overviewResponse = new AdminOrderOperationsOverviewResponse(
+            TotalCount: 4,
+            SubmittedCount: 1,
+            PaidCount: 1,
+            ShippedCount: 1,
+            CancelledCount: 1,
+            RecentOrders: new List<AdminOrderOperationsOverviewRecentOrder>
+            {
+                new(recentOrderId, "Paid", "TWD", 900m, submittedAt)
+            });
+
+        _senderMock.Setup(m => m.Send(It.IsAny<GetAdminOrderOperationsOverviewQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(overviewResponse));
+
+        // Act
+        var response = await client.GetAsync("/api/v1/admin/orders/overview");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var json = (await response.Content.ReadAsStringAsync()).ToLowerInvariant();
+        // Invariant: CustomerId and other PII must NOT appear in overview JSON
+        json.Should().NotContain("customerid");
+        json.Should().NotContain("shippingaddress");
+        json.Should().NotContain("recipient");
+
+        var content = await response.Content.ReadFromJsonAsync<AdminOrderOperationsOverviewResponse>();
+        content.Should().NotBeNull();
+        content!.TotalCount.Should().Be(4);
+        content.SubmittedCount.Should().Be(1);
+        content.PaidCount.Should().Be(1);
+        content.ShippedCount.Should().Be(1);
+        content.CancelledCount.Should().Be(1);
+        content.RecentOrders.Should().HaveCount(1);
+        content.RecentOrders[0].Id.Should().Be(recentOrderId);
+        content.RecentOrders[0].Status.Should().Be("Paid");
+        content.RecentOrders[0].Currency.Should().Be("TWD");
+        content.RecentOrders[0].TotalAmount.Should().Be(900m);
     }
 }

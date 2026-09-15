@@ -208,3 +208,61 @@ export async function getAdminOrderById(
     };
   }
 }
+
+export interface AdminOrderOverviewRecentOrder {
+  id: string;
+  status: string;
+  currency: string;
+  totalAmount: number;
+  submittedAt: string;
+}
+
+export interface AdminOrderOperationsOverviewResponse {
+  totalCount: number;
+  submittedCount: number;
+  paidCount: number;
+  shippedCount: number;
+  cancelledCount: number;
+  recentOrders: AdminOrderOverviewRecentOrder[];
+}
+
+export type GetAdminOrderOperationsOverviewResult =
+  | { status: "unauthenticated" }
+  | { status: "forbidden" }
+  | { status: "error"; message: string }
+  | { status: "success"; data: AdminOrderOperationsOverviewResponse };
+
+export async function getAdminOrderOperationsOverview(): Promise<GetAdminOrderOperationsOverviewResult> {
+  try {
+    const response = await authenticatedFetch("/api/v1/admin/orders/overview", {
+      cache: "no-store",
+    });
+
+    if (response.status === 401) {
+      return { status: "unauthenticated" };
+    }
+
+    if (response.status === 403) {
+      return { status: "forbidden" };
+    }
+
+    if (!response.ok) {
+      return {
+        status: "error",
+        message: `後端服務回應錯誤 (HTTP ${response.status})。`,
+      };
+    }
+
+    const data: AdminOrderOperationsOverviewResponse = await response.json();
+    return { status: "success", data };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unauthorized")) {
+      return { status: "unauthenticated" };
+    }
+
+    return {
+      status: "error",
+      message: "無法與後端伺服器建立連線或授權驗證失敗。",
+    };
+  }
+}

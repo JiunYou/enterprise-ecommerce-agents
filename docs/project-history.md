@@ -1845,3 +1845,27 @@
   - 管理端前端靜態檢查與產品建置：`apps/admin` 之 ESLint 與 Next.js production build (`next build`) 全數通過，完整支援 375px、768px 與 1280px 響應式佈局。
   - 格式與衝突標記檢查：`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：13 個來源路徑指紋為 `e048cf4021474e7a6fb92bea891f21303f2fa7bba6fbf7d7522c78e299090d45`。
+
+### 2026-09-15 — PR #66 — fix(governance): align routing signal hierarchy
+- **垂直切片 (Vertical Slice)**：
+  - Routing Signal Hierarchy Alignment v1 (`ROUTING_SIGNAL_HIERARCHY_ALIGNMENT_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **信號優先層級確立**：強確定性信號（顯式指定 Agent、代碼路徑所有權、顯式技術關鍵字）嚴格優先於 `primary_for` 元數據匹配；當強信號已識別實作候選者時，`primary_for` 絕不引入競爭候選者，杜絕弱文字干擾強路徑證據。
+  - **後備元數據權威保留**：`primary_for` 依然為權威元數據；在缺乏強路徑與技術信號時，作為後備機制正常生效（`PRIMARY_FOR_FALLBACK_PRESERVED=YES`）。
+  - **QA 偽模糊修復**：修復後端代碼路徑（如 `OrdersController.cs` 或 `CheckoutTests.cs`）因任務描述包含 "validation" 或 "testing" 而被 QA `primary_for` 誤判混入候選者的偽模糊問題；主實作代理確定為 `dotnet-backend`（`BACKEND_VALIDATION_PRIMARY=dotnet-backend`, `BACKEND_TESTING_PRIMARY=dotnet-backend`, `BACKEND_QA_FALSE_AMBIGUITY=NO`）。
+  - **Service Worker 假陽性修復**：自技術信號移除過度廣泛之 `"worker": "nodejs-backend"`；前端 Service Worker 任務（`apps/web/src/sw.js`）準確路由至 `frontend`，`candidate_agents` 不含 `nodejs-backend`（`SERVICE_WORKER_FRONTEND_ROUTE=PASS`）。
+  - **Pipeline 技術信號澄清**：移除廣義的 `"pipeline"` 技術信號，收斂為有界之 `"ci/cd pipeline"`；無路徑之一般 pipeline 任務仍可透過權威元數據 `devops.primary_for = pipelines` 後備路由至 DevOps，而非依賴技術關鍵字強制判定（`BROAD_PIPELINE_TECHNOLOGY_SIGNAL_PRESENT=NO`, `PATHLESS_PIPELINE_PRIMARY_FOR_FALLBACK_ALLOWED=YES`）。
+  - **架構主要代理與審查者語義**：
+    - 無路徑跨模組架構設計任務路由至 `system-architect` 並選派 `architecture-reviewer`。
+    - 具後端路徑之架構敏感實作任務主代理為 `dotnet-backend` 並穩固選派 `architecture-reviewer`（`ARCHITECTURE_PATH_SCOPED_IMPLEMENTATION_PRIMARY=dotnet-backend`, `ARCHITECTURE_PATH_SCOPED_REVIEWER=architecture-reviewer`）。
+  - **審查者獨立性與安全性保留**：涉及 auth、JWT、payment、webhook 等後端任務主代理為 `dotnet-backend` 且穩固保留 `security` 審查者（`SECURITY_REVIEW_ROUTING_REGRESSION=NO`）。
+  - **真模糊與未知任務邊界保留**：真實跨前後端多路徑任務維持 `ambiguous`；未知泛用模糊任務維持 `unmatched`。
+  - **Orchestrator 確定性消費指南**：角色定義中增訂確定性候選者解析消費規則（`routed` 採納主要候選者、`ambiguous` 限於候選清單內抉擇、`unmatched` 方退回語義推理、保留審查者），明確標記為指令級別整合，無執行時中介層介入（`ORCHESTRATOR_USES_DETERMINISTIC_RESOLVER=YES`, `ORCHESTRATOR_CAN_FABRICATE_ROUTE_FROM_AMBIGUOUS=NO`, `ORCHESTRATOR_PRESERVES_REQUIRED_REVIEWERS=YES`）。
+  - **無業務代碼與元數據修改**：零業務程式碼變更（`apps/`, `services/`, `infrastructure/` 零修改），`agents.json` 與 `skills.json` 零修改（`BUSINESS_SOURCE_CHANGED=NO`, `ROUTING_METADATA_CHANGED=NO`）。
+- **驗證成果 (Validation)**：
+  - 路由自動化測試全數通過：27 個回歸案例與 4 個合約/屬性案例累計 31 案例全數 PASS（`ROUTING_TESTS=PASS`, `ROUTING_TEST_COUNT=31`）。
+  - 關鍵邊界連續 10 次確定性驗證全數一致（`ROUTING_DETERMINISTIC=YES`）。
+  - 語法編譯與快取檢查：`python3 -B -m py_compile` 通過，無殘留 `.pyc`（`PYTHON_COMPILE=PASS`, `ROUTING_PYC_PRESENT=NO`）。
+  - 既有治理審計通過：`audit-governance.py` 通過，`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：3 個來源路徑指紋為 `30ec98e17ac6a63074872cdabc438252ddcfa8f34caaf9acc305fd9242f18e0e`。
+

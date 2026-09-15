@@ -1808,3 +1808,20 @@
   - 前端靜態分析與產品建置：`apps/web` 與 `apps/admin` 之 ESLint 與 Next.js production build 全數通過。
   - 格式與衝突標記檢查：`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：62 個來源路徑指紋為 `3f4df5ddfbd798feb3b3077a40df0d15b80aedac24664ca031c427be436436e4`。
+
+### 2026-09-15 — PR #64 — feat(governance): add deterministic routing resolver
+- **垂直切片 (Vertical Slice)**：
+  - Deterministic Routing Resolver v1 (`DETERMINISTIC_ROUTING_RESOLVER_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **路由元資料權威不變**：`.agents/routing/agents.json` 與 `.agents/routing/skills.json` 保持為唯一權威；解析器僅為本地確定性執行輔助工具，不取代亦不複製元資料權威（`ROUTING_METADATA_AUTHORITY=AGENTS_JSON_AND_SKILLS_JSON`, `RESOLVER_DUPLICATES_ROUTING_METADATA=NO`）。
+  - **解析器定位與零副作用**：解析器僅建議/選擇候選代理人與技能，不執行 Agent、不呼叫模型（零 LLM / ML）、無網路通訊、無子進程、不修改儲存庫狀態、不存取機密（`ROUTER_NETWORK_ACCESS=NO`, `ROUTER_SUBPROCESS_EXECUTION=NO`, `ROUTER_REPOSITORY_MUTATION=NO`, `ROUTER_SECRET_ACCESS=NO`）。
+  - **三態路由決策**：完整支援 `routed`、`ambiguous`（跨層混合路徑）與 `unmatched`（證據不足不捏造）（`AMBIGUOUS_ROUTE_SUPPORTED=YES`, `UNMATCHED_ROUTE_SUPPORTED=YES`）。
+  - **QA 主路由修復**：修正純審查者排除邏輯，動態識別無 `primary_for` 與 `owns` 之 agent；任務涉及 `testing` / `validation` 或顯式指定 `--agent qa` 時正確路由至 `qa`（`QA_VALIDATION_PRIMARY_ROUTING=PASS`, `EXPLICIT_QA_REQUEST=PASS`）。
+  - **跨模組架構主路由修復**：實作確定性詞元單複數與概念正規化匹配，精確匹配 `system-architect` 之 `cross-module boundaries`，將跨模組邊界任務路由至 `system-architect`，同時獨立選派 `architecture-reviewer` 審查；杜絕泛化單詞假陽性（`PRIMARY_FOR_METADATA_USED_FOR_PRIMARY_ROUTING=YES`, `SYSTEM_ARCHITECT_ID_HARDCODED_FOR_CROSS_MODULE_ROUTE=NO`, `ARCHITECTURE_PRIMARY_AGENT=system-architect`, `ARCHITECTURE_REQUIRED_REVIEWER_INCLUDES=architecture-reviewer`）。
+  - **無業務程式碼與元資料變更**：業務代碼與路由元資料完全未修改（`BUSINESS_SOURCE_CHANGED=NO`, `ROUTING_METADATA_CHANGED=NO`）。
+- **驗證成果 (Validation)**：
+  - 路由自動化測試全數通過：19 個回歸案例與 4 個合約/屬性案例（無效引用拒絕、連續 10 次確定性輸出、無審查者氾濫）累計 23 案例全數 PASS（`ROUTING_TESTS=PASS`, `ROUTING_TEST_COUNT=23`）。
+  - 語法編譯與快取檢查：`python3 -B -m py_compile` 通過，磁碟無任何 `.pyc` 殘留（`PYTHON_COMPILE=PASS`, `ROUTING_PYC_PRESENT=NO`）。
+  - 既有治理審計通過：`python3 .agents/tools/governance/audit-governance.py` 通過（`GOVERNANCE_AUDIT=PASS`）。
+  - 格式與衝突標記檢查：`git diff --check` 通過（`DIFF_CHECK=PASS`）。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：6 個來源路徑指紋為 `5873bb23039d3ff0376603e5e6825383ed5bb839f73b971cbc0117f76388e0fc`。

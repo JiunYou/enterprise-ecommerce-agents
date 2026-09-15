@@ -16,8 +16,9 @@ This repository uses a progressively disclosed AI engineering architecture that 
 11. **Git Integration**: Before branch, rebase, push, PR, or merge operations, verify worktree state, current HEAD/upstream, merge-base/divergence, and existing PR/merge state. Never perform Git integration based on assumed branch state.
 
 ## Routing and Memory
-- **Agents**: Use `.agents/routing/agents.json`.
-- **Skills**: Use `.agents/routing/skills.json`.
+- **Agents Authority**: Use `.agents/routing/agents.json` as authoritative agent metadata.
+- **Skills Authority**: Use `.agents/routing/skills.json` as authoritative skills metadata.
+- **Candidate Resolver**: Use `.agents/tools/routing/resolve_candidates.py` as a deterministic, local candidate-resolution helper. The resolver proposes/selects candidate agents and skills based on repository metadata; it does not execute agents or launch models. Repository metadata remains authoritative, and ambiguous or unmatched results must not be fabricated into certainty.
 - **Memory**: Use `.agents/memory/catalog.json` for JIT memory lookup. Never preload the whole memory directory or all Skills.
 - **Search**: Use repository search/grep before broad file loading.
 - **Transience**: Transient task traces are not durable project memory. Large logs/tool results must be summarized or filtered when possible.

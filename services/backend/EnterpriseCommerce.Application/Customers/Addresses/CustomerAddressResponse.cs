@@ -10,4 +10,5 @@ public sealed record CustomerAddressResponse(
     string PostalCode,
     string City,
     string AddressLine1,
-    string? AddressLine2);
+    string? AddressLine2,
+    bool IsDefault);

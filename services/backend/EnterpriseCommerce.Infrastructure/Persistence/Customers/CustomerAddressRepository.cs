@@ -35,6 +35,15 @@ public sealed class CustomerAddressRepository : ICustomerAddressRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CustomerAddress>> GetByCustomerForUpdateAsync(
+        Guid customerId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.CustomerAddresses
+            .FromSqlRaw("SELECT * FROM CustomerAddresses WHERE CustomerId = {0} ORDER BY Id FOR UPDATE", customerId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<CustomerAddress?> GetByIdForCustomerAsync(
         Guid customerId,
         Guid addressId,

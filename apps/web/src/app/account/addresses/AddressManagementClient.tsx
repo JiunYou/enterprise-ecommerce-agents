@@ -19,6 +19,9 @@ interface AddressManagementClientProps {
   onDeleteAddress: (
     addressId: string
   ) => Promise<{ success: boolean; error?: string }>;
+  onSetDefaultAddress: (
+    addressId: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export function AddressManagementClient({
@@ -26,6 +29,7 @@ export function AddressManagementClient({
   onCreateAddress,
   onUpdateAddress,
   onDeleteAddress,
+  onSetDefaultAddress,
 }: AddressManagementClientProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -40,7 +44,14 @@ export function AddressManagementClient({
   const [city, setCity] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
+  const [addressList, setAddressList] = useState<CustomerAddress[]>(initialAddresses);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
+
+  // 當 initialAddresses 變動時同步狀態
+  if (initialAddresses !== addressList && JSON.stringify(initialAddresses) !== JSON.stringify(addressList)) {
+    setAddressList(initialAddresses);
+  }
 
   const handleStartEdit = (addr: CustomerAddress) => {
     if (isPending) return;
@@ -155,6 +166,29 @@ export function AddressManagementClient({
         setSuccessMessage("已成功刪除收件地址。");
       } else {
         setErrorMessage(res.error || "刪除地址失敗，請稍後再試。");
+      }
+    });
+  };
+
+  const handleSetDefault = (addressId: string) => {
+    if (isPending) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setSettingDefaultId(addressId);
+
+    startTransition(async () => {
+      const res = await onSetDefaultAddress(addressId);
+      setSettingDefaultId(null);
+      if (res.success) {
+        setAddressList((prev) =>
+          prev.map((a) => ({
+            ...a,
+            isDefault: a.id === addressId,
+          }))
+        );
+        setSuccessMessage("已成功將該地址設為預設收件地址。");
+      } else {
+        setErrorMessage(res.error || "設定預設地址失敗，請稍後再試。");
       }
     });
   };
@@ -382,10 +416,10 @@ export function AddressManagementClient({
       {/* 已儲存地址列表 */}
       <section aria-labelledby="saved-addresses-heading" className="space-y-4">
         <h2 id="saved-addresses-heading" className="text-xl font-bold text-stone-950 dark:text-stone-50">
-          已儲存地址清單 ({initialAddresses.length})
+          已儲存地址清單 ({addressList.length})
         </h2>
 
-        {initialAddresses.length === 0 ? (
+        {addressList.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-12 text-center shadow-xs dark:border-stone-800 dark:bg-stone-900/60">
             <div
               aria-hidden="true"
@@ -413,7 +447,7 @@ export function AddressManagementClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {initialAddresses.map((addr) => {
+            {addressList.map((addr) => {
               const isBeingEdited = editingId === addr.id;
               return (
                 <div
@@ -430,8 +464,13 @@ export function AddressManagementClient({
                         <span className="text-base font-semibold text-stone-950 dark:text-stone-50">
                           {addr.recipientName}
                         </span>
+                        {addr.isDefault && (
+                          <span className="rounded-md bg-stone-900 px-2 py-0.5 text-xs font-semibold text-white dark:bg-stone-100 dark:text-stone-900">
+                            預設
+                          </span>
+                        )}
                         {isBeingEdited && (
-                          <span className="rounded-md bg-stone-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-stone-100 dark:text-stone-900">
+                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
                             正在編輯
                           </span>
                         )}
@@ -451,16 +490,30 @@ export function AddressManagementClient({
                     </p>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4 dark:border-stone-800">
-                    <button
-                      type="button"
-                      onClick={() => handleStartEdit(addr)}
-                      disabled={isPending || isBeingEdited}
-                      aria-label={`編輯收件人為 ${addr.recipientName} 的地址`}
-                      className="inline-flex min-h-[44px] items-center text-sm font-medium text-stone-700 transition-colors hover:text-stone-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-stone-300 dark:hover:text-stone-100"
-                    >
-                      {isBeingEdited ? "編輯中" : "編輯"}
-                    </button>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-4 dark:border-stone-800">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {!addr.isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetDefault(addr.id)}
+                          disabled={isPending || settingDefaultId === addr.id}
+                          aria-label={`將收件人為 ${addr.recipientName} 的地址設為預設`}
+                          className="inline-flex min-h-[44px] items-center text-sm font-medium text-stone-900 underline underline-offset-4 transition-colors hover:text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-stone-100 dark:hover:text-stone-300"
+                        >
+                          {settingDefaultId === addr.id ? "設定中..." : "設為預設"}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(addr)}
+                        disabled={isPending || isBeingEdited}
+                        aria-label={`編輯收件人為 ${addr.recipientName} 的地址`}
+                        className="inline-flex min-h-[44px] items-center text-sm font-medium text-stone-700 transition-colors hover:text-stone-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-stone-300 dark:hover:text-stone-100"
+                      >
+                        {isBeingEdited ? "編輯中" : "編輯"}
+                      </button>
+                    </div>
 
                     <button
                       type="button"

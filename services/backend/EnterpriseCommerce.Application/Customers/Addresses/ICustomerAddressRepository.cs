@@ -14,6 +14,10 @@ public interface ICustomerAddressRepository
         Guid customerId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<CustomerAddress>> GetByCustomerForUpdateAsync(
+        Guid customerId,
+        CancellationToken cancellationToken = default);
+
     Task<CustomerAddress?> GetByIdForCustomerAsync(
         Guid customerId,
         Guid addressId,

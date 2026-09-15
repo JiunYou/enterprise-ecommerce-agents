@@ -32,7 +32,8 @@ public sealed class GetCustomerAddressesQueryHandler : IQueryHandler<GetCustomer
             a.PostalCode,
             a.City,
             a.AddressLine1,
-            a.AddressLine2)).ToList();
+            a.AddressLine2,
+            a.IsDefault)).ToList();
 
         return Result.Success<IReadOnlyList<CustomerAddressResponse>>(response);
     }

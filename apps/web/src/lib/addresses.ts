@@ -11,6 +11,7 @@ export interface CustomerAddress {
   city: string;
   addressLine1: string;
   addressLine2?: string | null;
+  isDefault: boolean;
 }
 
 export interface CreateCustomerAddressPayload {
@@ -39,6 +40,10 @@ export type UpdateAddressResult =
 
 export type DeleteAddressResult =
   | { success: true }
+  | { success: false; unauthorized?: boolean; error?: string };
+
+export type SetDefaultAddressResult =
+  | { success: true; data: CustomerAddress }
   | { success: false; unauthorized?: boolean; error?: string };
 
 /**
@@ -221,3 +226,46 @@ export async function updateCustomerAddress(
     return { success: false, error: "更新地址失敗，請稍後再試" };
   }
 }
+
+/**
+ * 設定顧客的指定收件地址為預設地址
+ */
+export async function setDefaultCustomerAddress(
+  addressId: string
+): Promise<SetDefaultAddressResult> {
+  const session = await auth0.getSession();
+  if (!session) {
+    return { success: false, unauthorized: true, error: "請先登入後再設定預設地址" };
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      `/api/v1/customer/addresses/${encodeURIComponent(addressId)}/default`,
+      {
+        method: "PUT",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, unauthorized: true, error: "登入逾期，請重新登入" };
+      }
+      if (response.status === 403) {
+        return { success: false, error: "身分驗證失敗，無法設定預設地址" };
+      }
+      if (response.status === 404) {
+        return { success: false, error: "找不到指定的收件地址，請重新整理後再試。" };
+      }
+      return { success: false, error: "設定預設地址失敗，請稍後再試" };
+    }
+
+    const data = (await response.json()) as CustomerAddress;
+    return { success: true, data };
+  } catch {
+    return { success: false, error: "設定預設地址失敗，請稍後再試" };
+  }
+}
+

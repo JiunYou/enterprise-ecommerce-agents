@@ -1868,3 +1868,43 @@
   - 語法編譯與快取檢查：`python3 -B -m py_compile` 通過，無殘留 `.pyc`（`PYTHON_COMPILE=PASS`, `ROUTING_PYC_PRESENT=NO`）。
   - 既有治理審計通過：`audit-governance.py` 通過，`git diff --check` 通過。
   - 權威凍結原始碼指紋 (Source Fingerprint)：3 個來源路徑指紋為 `30ec98e17ac6a63074872cdabc438252ddcfa8f34caaf9acc305fd9242f18e0e`。
+
+### 2026-09-15 — PR #67 — feat(customer): add default address
+- **垂直切片 (Vertical Slice)**：
+  - Customer Default Address v1 (`CUSTOMER_DEFAULT_ADDRESS_V1`)
+- **交付價值與架構合約 (Delivered & Contract)**：
+  - **顧客預設地址約束 (Default Address Invariant)**：
+    - 每個顧客最多僅能擁有一個預設地址（`DEFAULT_ADDRESS_MAX_PER_CUSTOMER=1`）。
+    - 允許零個預設地址（`ZERO_DEFAULT_ADDRESSES_ALLOWED=YES`）。
+    - 新增地址預設非預設（`ADDRESS_CREATE_AUTOMATICALLY_DEFAULT=NO`, `IsDefault=false`）。
+    - 更新地址欄位完整保留當前預設狀態（`ADDRESS_UPDATE_PRESERVES_DEFAULT=YES`）。
+    - 刪除當前預設地址後不自動晉升其他地址，維持為零預設（`DELETE_DEFAULT_AUTO_PROMOTES_ANOTHER=NO`）。
+  - **API 契約與身分認證 (API Contract)**：
+    - 端點：`PUT /api/v1/customer/addresses/{addressId:guid}/default`。
+    - 身分識別嚴格僅自 Claims 提取（`CUSTOMER_ID_SOURCE=CLAIM_ONLY`），絕不接受來自 Query、Body、Header 或 Route 之偽造。
+    - 匿名請求回傳 401 Unauthorized；缺少 CustomerId claim 回傳 403 Forbidden。
+    - 查詢不存在或跨顧客之地址目標回傳 404 NotFound，嚴格保障顧客資源隔離（`CROSS_CUSTOMER_MUTATION=NO`, `CROSS_CUSTOMER_RESOURCE_DISCLOSURE=NO`）。
+    - 合法與重複設為預設地址均冪等回傳 200 OK。
+  - **資料庫交易與悲觀鎖定 (Transaction & Concurrency)**：
+    - 採用單一交易與單次 `SaveChangesAsync()`，透過 MySQL `FOR UPDATE` 排他鎖定該顧客之所有地址記錄（`DEFAULT_ADDRESS_PESSIMISTIC_LOCKING=YES`）。
+    - 真實 MySQL 容器驗證雙並發 Set Default 請求，兩者均合約完成且最終預設地址數精確為 1（`DEFAULT_ADDRESS_CONCURRENCY_INVARIANT=PASS`, `CONCURRENT_SET_DEFAULT_FINAL_DEFAULT_COUNT=1`）。
+  - **資料庫遷移 (Database Migration)**：
+    - 新增單一遷移 `20260915060944_AddCustomerDefaultAddress`，新增非空 `CustomerAddresses.IsDefault` 欄位（預設 `false`）。
+    - 現有既有資料列自動設定 `IsDefault = false`。
+    - 累積遷移總數達到 19，既有遷移零修改，無無關 schema 漂移（`NEW_MIGRATION_COUNT=1`, `PREVIOUS_MIGRATIONS_CHANGED=NO`, `CURRENT_MIGRATION_COUNT=19`, `UNRELATED_SCHEMA_DRIFT=NO`）。
+  - **前端互動與結帳契約 (Frontend & Checkout Contract)**：
+    - 地址簿 (`/account/addresses`) 顯示預設地址徽章並提供設為預設動作。
+    - 結帳審查頁面 (`/checkout`) 初始優先選取預設地址，若無則依序後備，同時完整保留手動選擇、切換與修改非預設地址之能力（`CHECKOUT_DEFAULT_INITIAL_SELECTION=PASS`, `CHECKOUT_NON_DEFAULT_MANUAL_SELECTION_PRESERVED=YES`）。
+  - **訂單邊界凍結 (Order Boundary Freeze)**：
+    - 訂單維持不可變之地址值物件快照（Immutable Value Snapshot），嚴格不引入 `CustomerAddressId` 或 `IsDefault` 欄位至 Order 或 ShippingAddress，訂單生產代碼零變更（`ORDER_ADDRESS_SNAPSHOT_CONTRACT_CHANGED=NO`, `ORDER_PRODUCTION_CHANGED=NO`）。
+  - **邊界防護與安全性 (Boundary & Security)**：
+    - Order、Payment、Refund、Coupon、Inventory、Admin 生產代碼零變更。
+    - 零個資 PII 與機密日誌外洩（`ADDRESS_PII_LOGGING_ADDED=NO`, `SECRET_LOGGING_ADDED=NO`）。
+    - README 保持零修改。
+- **驗證成果 (Validation)**：
+  - 後端測試通過規模：Domain=355, Application=426, Infrastructure=212, WebApi=496（累計 1489 項測試全數 PASS，零略過、零失敗）。
+  - 真實 MySQL 容器驗收測試：`CustomerAddressMySqlAcceptanceTests` 全數通過（含預設切換、冪等性、跨顧客隔離、更新/刪除不變量、並發鎖定）。
+  - 遷移驗收測試：`CustomerDefaultAddressMigrationAcceptanceTests` 驗證升級路徑、既有資料預設 false、Down 移除與全新資料庫套用全數通過。
+  - 前端靜態分析與產品建置：`apps/web` 之 ESLint 與 Next.js production build 全數通過。
+  - 格式與衝突標記檢查：`git diff --check` 通過。
+  - 權威凍結原始碼指紋 (Source Fingerprint)：23 個來源路徑指紋為 `520b13c7da66707e8ced5f545c8538f8e904e4f1ab7ced72ae46688b64951876`。

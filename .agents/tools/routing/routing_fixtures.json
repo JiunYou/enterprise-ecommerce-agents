@@ -215,6 +215,99 @@
       "expected_reviewers_contain": [],
       "expected_default_skills_contain": ["testing"],
       "expected_reason_codes_contain": ["PRIMARY_FOR_MATCH"]
+    },
+    {
+      "id": "auth-validation-backend-path",
+      "description": "信號優先順序 — 路徑所有權強信號不應被 QA primary_for 'validation' 弱匹配覆蓋",
+      "task": "Fix authorization validation in OrdersController",
+      "paths": ["services/backend/EnterpriseCommerce.WebApi/Controllers/OrdersController.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["security"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "SECURITY_REVIEW_REQUIRED"]
+    },
+    {
+      "id": "unit-testing-backend-path",
+      "description": "信號優先順序 — 後端路徑所有權不應被 QA primary_for 'testing' 弱匹配覆蓋",
+      "task": "Add unit testing for checkout service",
+      "paths": ["services/backend/EnterpriseCommerce.Tests/CheckoutTests.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "scope-no-path-fallback",
+      "description": "primary_for 後備 — 無路徑無技術信號時 'scope' 可作為後備信號路由至 product-manager",
+      "task": "Adjust checkout scope handling",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "product-manager",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["PRIMARY_FOR_MATCH"]
+    },
+    {
+      "id": "pipeline-no-path-fallback",
+      "description": "primary_for 後備 — 無路徑無技術信號時 'pipeline' 可作為後備信號路由至 devops",
+      "task": "Build data transformation pipeline",
+      "paths": [],
+      "expected_status": "routed",
+      "expected_primary_agent": "devops",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["devops"],
+      "expected_reason_codes_contain": ["PRIMARY_FOR_MATCH"]
+    },
+    {
+      "id": "service-worker-frontend",
+      "description": "前端 service worker — 'service worker' 不應誤觸 nodejs-backend 技術信號",
+      "task": "Add service worker caching for storefront PWA",
+      "paths": ["apps/web/src/sw.js"],
+      "expected_status": "routed",
+      "expected_primary_agent": "frontend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["frontend-engineering"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "strong-path-vs-weak-text",
+      "description": "信號優先順序 — 後端路徑中出現 testing/scope/validation 等泛用詞彙時路徑所有權應勝出",
+      "task": "Refactor validation scope and testing utilities in backend service",
+      "paths": ["services/backend/EnterpriseCommerce.Application/Validators/OrderValidator.cs"],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP"]
+    },
+    {
+      "id": "genuine-multi-scope-ambiguity",
+      "description": "真實多範圍模糊 — 同時涉及 apps 和 backend 路徑仍應保持 ambiguous",
+      "task": "Implement checkout flow with UI form and backend processing",
+      "paths": [
+        "apps/web/src/pages/Checkout.tsx",
+        "services/backend/EnterpriseCommerce.WebApi/Controllers/CheckoutController.cs"
+      ],
+      "expected_status": "ambiguous",
+      "expected_primary_agent": null,
+      "expected_reviewers_contain": [],
+      "expected_default_skills_contain": [],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "AMBIGUOUS_ROUTE"]
+    },
+    {
+      "id": "architecture-owned-backend-path",
+      "description": "架構敏感路徑實作 — 包含後端實作路徑時主要代理為 dotnet-backend 並保留 architecture-reviewer",
+      "task": "Refactor cross-module dependency boundary in the order backend implementation",
+      "paths": [
+        "services/backend/EnterpriseCommerce.Application/Orders/OrderService.cs"
+      ],
+      "expected_status": "routed",
+      "expected_primary_agent": "dotnet-backend",
+      "expected_reviewers_contain": ["architecture-reviewer"],
+      "expected_default_skills_contain": ["dotnet"],
+      "expected_reason_codes_contain": ["PATH_OWNERSHIP", "ARCHITECTURE_REVIEW_REQUIRED"]
     }
   ]
 }
